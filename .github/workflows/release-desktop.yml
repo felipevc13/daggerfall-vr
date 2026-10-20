@@ -95,6 +95,7 @@ jobs:
   # app-v1.2.3";touch${IFS}x;"), and the number is written into scripts
   # below - read from the environment there, and never anything but digits.
   version:
+    if: github.repository == 'Lattymoy/daggerfall-js-source'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.reltag.outputs.tag }}

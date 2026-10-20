@@ -38,6 +38,7 @@ jobs:
   # the one commit every job below verifies, builds and publishes: main's
   # head as this run began
   main:
+    if: github.repository == 'Lattymoy/daggerfall-js-source'
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.sha.outputs.sha }}

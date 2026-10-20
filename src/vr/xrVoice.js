@@ -67,8 +67,8 @@ export class XrVoiceManager {
         });
       }
 
-      this.mediaRecorder = new MediaRecorder(this.mediaStream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg',
+      this.mediaRecorder = new window.MediaRecorder(this.mediaStream, {
+        mimeType: window.MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg',
       });
 
       this.mediaRecorder.ondataavailable = (e) => {

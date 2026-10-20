@@ -70,6 +70,7 @@ jobs:
   # version in source differs from the live one; the deploy job below
   # asks the same question again and decides as it always did.
   drift:
+    if: github.repository == 'Lattymoy/daggerfall-js-source'
     runs-on: ubuntu-latest
     outputs:
       deploying: ${{ steps.d.outputs.deploying }}
