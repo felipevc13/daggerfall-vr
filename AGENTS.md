@@ -4,7 +4,7 @@ Guide for an AI agent in this repository. Humans: start at `README.md`. Engine l
 
 ## What this is
 
-A VR mod for [Daggerfall Online](https://daggerfalljs.dev/), the WebGL2 game from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). Felipe's goal is a module any DFO player can turn on, so someone in a Meta Quest Browser and someone on a monitor share the same world. The Quest build is not a second game.
+A VR mod for [DFO](https://daggerfalljs.dev/), the WebGL2 game from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). Felipe's goal is a module any DFO player can turn on, so someone in a Meta Quest Browser and someone on a monitor share the same world. The Quest build is not a second game.
 
 Today the module is real and the plug is not. VR code lives in `src/vr/`. The flat game (`play/index.html` → `src/main.js`) does not import it. The headset demo is `vr-dungeon.html` (Privateer's Hold). The map of the tree, the workflows, and the coupling list is `docs/repo-map.md`. How to wear the headset is `docs/TESTING-ON-QUEST.md`.
 
@@ -72,7 +72,7 @@ Also open `http://localhost:5173/play/` and https://daggerfalljs.dev/play/ and c
 - ESM, hand-rolled WebGL2, no framework. Match the file you are editing.
 - VR files may be in Portuguese or English. Docs for this fork are English. PR text for Felipe is Portuguese (pt-BR).
 - Comments name the hook (`VR1`) and why a flat frame is unchanged.
-- Do not add a second camera. Eyes go through `lookAt` and `mirrorProjectionX`.
+- Do not add a second camera. Eyes go through `gameMat4.lookAt` and `gameMat4.mirrorProjectionX` from `engineBridge.js`. Do not re-export those mat4 names; each stays declared once, in `src/world/mat4.js`. The off-centre frustum is `offCenterProjection`, which returns null when upstream drops `perspectiveOffCenter`.
 - Daggerfall Unity is the reference for game rules, not a tree to copy. `bible/01-Overview/Port-Doctrine.md` says when that applies. VR presentation is this mod's, and it should still say where it departs.
 - Hosts do not grow. See `CLAUDE.md`.
 

@@ -1,4 +1,4 @@
-# Manual check that an upstream Daggerfall Online update still satisfies the
+# Manual check that an upstream DFO update still satisfies the
 # VR module's engine hooks. workflow_dispatch only: it does not run on push,
 # on a pull request, or on a schedule. It does not publish, and it reads no
 # secret. The merge happens on the runner and is never pushed.

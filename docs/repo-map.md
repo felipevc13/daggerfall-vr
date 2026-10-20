@@ -1,6 +1,6 @@
 # Repository map
 
-This repository is Felipe's VR mod for [Daggerfall Online](https://daggerfalljs.dev/) (DFO), the browser game at [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The live site is upstream. This fork adds a WebXR layer for the Meta Quest Browser and keeps the inherited engine, the online services, and their workflows.
+This repository is Felipe's VR mod for [DFO](https://daggerfalljs.dev/), the browser game at [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The live site is upstream. This fork adds a WebXR layer for the Meta Quest Browser and keeps the inherited engine, the online services, and their workflows.
 
 The VR layer is meant to be a module a player can turn on. A person on a monitor never loads it. Today that split is already true of the flat game: `play/index.html` boots `src/main.js`, and `src/main.js` does not import `src/vr`. The headset demos are separate pages. Mounting an **Enter VR** button on the real game, including the hosted one, is the integration still to do. The recommendations are at the bottom. This change does not refactor that path.
 
@@ -57,7 +57,7 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 | `src/vr/xrLog.js` | Console and errors to `/api/vr-log`. |
 | `src/vr/xrSkeleton.js`, `xrUI.js`, `xrCalibrator.js` | Demo enemy, combat slate, and the old optics bench. |
 | `src/vr/vrDungeon.js` | Demo host. Not the online game. |
-| `src/vr/engineBridge.js` | Feature detection and the mat4 re-exports. |
+| `src/vr/engineBridge.js` | Feature detection, the `gameMat4` namespace, and `offCenterProjection`. |
 
 `makeEnterVrButton` is the entry point a future game host should call. It already no-ops without WebXR. Non-VR players are unaffected because the game entry never calls it.
 
@@ -84,7 +84,7 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 
 ### What `src/vr` still imports itself
 
-Through `engineBridge.js`: `lookAt`, `perspective`, `mirrorProjectionX`, `identity`, `UP_Y`, `perspectiveOffCenter`. `probeVrEngineHooks` dynamic-imports `Renderer` and checks `setXrTarget` and `_frameTarget`. `guardedSetXrTarget` no-ops when the method is gone.
+Through `engineBridge.js`: `gameMat4` (lookAt, perspective, mirrorProjectionX, identity, UP_Y) and `offCenterProjection`, which returns null if `perspectiveOffCenter` is gone. Those mat4 names are not re-exported. `probeVrEngineHooks` dynamic-imports `Renderer` and checks `setXrTarget` and `_frameTarget`. `guardedSetXrTarget` no-ops when the method is gone.
 
 `vrDungeon.js` still constructs `Renderer` and imports the dungeon stack directly:
 

@@ -1,6 +1,6 @@
 # Daggerfall VR
 
-A VR mod for [Daggerfall Online](https://daggerfalljs.dev/) (DFO), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a monitor player never loads the VR module.
+A VR mod for [DFO](https://daggerfalljs.dev/), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a monitor player never loads the VR module.
 
 **Status:** a single-dungeon demo. Privateer's Hold can be entered in VR from `vr-dungeon.html`. The online flow (`/play/`, and the live site) does not offer Enter VR yet. That button is the integration this repo is aiming at. Non-VR players are unaffected because `src/main.js` does not import `src/vr`.
 
@@ -88,7 +88,7 @@ Upstream engine (do not treat as the mod): `src/characters`, `src/world`, `src/r
 
 Play it: https://daggerfalljs.dev/
 
-[Daggerfall Online](https://daggerfalljs.dev/) is the game this mod targets. Useful local commands: `npm run dev:quest`, `npm run dev`, `npm run lint`, `npm run types`, `node --test test/vr/engineContract.test.js`. The full suite is `npm test`.
+[DFO](https://daggerfalljs.dev/) is the game this mod targets. Useful local commands: `npm run dev:quest`, `npm run dev`, `npm run lint`, `npm run types`, `node --test test/vr/engineContract.test.js`. The full suite is `npm test`.
 
 ### License
 

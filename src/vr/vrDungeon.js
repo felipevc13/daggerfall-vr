@@ -8,7 +8,8 @@
 //   - Zero-strabismus calibrated stereo projection
 
 import { Renderer, WORLD_FRAME } from '../render/renderer.js';
-import { lookAt, perspective, mirrorProjectionX, identity, UP_Y, guardedSetXrTarget, probeVrEngineHooks } from './engineBridge.js';
+import { gameMat4, guardedSetXrTarget, probeVrEngineHooks } from './engineBridge.js';
+const { lookAt, perspective, mirrorProjectionX, identity, UP_Y } = gameMat4;
 import { eyeMatrices } from './xrCamera.js';
 import { enterVrSession, endVrSession, makeEnterVrButton, viewerPose, requestFrame } from './xrSession.js';
 import { XrInputManager } from './xrInput.js';

@@ -1,6 +1,6 @@
 // VR engine bridge. The stereo seam between src/vr and the DFO engine.
 //
-// Product shape: this repository is a VR mod for Daggerfall Online
+// Product shape: this repository is a VR mod for DFO
 // (https://daggerfalljs.dev/, upstream https://github.com/Lattymoy/daggerfall-js-source).
 // The flat game must keep booting when this module is absent or when an
 // upstream merge drops a hook. src/main.js does not import src/vr. Pages that
@@ -25,15 +25,15 @@
 
 import * as mat4 from '../world/mat4.js';
 
-export const lookAt = mat4.lookAt;
-export const perspective = mat4.perspective;
-export const mirrorProjectionX = mat4.mirrorProjectionX;
-export const identity = mat4.identity;
-export const UP_Y = mat4.UP_Y;
+/** The mat4 namespace. Callers use `gameMat4.lookAt` and the rest. Those
+ *  names stay declared once, in world/mat4.js: a second `export const` of
+ *  the same name is a duplicate declaration. */
+export const gameMat4 = mat4;
 
 /** The headset frustum. Null when upstream no longer exports it, so a caller
- *  can skip the eye instead of throwing at import time. */
-export function perspectiveOffCenter(left, right, bottom, top, near, far) {
+ *  can skip the eye instead of throwing at import time. The name here is
+ *  not `perspectiveOffCenter`: that export already lives in world/mat4.js. */
+export function offCenterProjection(left, right, bottom, top, near, far) {
   if (typeof mat4.perspectiveOffCenter !== 'function') return null;
   return mat4.perspectiveOffCenter(left, right, bottom, top, near, far);
 }

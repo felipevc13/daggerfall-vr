@@ -61,7 +61,7 @@ This is a real check, and the expected result is that VR is absent.
 1. With `npm run dev:quest` still running and `adb reverse` in place, open `http://localhost:5173/play/` in the Quest Browser.
 2. Pick the ARENA2 folder if the page asks. The dev server can also serve `./arena2` without the picker.
 3. Confirm the game draws (menu, or Privateer's Hold if you go through the door) and that there is **no Enter VR button**. `play/index.html` loads `src/main.js` only. `probeVrEngineHooks` is never called. Controllers do not become a sword.
-4. Open https://daggerfalljs.dev/play/ in the Quest Browser. That is upstream Daggerfall Online, the game this mod is for. It is already HTTPS, so WebXR would be allowed if the module were mounted. It is not mounted. You get the flat game, the same ARENA2 picker, and no Enter VR. Do not expect the local `.quest-vr.log` to receive anything from that origin. The log plugin is the dev server only.
+4. Open https://daggerfalljs.dev/play/ in the Quest Browser. That is upstream DFO, the game this mod is for. It is already HTTPS, so WebXR would be allowed if the module were mounted. It is not mounted. You get the flat game, the same ARENA2 picker, and no Enter VR. Do not expect the local `.quest-vr.log` to receive anything from that origin. The log plugin is the dev server only.
 
 When `installVr` from `docs/repo-map.md` is wired, repeat steps 1 and 4 and expect the opposite: a button only if `probeVrEngineHooks` passes and the browser reports `immersive-vr`, stereo through the same `setXrTarget` path, and a monitor player on the same server seeing no button. That wiring is not in the tree yet. Do not treat a failure to enter VR from `/play/` or from daggerfalljs.dev as a regression of this demo.
 
