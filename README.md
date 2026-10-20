@@ -64,20 +64,42 @@ Click the green **"ENTER VR"** button in the center of the display.
 
 > **Strict Modularity Rule**: All VR code is strictly isolated inside the `src/vr/` directory and the standalone entry page `vr-dungeon.html`. No upstream core engine classes (`PlayerMotor`, `Renderer`, `DungeonContext`, physics, quests, etc.) have been altered. This guarantees that future updates from the upstream engine (`origin/main` / `Lattymoy/daggerfall-js-source`) can be merged seamlessly via `git merge origin/main` without code conflicts.
 
-### File Directory Breakdown (`src/vr/`):
+### 1. Base Game Engine (`src/`) — *Upstream Untouched Core*
+These directories contain the underlying Daggerfall Unity port and DFO WebGL2 game engine. **Do not modify these directly** — the VR mod consumes them as an external API layer:
+- `src/characters/`: Player entity, NPC bodies, enemy tables, and mobile monster definitions.
+- `src/world/`: 3D dungeon blocks, procedural terrain, city buildings, streaming, and lighting.
+- `src/render/`: Core WebGL2 renderer (`renderer.js`), shaders, mesh buffers, and enhanced lighting.
+- `src/formats/`: Daggerfall DOS binary asset parsers (`blocksFile.js`, `arch3dFile.js`, `imgFile.js`, `bsaFile.js`).
+- `src/ui/`: 2D classic & enhanced UI screens (`chargen.js`, `charsheet.js`, `nativeInventory.js`, `windowStack.js`).
+- `arena2/`: Authentic 1996 Daggerfall DOS game files (textures, sounds, maps, 3D meshes).
 
-| File | Role & Implementation Details |
+---
+
+### 2. Production VR Runtime Layer (`src/vr/`) — *Permanent Mod Code*
+These modules constitute the permanent VR mod layer:
+
+| File | Purpose & Architecture |
 |---|---|
-| [`vr-dungeon.html`](vr-dungeon.html) | Standalone WebXR HTML entry point. Sets up the WebGL2 canvas, responsive viewport, and boots the dungeon runner. |
-| [`src/vr/vrDungeon.js`](src/vr/vrDungeon.js) | **Main Dungeon Runner (Privateer's Hold)**. Loads 3D dungeon architecture, spawns lights, binds the WebXR layer framebuffer directly to `Renderer` (bypassing desktop post-processing FBOs), and drives the stereo frame loop. |
-| [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | **Stereoscopic Camera & Optics**. Translates WebXR eye poses from right-handed (+X right, +Y up, -Z forward) to Daggerfall world convention (+X, +Y, +Z). Implements calibrated **Preset 5** (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, `out[0] = -out[0]`) eliminating strabismus and eye fatigue. |
-| [`src/vr/xrInput.js`](src/vr/xrInput.js) | **Quest Controller Input System**. Polls thumbsticks, buttons (A, B, X, Y, Triggers, Grips), computes smooth locomotion with capsule collision against dungeon walls (`ctx.collider.move`), and delivers haptic vibration pulses (`pulseHaptic`). |
-| [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | **6DOF Weapon System**. Manages the right-hand steel longsword and left-hand flickering dungeon torch. Tracks blade tip velocity (`tipSpeed`) and calculates bounding sphere strike intersections against targets. |
-| [`src/vr/xrSkeleton.js`](src/vr/xrSkeleton.js) | **Skeletal Warrior (TEXTURE.270)**. Authentic sprite billboard facing the player, 1-bit alpha transparency cutout, health points, and reactive physical wobble upon taking hits. |
-| [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | **In-World Diegetic VR Menu Slate**. Renders Inventory (Paperdoll), Character Stats, Options, and the Map of Tamriel (Chargen). Computes 6DOF laser ray-plane intersections, reticle tracking, and trigger click dispatch. |
-| [`src/vr/xrUI.js`](src/vr/xrUI.js) | **Floating Combat HUD**. In-world floating billboard displaying player and enemy health bars and damage readouts. |
-| [`src/vr/xrSession.js`](src/vr/xrSession.js) | **WebXR Session Lifecycle**. Requests `immersive-vr` sessions with `local-floor` reference space, handles session start/end, and manages the Enter VR UI. |
-| [`src/vr/xrLog.js`](src/vr/xrLog.js) | **Remote Telemetry Client**. Intercepts Quest 3 browser console logs (`log`, `warn`, `error`) and streams them back to the Node dev server. |
+| [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | **Core VR Camera & Calibrated Optics**. Extracts WebXR eye matrices, maps coordinate conventions, and applies **Preset 5** (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, `out[0] = -out[0]`) eliminating strabismus. |
+| [`src/vr/xrInput.js`](src/vr/xrInput.js) | **Quest Controller Input System**. Locomotion, capsule sliding collision against dungeon walls (`ctx.collider.move`), snap turn, and haptic vibration. |
+| [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | **6DOF Weapon System**. Right-hand steel sword and left-hand torch. Tracks blade tip velocity (`tipSpeed`) and calculates strike bounding-sphere hits. |
+| [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | **Diegetic VR Menu Slate**. In-world floating 3D canvas for Inventory (Paperdoll), Character Stats, Options, and Tamriel Chargen Map with 6DOF laser raycasting. |
+| [`src/vr/xrSession.js`](src/vr/xrSession.js) | **WebXR Lifecycle Manager**. Manages `immersive-vr` sessions and `local-floor` reference space. |
+| [`src/vr/xrLog.js`](src/vr/xrLog.js) | **Remote Telemetry Client**. Intercepts Quest 3 browser logs and streams them to the server at `/api/vr-log`. |
+
+---
+
+### 3. VR Test Scenes & Prototypes — *Test Harnesses & Sandboxes*
+These files are specialized environments created for testing, calibrating, and iterating in VR without affecting the rest of the game:
+
+| File | Type | Purpose |
+|---|---|---|
+| [`vr-dungeon.html`](vr-dungeon.html) | **Main Test Scene** | Standalone HTML page used to boot and test the genuine *Privateer's Hold* starter dungeon in VR. |
+| [`src/vr/vrDungeon.js`](src/vr/vrDungeon.js) | **Test Scene Runner** | Drives the Privateer's Hold test scene: loads dungeon architecture, sets up ambient lighting, spawns the test skeleton, and runs the WebXR stereo loop. |
+| [`src/vr/xrSkeleton.js`](src/vr/xrSkeleton.js) | **Test Enemy (PoC)** | Proof of concept for 6DOF weapon hit detection on *TEXTURE.270*. Will be generalized into the universal `XrEnemy.js`. |
+| [`src/vr/xrUI.js`](src/vr/xrUI.js) | **Test Combat HUD** | Floating in-world stats billboard used to monitor player and skeleton HP and strike damage during combat tuning. |
+| [`src/vr/xrCalibrator.js`](src/vr/xrCalibrator.js) | **Calibration Rig** | In-VR optical test bench used to cycle through and test the 8 stereo projection presets to find the winning focus settings. |
+| [`src/tools/vrLab.js`](src/tools/vrLab.js) / [`vr.html`](vr.html) | **Sandbox Lab** | Isolated WebXR matrix testing harness for rapid experimentation with coordinate transforms and projection matrices. |
 
 ---
 
