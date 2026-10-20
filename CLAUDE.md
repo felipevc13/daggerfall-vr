@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+Agents on this fork: read `AGENTS.md` first. It says what the VR mod is, where `src/vr` stops, and what must keep working in the flat game. The rules below still bind every change to the inherited engine.
+
 The docs are `bible/` - start at `bible/Home.md` (its Process rules bind every
 change) and read `bible/01-Overview/Port-Doctrine.md` before touching code.
 

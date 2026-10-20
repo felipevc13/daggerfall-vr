@@ -1,16 +1,40 @@
-# Daggerfall VR — Standalone WebXR Edition
+# Daggerfall VR
 
-> **The Elder Scrolls II: Daggerfall** running natively in Standalone VR for Meta Quest 2, Quest 3, and Quest Pro via WebXR, built on top of the open-source DFO WebGL2 engine.
+A VR mod for [Daggerfall Online](https://daggerfalljs.dev/) (DFO), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a monitor player never loads the VR module.
+
+**Status:** a single-dungeon demo. Privateer's Hold can be entered in VR from `vr-dungeon.html`. The online flow (`/play/`, and the live site) does not offer Enter VR yet. That button is the integration this repo is aiming at. Non-VR players are unaffected because `src/main.js` does not import `src/vr`.
 
 [![WebXR](https://img.shields.io/badge/WebXR-Meta%20Quest%203%20Native-blue.svg)](https://immersiveweb.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-felipevc13%2Fdaggerfall--vr-success.svg)](https://github.com/felipevc13/daggerfall-vr)
 
+## Quick start
+
+```bash
+npm ci
+# Put your own Daggerfall ARENA2 folder at ./arena2  (never commit it)
+npm run dev:quest
+```
+
+On the Quest, with USB debugging accepted: open `http://localhost:5173/vr-dungeon.html` in the Quest Browser and press **Enter VR Dungeon**. A LAN `http://192.168…` address loads the page and does not start WebXR. Full steps, the flat-game check, and hosted-build options: [docs/TESTING-ON-QUEST.md](docs/TESTING-ON-QUEST.md).
+
+| Doc | For |
+| --- | --- |
+| [docs/TESTING-ON-QUEST.md](docs/TESTING-ON-QUEST.md) | Headset steps, telemetry, what `/play/` and daggerfalljs.dev do today |
+| [docs/repo-map.md](docs/repo-map.md) | What is the VR mod, what is upstream, workflows, engine hooks, how to merge upstream |
+| [AGENTS.md](AGENTS.md) | Rules for an AI agent: boundary, tests, never push `main`, never commit game files |
+
+## Roadmap
+
+1. Keep the VR code a module with one bridge (`src/vr/engineBridge.js`) so an upstream update disables VR instead of crashing the flat game.
+2. Mount **Enter VR** on the real hosts, dynamically, only when the hooks and the headset are there. Same world as a flat player on [daggerfalljs.dev](https://daggerfalljs.dev/).
+3. A public HTTPS build where each player supplies their own game files. Not deployed from this repo. Options are in the Quest doc.
+
 ---
 
-## 🧭 Project Overview (For Developers & AI Agents)
+## What the demo does
 
-This repository brings full **Standalone 6DOF Virtual Reality** to Daggerfall. Players can step directly into the classic dungeons of Tamriel (starting inside the iconic *Privateer's Hold*) through the native **Meta Quest Browser** without requiring PCVR, Link cables, or third-party streaming apps.
+Players can step into Privateer's Hold through the Quest Browser without PCVR or a link cable.
 
 ### Core VR Features:
 - **Calibrated Stereoscopic Optics (Zero Strabismus & Eye Strain)**: Projection parity and convergence adjusted specifically for Meta Quest 3 Pancake lenses using the calibrated **Preset 5** profile (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, `out[0] = -out[0]`).
@@ -22,84 +46,27 @@ This repository brings full **Standalone 6DOF Virtual Reality** to Daggerfall. P
 
 ---
 
-## 🚀 How to Run & Test in VR (Testing Guide)
-
-### 1. Start the Local Development Server
-From the project root directory, run:
-```bash
-npm run dev
-```
-Vite will boot the development server listening on `http://0.0.0.0:5173`.
-
-### 2. Open on Meta Quest (Quest 2 / Quest 3 / Quest Pro)
-
-#### Option A: USB Cable (Recommended for Development)
-Connect your Quest to your computer via USB with USB Debugging enabled, and run:
-```bash
-adb reverse tcp:5173 tcp:5173
-```
-Inside the Meta Quest Browser, navigate to:
-```
-http://localhost:5173/vr-dungeon.html
-```
-
-#### Option B: Local Wi-Fi Network (Wireless)
-Find your computer's local IP address (e.g. `192.168.0.30`) and open in Meta Quest Browser:
-```
-http://192.168.0.30:5173/vr-dungeon.html
-```
-
-### 3. Entering the Dungeon
-Click the green **"ENTER VR"** button in the center of the display.
-- **Left Thumbstick**: Smooth walk and strafe (with collision against dungeon walls).
-- **Right Thumbstick**: Snap turn (45° steps).
-- **Right Hand Controller**: Swing the longsword to strike enemies.
-- **Left Hand Controller**: Hold and maneuver the torch to illuminate dark corners.
-- **Left Controller [Y] or Menu Button**: Toggle the floating Holographic Menu / Tamriel Map.
-- **Right Controller Trigger**: Click buttons and select items with the 6DOF laser ray pointer.
+Controls inside the demo: left stick walks (walls stop you), right stick snap-turns, right hand is the sword, left hand is the torch, left **X** or **Y** toggles the menu, right trigger is the laser, left grip holds to talk. Detail and the telemetry files: [docs/TESTING-ON-QUEST.md](docs/TESTING-ON-QUEST.md).
 
 ---
 
-## 🏛️ Modular Architecture & Codebase Map
+## Where the code sits
 
-> **Strict Modularity Rule**: All VR code is strictly isolated inside the `src/vr/` directory and the standalone entry page `vr-dungeon.html`. No upstream core engine classes (`PlayerMotor`, `Renderer`, `DungeonContext`, physics, quests, etc.) have been altered. This guarantees that future updates from the upstream engine (`origin/main` / `Lattymoy/daggerfall-js-source`) can be merged seamlessly via `git merge origin/main` without code conflicts.
+The module is `src/vr/`. The flat entry does not load it. Two inherited files carry a named hook so the engine can draw an eye: `Renderer.setXrTarget` in `src/render/renderer.js`, and `perspectiveOffCenter` in `src/world/mat4.js`. `src/vr/engineBridge.js` is the VR side of that seam. If a hook disappears, Enter VR stays off. The rest of the coupling, the workflows, and how to merge [upstream](https://github.com/Lattymoy/daggerfall-js-source) are in [docs/repo-map.md](docs/repo-map.md).
 
-### 1. Base Game Engine (`src/`) — *Upstream Untouched Core*
-These directories contain the underlying Daggerfall Unity port and DFO WebGL2 game engine. **Do not modify these directly** — the VR mod consumes them as an external API layer:
-- `src/characters/`: Player entity, NPC bodies, enemy tables, and mobile monster definitions.
-- `src/world/`: 3D dungeon blocks, procedural terrain, city buildings, streaming, and lighting.
-- `src/render/`: Core WebGL2 renderer (`renderer.js`), shaders, mesh buffers, and enhanced lighting.
-- `src/formats/`: Daggerfall DOS binary asset parsers (`blocksFile.js`, `arch3dFile.js`, `imgFile.js`, `bsaFile.js`).
-- `src/ui/`: 2D classic & enhanced UI screens (`chargen.js`, `charsheet.js`, `nativeInventory.js`, `windowStack.js`).
-- `arena2/`: Authentic 1996 Daggerfall DOS game files (textures, sounds, maps, 3D meshes).
+Upstream engine (do not treat as the mod): `src/characters`, `src/world`, `src/render`, `src/formats`, `src/ui`, `src/scenes`, plus `server/` and `server-account/` for the online services. `arena2/` is the player's own 1996 data and is gitignored.
 
----
-
-### 2. Production VR Runtime Layer (`src/vr/`) — *Permanent Mod Code*
-These modules constitute the permanent VR mod layer:
-
-| File | Purpose & Architecture |
-|---|---|
-| [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | **Core VR Camera & Calibrated Optics**. Extracts WebXR eye matrices, maps coordinate conventions, and applies **Preset 5** (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, `out[0] = -out[0]`) eliminating strabismus. |
-| [`src/vr/xrInput.js`](src/vr/xrInput.js) | **Quest Controller Input System**. Locomotion, capsule sliding collision against dungeon walls (`ctx.collider.move`), snap turn, and haptic vibration. |
-| [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | **6DOF Weapon System**. Right-hand steel sword and left-hand torch. Tracks blade tip velocity (`tipSpeed`) and calculates strike bounding-sphere hits. |
-| [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | **Diegetic VR Menu Slate**. In-world floating 3D canvas for Inventory (Paperdoll), Character Stats, Options, and Tamriel Chargen Map with 6DOF laser raycasting. |
-| [`src/vr/xrSession.js`](src/vr/xrSession.js) | **WebXR Lifecycle Manager**. Manages `immersive-vr` sessions and `local-floor` reference space. |
-| [`src/vr/xrLog.js`](src/vr/xrLog.js) | **Remote Telemetry Client**. Intercepts Quest 3 browser logs and streams them to the server at `/api/vr-log`. |
-
----
-
-### 3. VR Test Scenes & Prototypes — *Test Harnesses & Sandboxes*
-These files are specialized environments created for testing, calibrating, and iterating in VR without affecting the rest of the game:
-
-| File | Type | Purpose |
-|---|---|---|
-| [`vr-dungeon.html`](vr-dungeon.html) | **Main Test Scene** | Standalone HTML page used to boot and test the genuine *Privateer's Hold* starter dungeon in VR. |
-| [`src/vr/vrDungeon.js`](src/vr/vrDungeon.js) | **Test Scene Runner** | Drives the Privateer's Hold test scene: loads dungeon architecture, sets up ambient lighting, spawns the test skeleton, and runs the WebXR stereo loop. |
-| [`src/vr/xrSkeleton.js`](src/vr/xrSkeleton.js) | **Test Enemy (PoC)** | Proof of concept for 6DOF weapon hit detection on *TEXTURE.270*. Will be generalized into the universal `XrEnemy.js`. |
-| [`src/vr/xrUI.js`](src/vr/xrUI.js) | **Test Combat HUD** | Floating in-world stats billboard used to monitor player and skeleton HP and strike damage during combat tuning. |
-| [`src/vr/xrCalibrator.js`](src/vr/xrCalibrator.js) | **Calibration Rig** | In-VR optical test bench used to cycle through and test the 8 stereo projection presets to find the winning focus settings. |
-| [`src/tools/vrLab.js`](src/tools/vrLab.js) / [`vr.html`](vr.html) | **Sandbox Lab** | Isolated WebXR matrix testing harness for rapid experimentation with coordinate transforms and projection matrices. |
+| VR file | Role |
+| --- | --- |
+| [`src/vr/engineBridge.js`](src/vr/engineBridge.js) | Hook probe and the only `src/vr` import of `mat4`. |
+| [`src/vr/xrSession.js`](src/vr/xrSession.js) | Session and the Enter VR button. |
+| [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | Eye matrices. Preset 5. |
+| [`src/vr/xrInput.js`](src/vr/xrInput.js) | Sticks, snap turn, collisions, haptics. |
+| [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | Sword and torch. |
+| [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | In-world menu, X/Y, voice grip. |
+| [`src/vr/xrLog.js`](src/vr/xrLog.js) | Posts logs to `/api/vr-log` on the dev server. |
+| [`vr-dungeon.html`](vr-dungeon.html), [`src/vr/vrDungeon.js`](src/vr/vrDungeon.js) | Privateer's Hold demo. |
+| [`vr.html`](vr.html), [`src/tools/vrLab.js`](src/tools/vrLab.js) | Empty-room lab. |
 
 ---
 
@@ -117,16 +84,12 @@ These files are specialized environments created for testing, calibrating, and i
 
 ---
 
-## 📜 Upstream Game Engine (DFO Online)
+## Upstream
 
-This project builds upon **DFO Online**, an open-source WebGL2 reimplementation of *The Elder Scrolls II: Daggerfall*.
+Play it: https://daggerfalljs.dev/
 
-### Useful Commands:
-- `npm run dev`: Starts local Vite dev server.
-- `npm run build`: Builds production distribution bundle.
-- `npm test`: Runs automated engine tests.
-- `npm run lint`: Validates code style and syntax rules.
+[Daggerfall Online](https://daggerfalljs.dev/) is the game this mod targets. Useful local commands: `npm run dev:quest`, `npm run dev`, `npm run lint`, `npm run types`, `node --test test/vr/engineContract.test.js`. The full suite is `npm test`.
 
 ### License
-Released under the **MIT License**.
-The Elder Scrolls and Daggerfall are registered trademarks of Bethesda Softworks / ZeniMax Media Inc. This is an unofficial, non-commercial fan project.
+
+MIT, copyright Lattymoy, with Daggerfall Unity's MIT notice (`LICENSE`). The Elder Scrolls and Daggerfall are trademarks of ZeniMax Media Inc. This is an unofficial, non-commercial fan project. Game files stay on the player's machine.
