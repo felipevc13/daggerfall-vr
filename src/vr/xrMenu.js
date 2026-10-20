@@ -5,6 +5,7 @@
 // Interacted with via 6DOF Quest controller laser pointer & trigger click.
 
 import { identity } from '../world/mat4.js';
+import { XrVoiceManager } from './xrVoice.js';
 
 export class XrMenu {
   /**
@@ -14,6 +15,8 @@ export class XrMenu {
     this.renderer = renderer;
     this.isOpen = false;
     this.activeTab = 'inventory'; // 'inventory' | 'stats' | 'chargen' | 'options'
+    this.voice = new XrVoiceManager();
+    this._leftGripLatched = false;
 
     // Offscreen Canvas (1024x640) for high-resolution retro fantasy rendering
     this.canvas = document.createElement('canvas');
@@ -233,6 +236,23 @@ export class XrMenu {
     }
     this._toggleLatched = togglePressed;
 
+    // Voice Recording via Left Grip (Hold to speak, release to send to AI)
+    const leftGrip = left.grip > 0.55;
+    if (leftGrip && !this._leftGripLatched) {
+      this.voice.startRecording();
+      xrInput.pulseHaptic('left', 0.6, 60);
+      this.dirty = true;
+    } else if (!leftGrip && this._leftGripLatched) {
+      this.voice.stopRecording();
+      xrInput.pulseHaptic('left', 0.4, 40);
+      this.dirty = true;
+    }
+    this._leftGripLatched = leftGrip;
+
+    if (this.voice.isRecording) {
+      this.dirty = true; // Keep repainting speech-to-text waveform
+    }
+
     // Close with [B] if open
     if (this.isOpen && right.bBtn) {
       this.close();
@@ -381,6 +401,50 @@ export class XrMenu {
     } else if (this.activeTab === 'options') {
       this._renderOptionsTab(ctx, w, h);
     }
+
+    // --- VOICE TO AI BAR (BOTTOM OF SLATE) ---
+    const isRecording = this.voice.isRecording;
+    const isSent = this.voice.status === 'sent';
+    const isSending = this.voice.status === 'sending';
+    const isHoveredMic = this._hoveredButton && this._hoveredButton.id === 'voice_mic_btn';
+
+    const barY = h - 56;
+    const barH = 42;
+    const barW = w - 80;
+
+    ctx.fillStyle = isRecording ? '#7f1d1d' : (isSent ? '#14532d' : (isSending ? '#854d0e' : (isHoveredMic ? '#1e293b' : '#0f172a')));
+    ctx.fillRect(40, barY, barW, barH);
+    ctx.strokeStyle = isRecording ? '#ef4444' : (isSent ? '#22c55e' : (isSending ? '#eab308' : (isHoveredMic ? '#60a5fa' : '#334155')));
+    ctx.lineWidth = isRecording ? 3 : 2;
+    ctx.strokeRect(40, barY, barW, barH);
+
+    // Dynamic wave animation when recording
+    if (isRecording) {
+      const now = Date.now() / 150;
+      ctx.fillStyle = '#f87171';
+      for (let i = 0; i < 8; i++) {
+        const barHeight = 6 + Math.abs(Math.sin(now + i * 0.6)) * 24;
+        ctx.fillRect(60 + i * 12, barY + (barH - barHeight) / 2, 7, barHeight);
+        ctx.fillRect(w - 170 + i * 12, barY + (barH - barHeight) / 2, 7, barHeight);
+      }
+    }
+
+    ctx.fillStyle = isRecording ? '#fef2f2' : (isSent ? '#dcfce7' : '#e2e8f0');
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(this.voice.statusMessage, w / 2, barY + 26);
+
+    this.buttons.push({
+      id: 'voice_mic_btn',
+      x: 40, y: barY, w: barW, h: barH,
+      onClick: () => {
+        if (this.voice.isRecording) {
+          this.voice.stopRecording();
+        } else {
+          this.voice.startRecording();
+        }
+      },
+    });
 
     // --- LASER RETICLE OVERLAY ---
     if (this.laserHit) {

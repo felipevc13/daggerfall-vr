@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { createReadStream, readdirSync, statSync, appendFileSync } from 'node:fs';
+import { createReadStream, readdirSync, statSync, appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { landingHtml, readBuildSha } from './scripts/landingHtml.mjs';
 import { studioArtIndex } from './scripts/studioArtIndex.mjs';   // STUDIO1: the studio's listing, served and built from the folder
@@ -107,6 +107,41 @@ function vrLogServer() {
             res.setHeader('Content-Type', 'application/json');
             res.statusCode = 200;
             res.end(JSON.stringify({ status: 'ok' }));
+          });
+        } else {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.statusCode = 200;
+          res.end('ok');
+        }
+      });
+
+      server.middlewares.use('/api/vr-voice', (req, res) => {
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const data = JSON.parse(body);
+              const time = new Date().toLocaleTimeString();
+              const text = data.text || '';
+              const line = `\n========================================================\n[${time}] 🎙️ [NOVA MENSAGEM DE VOZ DO USUÁRIO NO QUEST]:\n👉 "${text}"\n========================================================\n\n`;
+              process.stdout.write(line);
+              try {
+                appendFileSync(logFile, line);
+                writeFileSync(join(process.cwd(), '.vr-user-request.json'), JSON.stringify({
+                  timestamp: Date.now(),
+                  time,
+                  text,
+                  hasAudio: !!data.audioBase64,
+                }, null, 2));
+              } catch (_) {}
+            } catch (e) {
+              process.stdout.write(`[VR-VOICE-ERROR] ${e.message}\n`);
+            }
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 200;
+            res.end(JSON.stringify({ status: 'ok', received: true }));
           });
         } else {
           res.setHeader('Access-Control-Allow-Origin', '*');
