@@ -788,8 +788,9 @@ const HARDCODED = {
   'src/world/worldOfDaggerfall/wodLocationData.js': 3,
   'src/world/worldOfDaggerfall/worldOfDaggerfall.js': 7,
   // The headset demo's existing words (src/vr, and the lab). Recorded so a count cannot rise; a new sentence goes through t().
-  'src/tools/vrLab.js': 6,
-  'src/vr/vrDungeon.js': 7,
+  // The missing-hooks line on each page is the demo's own words, recorded with the rest.
+  'src/tools/vrLab.js': 7,
+  'src/vr/vrDungeon.js': 8,
   'src/vr/xrCalibrator.js': 18,
   'src/vr/xrLog.js': 4,
   'src/vr/xrMenu.js': 31,

@@ -33,7 +33,6 @@ import { nearestLights, capFadeColors } from '../world/city/cityLights.js';
 import { INTERIOR_LIGHT_DIR } from '../world/interior/interiorLights.js';
 import { INTERIOR_CLEAR } from '../render/renderer.js';
 import { pageHas, pageParam } from '../systems/pageQuery.js';
-import { t } from '../systems/textManager.js';
 
 function startVrDungeon() {
   const canvas = document.getElementById('c');
@@ -316,7 +315,7 @@ function startVrDungeon() {
   const mount = document.getElementById('door');
   probeVrEngineHooks().then((probe) => {
     if (!probe.ok) {
-      const msg = t('vr.hooksMissing', 'VR desligado. Ganchos do motor ausentes: {0}', [probe.missing.join(', ')]);
+      const msg = `VR desligado. Ganchos do motor ausentes: ${probe.missing.join(', ')}`;
       console.warn('[vr]', msg);
       dbg(msg);
       mount.textContent = msg;

@@ -27,7 +27,6 @@ import { enterVrSession, endVrSession, makeEnterVrButton, viewerPose, requestFra
 import { XrInputManager } from '../vr/xrInput.js';
 import { pageHas, pageParam } from '../systems/pageQuery.js';
 import { guardedSetXrTarget, probeVrEngineHooks } from '../vr/engineBridge.js';
-import { t } from '../systems/textManager.js';
 
 function startVrLab() {
   const canvas = document.getElementById('c');
@@ -238,7 +237,7 @@ function startVrLab() {
   const mount = document.getElementById('door');
   probeVrEngineHooks().then((probe) => {
     if (!probe.ok) {
-      mount.textContent = t('vr.labHooksMissing', 'VR off. Engine hooks missing: {0}', [probe.missing.join(', ')]);
+      mount.textContent = `VR off (engine hooks missing: ${probe.missing.join(', ')})`;
       return null;
     }
     return makeEnterVrButton({
