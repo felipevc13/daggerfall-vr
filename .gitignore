@@ -3,6 +3,7 @@ dist/
 # the gun lab's own build (vite.config.gun.js)
 dist-gun/
 .DS_Store
+.quest-vr.log
 
 # Original game data - freeware but not redistributable. NEVER commit.
 ARENA2/
@@ -11,6 +12,7 @@ arena2/
 *.bsa
 DAGGER.SND
 *.SND
+*.zip
 test-harness/
 back-drafts/
 

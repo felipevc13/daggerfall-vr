@@ -1654,7 +1654,7 @@ export class Renderer {
     // PERF-GPU1 (2026-10-10): `powerPreference: 'high-performance'` - on a machine with two GPUs (most gaming laptops)
     // the browser may otherwise draw the game on the integrated one; a player at 5 fps on every setting, playable only
     // at 800x600, is that shape. One GPU: no change. The desktop app asks Chromium the same at launch (app/main.cjs).
-    const gl = canvas.getContext('webgl2', { antialias: false, powerPreference: 'high-performance' });
+    const gl = canvas.getContext('webgl2', { antialias: false, powerPreference: 'high-performance', xrCompatible: true });
     if (!gl) throw new Error('WebGL2 required');
     this.gl = gl;
     this._shadowCacheWanted = true;   // SC1: the static shadow cache's door (setShadowCache - the lane's install reads the page's, shadowPass.js shadowCacheOn); CACHE-COPY: on, as SC1 built it
@@ -1675,6 +1675,14 @@ export class Renderer {
     this._sceneGrade = null;   // SD-LOOK: the frame's grade, taken by its resolve (setSceneGrade)
     this._airWanted = false;
     this._frameFbo = null;   // EL4: the frame image the world pass draws into while the air is on (null = the canvas)
+    // VR1: THE HEADSET'S FRAMEBUFFER - the XRWebGLLayer's target and the
+    // eye viewport when a WebXR session owns the canvas (src/vr/xrSession.js
+    // setXrTarget, once per eye per frame). Null for every frame before this
+    // and for every flat page: `_frameTarget()` then answers exactly what
+    // `this._frameFbo ?? null` always did, so a classic frame is byte-for-byte
+    // the frame it was.
+    this._xrTarget = null;   // { fb: WebGLFramebuffer, vp: { x, y, width, height } } | null
+    this._xrScissor = false;   // VR1: the eye's scissor is live across beginFrame's clear alone
     // RETRO1: DFU's retro mode (render/retroPass.js, systems/retroMode.js). The source is a function answering the
     // frame's retro config or null - main.js hands it systems/retroMode.js's retroFrameConfig, so this file never
     // reads the settings store; it is asked once per WORLD frame
@@ -2038,6 +2046,25 @@ export class Renderer {
       ? { x: rect.x, y: rect.y, w: rect.w, h: rect.h } : null;
   }
 
+  /** VR1: THE HEADSET'S TARGET - the XRWebGLLayer's framebuffer and the eye
+   *  viewport inside it, handed over once per eye per frame by the WebXR lane
+   *  (src/vr/xrSession.js, whose rAF callback drives the eyes). A host never
+   *  calls this; the session does. `null` (or no argument) hands the frame
+   *  back to the canvas, which is every frame of a flat page - the exact
+   *  state before a session and after `end()`, so nothing leaks between them.
+   *  One call per eye: the pair is not stacked, it is the eye being drawn. */
+  setXrTarget(framebuffer, viewport) {
+    this._xrTarget = framebuffer ? { fb: framebuffer, vp: viewport } : null;
+  }
+
+  /** VR1: the framebuffer a world pass draws into - the air pass's image if a
+   *  lane minted one, else the headset's, else the canvas (null). Every site
+   *  that restored "the frame, or the canvas" reads this, so an eye's draws
+   *  come back to the eye's target after a nested FBO pass (the lantern
+   *  clusters, a character sprite, a panel) exactly as a flat frame's came
+   *  back to the canvas. */
+  _frameTarget() { return this._frameFbo ?? this._xrTarget?.fb ?? null; }
+
   /** The pixel rect the frame's world pass is drawing into, or null
    *  for the full canvas. Cleared by `endWorldPass` - it is the GL
    *  viewport, and it stops being true the moment the 2D pass starts. */
@@ -2065,6 +2092,10 @@ export class Renderer {
   _restoreWorldViewport() {
     const gl = this.gl, p = this._worldViewportPx;
     if (p) gl.viewport(p[0], p[1], p[2], p[3]);
+    // VR1: an eye is the world's viewport under a session - `drawingBufferWidth`
+    // is the WHOLE stereo texture, so restoring it between passes put the next
+    // draw across both eyes. Before every frame and flat: unchanged.
+    else if (this._xrTarget) { const v = this._xrTarget.vp; gl.viewport(v.x, v.y, v.width, v.height); }
     else gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
   }
 
@@ -3905,7 +3936,7 @@ export class Renderer {
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depth, 0);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameFbo ?? null);   // EL4: minted mid-frame, the frame comes back
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameTarget());   // EL4: minted mid-frame, the frame comes back
       cs = this._csRT = { fbo, tex, depth };
     }
     // BODY-DEPTH: every caller draws INTO the target next - its depth texture may not stand on unit 1, where the quad
@@ -4040,7 +4071,7 @@ export class Renderer {
       if (also) for (const o of also) this.drawCharacter(o.mesh, o.model);   // COATS3D: a rider's horse, in the rider's picture
     }
     finally {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameFbo ?? null);   // EL4: the frame, or the canvas
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameTarget());   // EL4: the frame, or the canvas
       // ROAD-E E5: the viewport is BORROWED here too. This pass runs in
       // the middle of the world pass (every voxel character composites
       // through it), so returning a hardcoded full canvas would undo a
@@ -4159,7 +4190,7 @@ export class Renderer {
       }
     } finally {
       gl.disable(gl.SCISSOR_TEST);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameFbo ?? null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameTarget());
       this._restoreWorldViewport();
       this._proj = sp; this._view = sv; this._fogMode = sf; this._dwFog[0] = sw;
       this._spriteDepth--;
@@ -4220,7 +4251,7 @@ export class Renderer {
     // for the same reason the sprite pass's is - this one runs under
     // itemIcon's catch too.
     try { gl.readPixels(0, 0, pw, ph, gl.RGBA, gl.UNSIGNED_BYTE, raw); }
-    finally { gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameFbo ?? null); }   // EL4
+    finally { gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameTarget()); }   // EL4
     const out = new Uint8ClampedArray(pw * ph * 4);
     for (let y = 0; y < ph; y++) out.set(raw.subarray(y * pw * 4, (y + 1) * pw * 4), (ph - 1 - y) * pw * 4);
     return { width: pw, height: ph, data: out };
@@ -4914,7 +4945,7 @@ void main() {
       gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
       this.stats.draws++;
     } finally {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameFbo ?? null);   // EL4: the frame, or the canvas
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameTarget());   // EL4: the frame, or the canvas
       this._restoreWorldViewport();
       if (sc) gl.enable(gl.SCISSOR_TEST);
     }
@@ -5557,13 +5588,38 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     this._lastVao = null;
     this._csUploaded = {};
     const gl = this.gl;
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
-    if (this.canvas.width !== w || this.canvas.height !== h) {
-      this.canvas.width = w;
-      this.canvas.height = h;
+    // VR1: THE HEADSET'S FRAMEBUFFER, and ONLY at the top of a world frame -
+    // a nested beginFrame (beginPanelFrame's, outsideViewFrame's) is a
+    // framebuffer of its own and must keep the flat arm; it re-binds its own
+    // target and viewport right after. `_spriteDepth` joins `_panelSaved`
+    // because a character sprite is the other nested frame that opens here.
+    const xrWorld = !!this._xrTarget && !this._rwOutside && !this._panelSaved && this._spriteDepth === 0 && this._studioDepth === 0;
+    if (xrWorld) {
+      // VR1: A HEADSET OWNS THE CANVAS. The XRWebGLLayer minted the
+      // framebuffer and each eye has a viewport inside it; the canvas's own
+      // size is the session's now (the layer's `framebufferWidth/Height`),
+      // so the flat resize below must not run - it fought the layer every
+      // frame and left the stereo texture the wrong shape. The scissor is
+      // set to the eye here because the gl.clear below is NOT
+      // viewport-clipped: unscissored it would wipe the other eye's image.
+      const vp = this._xrTarget.vp;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this._xrTarget.fb);
+      gl.viewport(vp.x, vp.y, vp.width, vp.height);
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(vp.x, vp.y, vp.width, vp.height);
+      this._xrScissor = true;
+    } else {
+      this._xrScissor = false;
+      if (!this._xrTarget) {   // VR1: never resize the canvas while a session owns it, even in a nested frame
+        const w = this.canvas.clientWidth;
+        const h = this.canvas.clientHeight;
+        if (this.canvas.width !== w || this.canvas.height !== h) {
+          this.canvas.width = w;
+          this.canvas.height = h;
+        }
+      }
+      gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     }
-    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     // ROAD-E E5: ...and then the docked large HUD's rect over it, if a
     // host set one for this frame. The pending slot is CONSUMED here,
     // so the next frame must ask again (ViewportChanger.Update does).
@@ -5573,14 +5629,18 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     {
       const r = this._worldViewportPending;
       this._worldViewportPending = null;
-      this._worldViewportFrame = r ? { ...r } : null;   // FIELD-GUN19: the record, for the 2D pass
-      this._worldViewportPx = this._viewportPx(r);
+      // VR1: a flat frame's docked-HUD rect is a canvas rect and means
+      // nothing to an eye - consumed and dropped, never restored over the
+      // eye viewport the line above just set.
+      this._worldViewportFrame = !this._xrTarget && r ? { ...r } : null;   // FIELD-GUN19: the record, for the 2D pass
+      this._worldViewportPx = this._xrTarget ? null : this._viewportPx(r);
       if (this._worldViewportPx) this._restoreWorldViewport();
     }
     this._beginLane(proj, view, lightDir, opts?.world === true);   // EL2/EL3/EL4: the maps, the images and the frame, before the clear
     // LC1: the lantern grid for this frame's lights, on a WORLD frame of the lane alone (a panel bracket's frame is another view and another viewport: every light)
     this._clustersLive = !!this._lane && opts?.world === true && !this._panelSaved && this._spriteDepth === 0 && this._studioDepth === 0 && this._buildClusters(proj, view);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    if (this._xrScissor) { gl.disable(gl.SCISSOR_TEST); this._xrScissor = false; }   // VR1: the eye's rect guarded the clear alone
     s.viewDraws = this._rwOutside ? 0 : this._rwViewDraws;
     this._rwViewDraws = 0;   // PASS-COUNT: the view out's draws, taken by the room's frame (the stats' note) - the view out's own begin zeroes it too, and its close counts afresh
     this._use(this.program);

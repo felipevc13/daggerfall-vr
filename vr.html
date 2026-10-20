@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>VR lab</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; color: #e9e4d9; font: 13px system-ui, sans-serif; overflow: hidden; }
+    #c { display: block; width: 100vw; height: 100vh; touch-action: none; }
+    #help { position: fixed; left: 10px; top: 10px; max-width: min(520px, calc(100vw - 44px)); background: rgba(14,16,19,0.85); border: 1px solid #2b323b; padding: 10px 12px; }
+    #help b { color: #c08a3e; }
+    #door { position: fixed; right: 12px; bottom: 12px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="help">
+    <b>VR lab</b> - a made room, drawn once per eye through the game's own renderer.
+    On a headset browser press <b>Enter VR</b>; on a desktop this is the same room from the standing eye
+    (arrow keys turn). <b>?x=&amp;y=&amp;z=&amp;yaw=</b> the rig; <b>?eye=1|-1</b> the stereo sign probe.
+  </div>
+  <div id="door"></div>
+  <script type="module" src="/src/tools/vrLab.js"></script>
+</body>
+</html>

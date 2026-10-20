@@ -142,6 +142,26 @@ export function perspective(fovYRad, aspect, near, far) {
   return out;
 }
 
+/** VR1: OFF-CENTRE perspective (glFrustum), the asymmetric frustum a headset
+ *  eye wants - the same clip space `perspective` produces, with the four
+ *  edges the caller's instead of fovY/aspect. Symmetric inputs
+ *  (l = -r, b = -t) reproduce `perspective` exactly (the identity is the
+ *  reason it is written here and not in the VR module: it is this file's
+ *  projection, and the eye frusta differ from it by the four edges alone).
+ *  Unused by a flat frame - `perspective` is - and read by the WebXR lane
+ *  (src/vr/xrCamera.js), where a per-eye frustum is not centred on the eye. */
+export function perspectiveOffCenter(left, right, bottom, top, near, far) {
+  const out = new Float32Array(16);
+  out[0] = (2 * near) / (right - left);
+  out[5] = (2 * near) / (top - bottom);
+  out[8] = (right + left) / (right - left);
+  out[9] = (top + bottom) / (top - bottom);
+  out[10] = -(far + near) / (far - near);
+  out[11] = -1;
+  out[14] = -(2 * far * near) / (far - near);
+  return out;
+}
+
 /** Right-handed lookAt view matrix. */
 /** THE HANDEDNESS LAW (Mac's playtest: "signage is inverted").
  *

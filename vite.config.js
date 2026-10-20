@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { createReadStream, readdirSync, statSync } from 'node:fs';
+import { createReadStream, readdirSync, statSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { landingHtml, readBuildSha } from './scripts/landingHtml.mjs';
 import { studioArtIndex } from './scripts/studioArtIndex.mjs';   // STUDIO1: the studio's listing, served and built from the folder
@@ -7,7 +7,7 @@ import { studioArtIndex } from './scripts/studioArtIndex.mjs';   // STUDIO1: the
 // Dev-only: serve ARENA2 game data at /arena2/*. The data is freeware but
 // never committed or bundled (Port-Doctrine); builds contain no game files.
 function arena2DevServer() {
-  const root = process.env.ARENA2_PATH || '/home/claude/dfdata/arena2';
+  const root = process.env.ARENA2_PATH || join(process.cwd(), 'arena2');
   // ARENA2 FOLDERS IN THE WILD ARE MIXED CASE. The retail data was
   // written on a filesystem that did not care, and real installs prove
   // it: the DaggerfallSetup build carries INVE00I0.img beside
@@ -81,6 +81,43 @@ function arena2DevServer() {
   };
 }
 
+function vrLogServer() {
+  const logFile = join(process.cwd(), '.quest-vr.log');
+  return {
+    name: 'vr-log-server',
+    configureServer(server) {
+      server.middlewares.use('/api/vr-log', (req, res) => {
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const data = JSON.parse(body);
+              const time = new Date().toLocaleTimeString();
+              const tag = data.level === 'error' ? '❌ [ERROR]' : (data.level === 'warn' ? '⚠️  [WARN]' : 'ℹ️  [INFO]');
+              const line = `[${time}] ${tag} ${data.message || ''}\n`;
+              process.stdout.write(line);
+              try {
+                appendFileSync(logFile, line);
+              } catch (_) {}
+            } catch (e) {
+              process.stdout.write(`[VR-RAW] ${body}\n`);
+            }
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 200;
+            res.end(JSON.stringify({ status: 'ok' }));
+          });
+        } else {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.statusCode = 200;
+          res.end('ok');
+        }
+      });
+    },
+  };
+}
+
 // THE DEPLOY'S OWN NAME, stamped where a verifier can read it without
 // parsing minified JavaScript. `scripts/buildTag.mjs` already writes
 // HEAD's sha into src/buildTag.js at prebuild; that constant reaches
@@ -115,6 +152,9 @@ function buildTagMeta() {
 // custom domain (daggerfalljs.dev, U64) without a rebuild.
 export default defineConfig({
   base: './',
+  server: {
+    allowedHosts: true,
+  },
   build: {
     target: 'es2022',
     // AUDIT DEPS1 (the review): Vite 8 minifies CSS with Lightning CSS -
@@ -215,6 +255,7 @@ export default defineConfig({
         sky: 'sky.html',   // ES1: the enhanced sky lab
         water: 'water.html', // WATER1: the enhanced water lab (src/tools/waterLab.js)
         abyss: 'abyss.html', // SD-LAB: the Shattered Hour and the Rift, made in code, drawn by the game's renderer (src/tools/abyssLab.js)
+        vr: 'vr.html', // VR1: the WebXR lab - a made room drawn once per eye into the XRWebGLLayer through the game's own Renderer (src/tools/vrLab.js) - tools/vrProbe.mjs
         spire: 'spire.html', // EG-G2: an Elite Breach's circle in its band's dress, made in code (src/tools/spireLab.js) - tools/spireLabProbe.mjs
         cards: 'cards.html', // CARDS3: the card table lab (src/tools/cardsLab.js) - tools/cardsProbe.mjs
         // MW-D: the Morrowind data inspector. Reads a player's own
@@ -279,5 +320,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [arena2DevServer(), buildTagMeta(), landingHtml(), studioArtIndex()],
+  plugins: [arena2DevServer(), buildTagMeta(), landingHtml(), studioArtIndex(), vrLogServer()],
 });
