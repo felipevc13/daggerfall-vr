@@ -8,103 +8,103 @@
 
 ---
 
-## 🧭 Visão Geral do Projeto (Overview for Developers & Agents)
+## 🧭 Project Overview (For Developers & AI Agents)
 
-Este repositório adiciona suporte completo a **Realidade Virtual Standalone (6DOF)** para o Daggerfall, permitindo que o jogador entre nas masmorras clássicas de Tamriel (começando pela icônica *Privateer's Hold*) diretamente pelo navegador **Meta Quest Browser** sem a necessidade de PCVR ou cabos.
+This repository brings full **Standalone 6DOF Virtual Reality** to Daggerfall. Players can step directly into the classic dungeons of Tamriel (starting inside the iconic *Privateer's Hold*) through the native **Meta Quest Browser** without requiring PCVR, Link cables, or third-party streaming apps.
 
-### Destaques da Implementação VR:
-- **Óptica Estereoscópica Calibrada (Zero Estrabismo)**: Projeção de paridade esquerda/direita ajustada especificamente para as lentes Pancake do Quest 3 (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, `proj[0] = -proj[0]`).
-- **Combate Físico 6DOF**: Espada longa de ferro na mão direita e tocha iluminando a masmorra na mão esquerda com detecção de velocidade e impacto.
-- **Inimigos Clássicos Autênticos**: Esqueleto Guerreiro (*TEXTURE.270*) em billboarding dinâmico com recorte alpha de 1-bit e física de recuo ao ser golpeado.
-- **Locomoção Suave com Colisão**: Movimento no analógico esquerdo com deslizamento em cápsula física contra paredes e arquitetura da masmorra (`ctx.collider.move`).
-- **Menus & UIs Holográficas Diegéticas**: Telas do jogo (Inventário, Paperdoll, Ficha e o Mapa de Tamriel / Chargen) abertas em painéis 3D no espaço do mundo com ponteiro laser 6DOF e feedback tátil (haptics).
-- **Telemetria Remota em Tempo Real**: Streaming contínuo de logs e erros do headset Quest 3 para o servidor de desenvolvimento via `/api/vr-log`.
+### Core VR Features:
+- **Calibrated Stereoscopic Optics (Zero Strabismus & Eye Strain)**: Projection parity and convergence adjusted specifically for Meta Quest 3 Pancake lenses using the calibrated **Preset 5** profile (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, `out[0] = -out[0]`).
+- **6DOF Physical Weapon Combat**: Steel longsword in the right hand and flickering dungeon torch in the left hand, with real blade tip velocity tracking and physical strike detection.
+- **Classic Enemies with 6DOF Hit Physics**: Authentic Daggerfall Skeletal Warrior (*TEXTURE.270*) featuring upright billboarding, 1-bit alpha transparency cutout, and dynamic recoil wobble physics when struck.
+- **Smooth Locomotion & Wall Collisions**: Left thumbstick locomotion with genuine capsule sliding collision against 3D dungeon walls and geometry (`ctx.collider.move`), plus 45° snap turn on the right thumbstick.
+- **In-World Diegetic VR Menus & Chargen**: Floating 3D holographic slates for Inventory (Paperdoll), Character Stats, Options, and the full Tamriel Province Map (Character Creation / Chargen) operated with a 6DOF laser pointer and haptic feedback.
+- **Real-Time Remote Telemetry**: Automatic bi-directional streaming of Quest 3 browser logs and exceptions to the development server at `/api/vr-log` saved into `.quest-vr.log`.
 
 ---
 
-## 🚀 Como Rodar e Testar em VR (Quickstart & Testing Guide)
+## 🚀 How to Run & Test in VR (Testing Guide)
 
-### 1. Iniciar o Servidor de Desenvolvimento
-No terminal do computador, execute:
+### 1. Start the Local Development Server
+From the project root directory, run:
 ```bash
 npm run dev
 ```
-O Vite iniciará o servidor em `http://0.0.0.0:5173`.
+Vite will boot the development server listening on `http://0.0.0.0:5173`.
 
-### 2. Acessar no Meta Quest (Quest 2 / Quest 3 / Quest Pro)
+### 2. Open on Meta Quest (Quest 2 / Quest 3 / Quest Pro)
 
-#### Método A: Cabo USB (Recomendado para Desenvolvimento)
-Conecte o Quest via USB com depuração USB ativa e rode no terminal:
+#### Option A: USB Cable (Recommended for Development)
+Connect your Quest to your computer via USB with USB Debugging enabled, and run:
 ```bash
 adb reverse tcp:5173 tcp:5173
 ```
-No navegador do Quest (Meta Quest Browser), abra:
+Inside the Meta Quest Browser, navigate to:
 ```
 http://localhost:5173/vr-dungeon.html
 ```
 
-#### Método B: Rede Wi-Fi Local (Sem Fio)
-Descubra o IP local do seu computador (ex: `192.168.0.30`) e abra no navegador do Quest:
+#### Option B: Local Wi-Fi Network (Wireless)
+Find your computer's local IP address (e.g. `192.168.0.30`) and open in Meta Quest Browser:
 ```
 http://192.168.0.30:5173/vr-dungeon.html
 ```
 
-### 3. Entrar na Masmorra
-Clique no botão verde **"ENTER VR"** no centro da tela.
-- **Analógico Esquerdo**: Andar e deslizar lateralmente (strafe).
-- **Analógico Direito**: Girar a visão (Snap Turn em 45°).
-- **Mão Direita**: Empunhar e golpear com a espada.
-- **Mão Esquerda**: Iluminar os corredores com a tocha.
-- **Botão [Y] / Menu**: Abrir e fechar o Menu Holográfico / Mapa de Tamriel.
-- **Gatilho Direito (Trigger)**: Clicar com o ponteiro laser nas opções do menu.
+### 3. Entering the Dungeon
+Click the green **"ENTER VR"** button in the center of the display.
+- **Left Thumbstick**: Smooth walk and strafe (with collision against dungeon walls).
+- **Right Thumbstick**: Snap turn (45° steps).
+- **Right Hand Controller**: Swing the longsword to strike enemies.
+- **Left Hand Controller**: Hold and maneuver the torch to illuminate dark corners.
+- **Left Controller [Y] or Menu Button**: Toggle the floating Holographic Menu / Tamriel Map.
+- **Right Controller Trigger**: Click buttons and select items with the 6DOF laser ray pointer.
 
 ---
 
-## 🏛️ Arquitetura Modular & Guia de Arquivos (Codebase Map)
+## 🏛️ Modular Architecture & Codebase Map
 
-> **Regra Fundamental de Modularidade**: Todo o código de Realidade Virtual é estritamente isolado no diretório `src/vr/` e na página `vr-dungeon.html`. Nenhuma classe base do jogo original (`PlayerMotor`, `Renderer`, `DungeonContext`, etc.) foi hackeada ou modificada. Isso garante que atualizações do repositório original (`Lattymoy/daggerfall-js-source`) possam ser sincronizadas via `git merge origin/main` sem conflitos.
+> **Strict Modularity Rule**: All VR code is strictly isolated inside the `src/vr/` directory and the standalone entry page `vr-dungeon.html`. No upstream core engine classes (`PlayerMotor`, `Renderer`, `DungeonContext`, physics, quests, etc.) have been altered. This guarantees that future updates from the upstream engine (`origin/main` / `Lattymoy/daggerfall-js-source`) can be merged seamlessly via `git merge origin/main` without code conflicts.
 
-### Mapa de Arquivos VR (`src/vr/`):
+### File Directory Breakdown (`src/vr/`):
 
-| Arquivo | Descrição & Responsabilidade |
+| File | Role & Implementation Details |
 |---|---|
-| [`vr-dungeon.html`](vr-dungeon.html) | Ponto de entrada HTML do WebXR. Configura o canvas WebGL2, meta tags de viewport e inicializa a masmorra. |
-| [`src/vr/vrDungeon.js`](src/vr/vrDungeon.js) | **Masmorra Principal (Privateer's Hold)**. Carrega blocos 3D originais, geometria, luzes, conecta o framebuffer do WebXR layer ao `Renderer` (bypassa FBOs desktop) e orquestra o loop de renderização estéreo. |
-| [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | **Câmera Estereoscópica Calibrada**. Extrai matrizes de pose dos olhos do WebXR, converte o sistema de coordenadas de mão direita (+X, +Y, -Z) para a convenção do jogo (+X, +Y, +Z) e aplica a correção óptica **Preset 5** (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, espelho apenas em `out[0]`). |
-| [`src/vr/xrInput.js`](src/vr/xrInput.js) | **Entrada dos Controles do Quest**. Lê analógicos, botões (A, B, X, Y, Grips, Triggers), calcula locomoção suave com colisão de cápsula contra a masmorra (`ctx.collider.move`) e envia pulsos hápticos (`pulseHaptic`). |
-| [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | **Armas 6DOF**. Controla a espada longa na mão direita e a tocha na esquerda. Rastreia vetor de velocidade da ponta da lâmina (`tipSpeed`) e calcula interseção de caixa de colisão com alvos. |
-| [`src/vr/xrSkeleton.js`](src/vr/xrSkeleton.js) | **Esqueleto Guerreiro (TEXTURE.270)**. Inimigo autêntico com billboarding vertical em direção ao jogador, recorte de transparência 1-bit, cálculo de HP e física de recuo ao ser golpeado. |
-| [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | **Menu Diegético Holográfico**. Renderiza Inventário (Paperdoll), Ficha de Atributos, Opções e o Mapa de Tamriel (Chargen inicial). Possui cálculo de raycasting de laser 6DOF e injeção de cliques. |
-| [`src/vr/xrUI.js`](src/vr/xrUI.js) | **HUD Flutuante de Combate**. Mostra barras de HP do jogador e do inimigo, além do registro do último golpe desferido. |
-| [`src/vr/xrSession.js`](src/vr/xrSession.js) | **Gerenciador de Sessão WebXR**. Solicita sessão `immersive-vr` com `local-floor`, monta o botão de entrada e gerencia ciclo de vida do WebXR. |
-| [`src/vr/xrLog.js`](src/vr/xrLog.js) | **Telemetria Remota**. Intercepta `console.log`, `warn`, `error` e exceções da janela do Quest 3 e envia via `POST /api/vr-log`. |
+| [`vr-dungeon.html`](vr-dungeon.html) | Standalone WebXR HTML entry point. Sets up the WebGL2 canvas, responsive viewport, and boots the dungeon runner. |
+| [`src/vr/vrDungeon.js`](src/vr/vrDungeon.js) | **Main Dungeon Runner (Privateer's Hold)**. Loads 3D dungeon architecture, spawns lights, binds the WebXR layer framebuffer directly to `Renderer` (bypassing desktop post-processing FBOs), and drives the stereo frame loop. |
+| [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | **Stereoscopic Camera & Optics**. Translates WebXR eye poses from right-handed (+X right, +Y up, -Z forward) to Daggerfall world convention (+X, +Y, +Z). Implements calibrated **Preset 5** (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, `out[0] = -out[0]`) eliminating strabismus and eye fatigue. |
+| [`src/vr/xrInput.js`](src/vr/xrInput.js) | **Quest Controller Input System**. Polls thumbsticks, buttons (A, B, X, Y, Triggers, Grips), computes smooth locomotion with capsule collision against dungeon walls (`ctx.collider.move`), and delivers haptic vibration pulses (`pulseHaptic`). |
+| [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | **6DOF Weapon System**. Manages the right-hand steel longsword and left-hand flickering dungeon torch. Tracks blade tip velocity (`tipSpeed`) and calculates bounding sphere strike intersections against targets. |
+| [`src/vr/xrSkeleton.js`](src/vr/xrSkeleton.js) | **Skeletal Warrior (TEXTURE.270)**. Authentic sprite billboard facing the player, 1-bit alpha transparency cutout, health points, and reactive physical wobble upon taking hits. |
+| [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | **In-World Diegetic VR Menu Slate**. Renders Inventory (Paperdoll), Character Stats, Options, and the Map of Tamriel (Chargen). Computes 6DOF laser ray-plane intersections, reticle tracking, and trigger click dispatch. |
+| [`src/vr/xrUI.js`](src/vr/xrUI.js) | **Floating Combat HUD**. In-world floating billboard displaying player and enemy health bars and damage readouts. |
+| [`src/vr/xrSession.js`](src/vr/xrSession.js) | **WebXR Session Lifecycle**. Requests `immersive-vr` sessions with `local-floor` reference space, handles session start/end, and manages the Enter VR UI. |
+| [`src/vr/xrLog.js`](src/vr/xrLog.js) | **Remote Telemetry Client**. Intercepts Quest 3 browser console logs (`log`, `warn`, `error`) and streams them back to the Node dev server. |
 
 ---
 
-## 🛠️ Detalhes Técnicos & Lições Aprendidas (Gotchas & Solutions)
+## 🛠️ Key Technical Findings & Solutions
 
-1. **Tela Preta no WebXR (LightingLane / FBO redirection)**:
-   - *Causa*: O renderer original do Daggerfall criava um FBO offscreen (`_frameFbo`) para pós-processamento de desktop (`AirPass`). O WebGL desenhava tudo no FBO e deixava o buffer do WebXR em branco.
-   - *Solução*: Em VR, chamamos `renderer.setLightingLane(null)` e desenhamos diretamente no `layer.framebuffer` do WebXR.
-2. **Convergência Estéreo e Foco das Lentes (Preset 5)**:
-   - *Causa*: O espelho de coordenadas do Daggerfall Unity inverte o NDC X. Espelhar o centro óptico (`out[8]`) causava distorção e náusea ao olhar para objetos próximos (como a espada).
-   - *Solução*: Espelhar apenas a escala `out[0] = -out[0]` e relaxar a separação virtual de IPD em 75% (`IPD_SCALE = 0.75`). A visão é instantaneamente nítida tanto para armas próximas quanto para paredes distantes.
-3. **Mapeamento de Mão Invertida**:
-   - *Causa*: Multiplicar o eixo X do controle por constantes de espelho da câmera fazia a mão direita mover a espada no lado esquerdo.
-   - *Solução*: As coordenadas de rastreamento do controle do WebXR já são físicas (+X direita, +Y cima, -Z frente) e nunca devem ser invertidas pelo sinal do olho.
+1. **WebXR Black Screen Issue (LightingLane / FBO Redirection)**:
+   - *Cause*: The desktop renderer created an offscreen framebuffer (`_frameFbo`) for screen-space post-processing (`AirPass`). WebGL rendered dungeon geometry into `_frameFbo` while the WebXR layer received only the clear color.
+   - *Solution*: Disabled lighting lane redirection in VR with `renderer.setLightingLane(null)` and rendered geometry directly to the WebXR `layer.framebuffer`.
+2. **Stereoscopic Eye Strain & Focus Convergence (Preset 5)**:
+   - *Cause*: Daggerfall Unity's coordinate parity mirrors NDC X. Mirroring the lens optical center (`out[8]`) caused severe stereoscopic distortion and double-vision when focusing on near objects (like the sword).
+   - *Solution*: Preserved optical center `out[8]`, mirrored only coordinate scale `out[0] = -out[0]`, and relaxed the virtual IPD separation to 75% (`IPD_SCALE = 0.75`). Near and far objects now focus naturally and comfortably.
+3. **Inverted Controller Coordinates**:
+   - *Cause*: Multiplying controller positions by camera parity flags flipped the right hand to the left side.
+   - *Solution*: WebXR controller input coordinates are physical (+X right, +Y up, -Z forward) and must never be multiplied by the eye mirror flag.
 
 ---
 
-## 📜 Sobre o Jogo Base (DFO Online)
+## 📜 Upstream Game Engine (DFO Online)
 
-Este mod é construído sobre o **DFO Online**, uma reimplementação open-source em WebGL2 de *The Elder Scrolls II: Daggerfall*.
+This project builds upon **DFO Online**, an open-source WebGL2 reimplementation of *The Elder Scrolls II: Daggerfall*.
 
-### Scripts Úteis:
-- `npm run dev`: Inicia o servidor Vite local.
-- `npm run build`: Compila o bundle de produção.
-- `npm test`: Executa os testes automatizados do motor.
-- `npm run lint`: Checa a sintaxe e padrões de código.
+### Useful Commands:
+- `npm run dev`: Starts local Vite dev server.
+- `npm run build`: Builds production distribution bundle.
+- `npm test`: Runs automated engine tests.
+- `npm run lint`: Validates code style and syntax rules.
 
-### Licença
-Distribuído sob a licença **MIT**.
-The Elder Scrolls e Daggerfall são marcas registradas da Bethesda Softworks / ZeniMax Media Inc. Este é um projeto sem fins lucrativos e não oficial feito por fãs.
+### License
+Released under the **MIT License**.
+The Elder Scrolls and Daggerfall are registered trademarks of Bethesda Softworks / ZeniMax Media Inc. This is an unofficial, non-commercial fan project.
