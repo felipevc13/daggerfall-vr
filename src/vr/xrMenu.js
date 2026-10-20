@@ -14,9 +14,12 @@ export class XrMenu {
   constructor(renderer) {
     this.renderer = renderer;
     this.isOpen = false;
-    this.activeTab = 'inventory'; // 'inventory' | 'stats' | 'chargen' | 'options'
+    this.activeTab = 'inventory'; // 'inventory' | 'stats' | 'chargen' | 'chat' | 'options'
     this.voice = new XrVoiceManager();
     this._leftGripLatched = false;
+    this.chatMessages = [];
+    this._lastChatPoll = 0;
+    this._pollChat();
 
     // Offscreen Canvas (1024x640) for high-resolution retro fantasy rendering
     this.canvas = document.createElement('canvas');
@@ -219,6 +222,18 @@ export class XrMenu {
     return { pos: hit, distance: t, u, v, px, py };
   }
 
+  _pollChat() {
+    fetch('/api/vr-chat')
+      .then((res) => res.json())
+      .then((msgs) => {
+        if (Array.isArray(msgs) && msgs.length !== this.chatMessages.length) {
+          this.chatMessages = msgs;
+          this.dirty = true;
+        }
+      })
+      .catch(() => {});
+  }
+
   /**
    * Polls input, handles laser raycast and button clicks
    * @param {import('./xrInput.js').XrInputManager} xrInput
@@ -261,6 +276,12 @@ export class XrMenu {
     }
 
     if (!this.isOpen) return;
+
+    // Periodic poll for AI responses in dev/testing mode
+    if (!this._lastChatPoll || Date.now() - this._lastChatPoll > 1500) {
+      this._lastChatPoll = Date.now();
+      this._pollChat();
+    }
 
     // Compute right hand ray
     if (right.pose && right.pose.transform) {
@@ -344,15 +365,16 @@ export class XrMenu {
     // --- TOP NAVIGATION TABS ---
     const tabs = [
       { id: 'inventory', label: '🎒 INVENTÁRIO' },
-      { id: 'stats', label: '📜 FICHA DO HERÓI' },
-      { id: 'chargen', label: '🗺️ MAPA DE TAMRIEL' },
+      { id: 'stats', label: '📜 FICHA' },
+      { id: 'chargen', label: '🗺️ MAPA TAMRIEL' },
+      { id: 'chat', label: '💬 IA CHAT (DEV)' },
       { id: 'options', label: '⚙️ OPÇÕES' },
     ];
 
-    let tabX = 30;
+    let tabX = 25;
     for (const tab of tabs) {
       const active = this.activeTab === tab.id;
-      const tabW = 210, tabH = 46;
+      const tabW = 170, tabH = 46;
 
       ctx.fillStyle = active ? '#c49746' : '#1c2230';
       ctx.fillRect(tabX, 26, tabW, tabH);
@@ -362,9 +384,9 @@ export class XrMenu {
       ctx.strokeRect(tabX, 26, tabW, tabH);
 
       ctx.fillStyle = active ? '#111622' : '#e0e6ed';
-      ctx.font = 'bold 18px sans-serif';
+      ctx.font = 'bold 15px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(tab.label, tabX + tabW / 2, 56);
+      ctx.fillText(tab.label, tabX + tabW / 2, 55);
 
       this.buttons.push({
         id: tab.id,
@@ -372,7 +394,7 @@ export class XrMenu {
         onClick: () => { this.activeTab = tab.id; },
       });
 
-      tabX += tabW + 15;
+      tabX += tabW + 12;
     }
 
     // Close Button [X]
@@ -398,6 +420,8 @@ export class XrMenu {
       this._renderStatsTab(ctx, w, h);
     } else if (this.activeTab === 'chargen') {
       this._renderChargenTab(ctx, w, h);
+    } else if (this.activeTab === 'chat') {
+      this._renderChatTab(ctx, w, h);
     } else if (this.activeTab === 'options') {
       this._renderOptionsTab(ctx, w, h);
     }
@@ -430,9 +454,15 @@ export class XrMenu {
     }
 
     ctx.fillStyle = isRecording ? '#fef2f2' : (isSent ? '#dcfce7' : '#e2e8f0');
-    ctx.font = 'bold 16px sans-serif';
+    ctx.font = 'bold 15px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(this.voice.statusMessage, w / 2, barY + 26);
+
+    const latestAi = [...this.chatMessages].reverse().find((m) => m.sender === 'ai');
+    let displayText = this.voice.statusMessage;
+    if (this.voice.status === 'idle' && latestAi) {
+      displayText = `🤖 IA (${latestAi.time}): "${latestAi.text}"`;
+    }
+    ctx.fillText(displayText, w / 2, barY + 26);
 
     this.buttons.push({
       id: 'voice_mic_btn',
@@ -710,6 +740,59 @@ export class XrMenu {
         this.close();
       },
     });
+  }
+
+  _renderChatTab(ctx, w, h) {
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(40, 90, 940, 480);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(40, 90, 940, 480);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('💬 FEED DE CONVERSA COM A IA (MODO TESTE / DESENVOLVIMENTO)', 60, 125);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('Segure o Grip Esquerdo no controle para falar pelo microfone do Quest ou leia as respostas abaixo:', 60, 150);
+
+    // Render dialogue bubbles (last 5 messages)
+    const recent = this.chatMessages.slice(-5);
+    let my = 175;
+
+    if (recent.length === 0) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'italic 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Nenhuma mensagem ainda. Segure o Grip Esquerdo no controle e fale algo!', w / 2, 320);
+    } else {
+      for (const msg of recent) {
+        const isUser = msg.sender === 'user';
+        const bubbleW = 860;
+        const bubbleH = 54;
+
+        ctx.fillStyle = isUser ? '#164e63' : '#1e1b4b';
+        ctx.fillRect(60, my, bubbleW, bubbleH);
+        ctx.strokeStyle = isUser ? '#06b6d4' : '#818cf8';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(60, my, bubbleW, bubbleH);
+
+        // Sender badge
+        ctx.fillStyle = isUser ? '#22d3ee' : '#a5b4fc';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(isUser ? `🧑 VOCÊ (${msg.time}):` : `🤖 ANTIGRAVITY (${msg.time}):`, 75, my + 20);
+
+        // Message body
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '15px sans-serif';
+        ctx.fillText(msg.text, 75, my + 42);
+
+        my += 64;
+      }
+    }
   }
 
   _renderOptionsTab(ctx, w, h) {
