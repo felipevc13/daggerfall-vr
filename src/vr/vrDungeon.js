@@ -9,7 +9,7 @@
 
 import { Renderer, WORLD_FRAME } from '../render/renderer.js';
 import { lookAt, perspective, mirrorProjectionX, identity, UP_Y } from '../world/mat4.js';
-import { eyeMatrices, setVrEyeX } from './xrCamera.js';
+import { eyeMatrices } from './xrCamera.js';
 import { enterVrSession, endVrSession, makeEnterVrButton, viewerPose, requestFrame } from './xrSession.js';
 import { XrInputManager } from './xrInput.js';
 import { XrWeapons } from './xrWeapons.js';
@@ -37,7 +37,6 @@ const renderer = new Renderer(canvas);
 
 const NEAR = Number(params.get('near') ?? 0.05);
 const FAR = Number(params.get('far') ?? 600);
-if (params.has('eye')) setVrEyeX(Number(params.get('eye')));
 
 const regionName = params.get('region') || 'Daggerfall';
 const dungeonName = params.get('dungeon') || "Privateer's Hold";

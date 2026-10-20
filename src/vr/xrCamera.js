@@ -51,6 +51,8 @@ export const VR_EYE_X = 1;
 export const IPD_SCALE = 0.75;
 
 export function vrEyeX() { return VR_EYE_X; }
+export function setVrEyeX() {}
+export function setStereoProfile() {}
 
 /** WebXR vector -> the game's frame: (x, y, z) -> (x, y, -z). The module's one
  *  handedness conversion (the file header's law). Answers a fresh triple. */
