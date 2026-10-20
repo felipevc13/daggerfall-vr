@@ -1521,8 +1521,8 @@ test('FIELD-GUN19: the shot leaves the barrel through the WORLD STRIP, not the c
   // canvas, which is the bug - and it survived a campaign that only
   // asked whether the getter existed.
   const begin = renderer.slice(renderer.indexOf('const r = this._worldViewportPending;'));
-  assert.match(begin.slice(0, 300), /this\._worldViewportFrame = r \? \{ \.\.\.r \} : null;/,
-    'the frame\'s strip is recorded where the pending rect is taken, or the getter is always null');
+  assert.match(begin.slice(0, 500), /this\._worldViewportFrame = !this\._xrTarget && r \? \{ \.\.\.r \} : null;/,
+    'the frame\'s strip is recorded where the pending rect is taken, or the getter is always null');   // PIN MOVED (VR1): a headset eye drops the canvas rect; a flat frame (_xrTarget null) records it as before
   const endWorld = renderer.slice(renderer.indexOf('endWorldPass()'), renderer.indexOf('endWorldPass()') + 400);
   assert.doesNotMatch(endWorld, /_worldViewportFrame/,
     'endWorldPass clears the GL viewport, which is state - it must NOT clear the record the 2D pass reads');

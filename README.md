@@ -4,6 +4,8 @@ A VR mod for [DFO](https://daggerfalljs.dev/), the browser reimplementation of *
 
 **Status:** a single-dungeon demo. Privateer's Hold can be entered in VR from `vr-dungeon.html`. The online flow (`/play/`, and the live site) does not offer Enter VR yet. That button is the integration this repo is aiming at. Non-VR players are unaffected because `src/main.js` does not import `src/vr`.
 
+Play it: https://daggerfalljs.dev/
+
 [![WebXR](https://img.shields.io/badge/WebXR-Meta%20Quest%203%20Native-blue.svg)](https://immersiveweb.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-felipevc13%2Fdaggerfall--vr-success.svg)](https://github.com/felipevc13/daggerfall-vr)
@@ -42,7 +44,7 @@ Players can step into Privateer's Hold through the Quest Browser without PCVR or
 - **Classic Enemies with 6DOF Hit Physics**: Authentic Daggerfall Skeletal Warrior (*TEXTURE.270*) featuring upright billboarding, 1-bit alpha transparency cutout, and dynamic recoil wobble physics when struck.
 - **Smooth Locomotion & Wall Collisions**: Left thumbstick locomotion with genuine capsule sliding collision against 3D dungeon walls and geometry (`ctx.collider.move`), plus 45° snap turn on the right thumbstick.
 - **In-World Diegetic VR Menus & Chargen**: Floating 3D holographic slates for Inventory (Paperdoll), Character Stats, Options, and the full Tamriel Province Map (Character Creation / Chargen) operated with a 6DOF laser pointer and haptic feedback.
-- **Real-Time Remote Telemetry**: Automatic bi-directional streaming of Quest 3 browser logs and exceptions to the development server at `/api/vr-log` saved into `.quest-vr.log`.
+- **Real-Time Remote Telemetry**: On a `?shot` boot, Quest 3 browser logs and exceptions stream to the development server at `/api/vr-log` and are saved into `.quest-vr.log`. The same shot gate covers the frame counter.
 
 ---
 
@@ -64,7 +66,7 @@ Upstream engine (do not treat as the mod): `src/characters`, `src/world`, `src/r
 | [`src/vr/xrInput.js`](src/vr/xrInput.js) | Sticks, snap turn, collisions, haptics. |
 | [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | Sword and torch. |
 | [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | In-world menu, X/Y, voice grip. |
-| [`src/vr/xrLog.js`](src/vr/xrLog.js) | Posts logs to `/api/vr-log` on the dev server. |
+| [`src/vr/xrLog.js`](src/vr/xrLog.js) | On a `?shot` boot, posts logs to `/api/vr-log` on the dev server. |
 | [`vr-dungeon.html`](vr-dungeon.html), [`src/vr/vrDungeon.js`](src/vr/vrDungeon.js) | Privateer's Hold demo. |
 | [`vr.html`](vr.html), [`src/tools/vrLab.js`](src/tools/vrLab.js) | Empty-room lab. |
 

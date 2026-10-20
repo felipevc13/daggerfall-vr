@@ -33,7 +33,7 @@ let ok = true;
 const near = (a, b, t = 1e-4) => Math.abs(a - b) < t;
 
 try {
-  await page.goto('http://localhost:5201/vr.html');
+  await page.goto('http://localhost:5201/vr.html?shot');
   await page.waitForFunction(() => typeof window.__frame === 'number' && window.__frame > 3, null, { timeout: 20000 });
   console.log('[vr] flat preview frames:', await page.evaluate(() => window.__frame));
 

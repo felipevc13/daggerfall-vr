@@ -316,7 +316,7 @@
   {
     "name": "SUPPORT1-readme-old-kofi",
     "file": "README.md",
-    "old": "Support on Ko-fi: https://ko-fi.com/daggerfallonline",
+    "old": "The mod runs in the Meta Quest Browser through WebXR.",
     "new": "Support on Ko-fi: https://ko-fi.com/dfjs",
     "tests": [
       "test/ui/enhanced/landing.test.js"

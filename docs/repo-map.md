@@ -105,7 +105,7 @@ Through `engineBridge.js`: `gameMat4` (lookAt, perspective, mirrorProjectionX, i
 
 ## Workflows
 
-Inherited from upstream unless noted. Do not edit them to "tidy" the fork.
+Inherited from upstream unless noted. Do not edit them to "tidy" the fork. Pins that still differ from upstream on purpose (the README door, the relay and desktop push triggers, the committed `UPDATE` stamp, the relay bundle hash) are `test/fork/overrides.js`. The reason for each is `docs/fork-ci.md`.
 
 | Workflow | When it runs | What it does | On this fork |
 | --- | --- | --- | --- |

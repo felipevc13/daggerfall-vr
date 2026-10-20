@@ -45,7 +45,7 @@ node --test test/vr/engineContract.test.js
 npm run test:changed       # tests the changed files can move
 ```
 
-`CLAUDE.md` is still the bar before a push that touches the engine: lint, types, the bible gates (`test/bible/manifest`, `citeanchor`, `citedrift`, `mutantdrift`, `audit18_bible_docs`, `ledger`), and `npm run test:changed`. CI's `verify` workflow runs the full gate on the PR. A PR that conflicts with its base runs no workflow. Do not cite code with line numbers in `bible/`, `test/`, `src/`, or `tools/`. Use an anchor (`file.js:"the line"`) or run `npm run cites -- --apply`.
+`CLAUDE.md` is still the bar before a push that touches the engine: lint, types, the bible gates (`test/bible/manifest`, `citeanchor`, `citedrift`, `mutantdrift`, `audit18_bible_docs`, `ledger`), and `npm run test:changed`. CI's `verify` workflow runs the full gate on the PR. A PR that conflicts with its base runs no workflow. Fork pins that still differ from upstream (the README door, the relay and desktop push triggers, the committed `UPDATE` stamp, the relay bundle hash) live in `test/fork/overrides.js`. Why each one is there: `docs/fork-ci.md`. Do not delete an upstream test to make this fork green. Do not cite code with line numbers in `bible/`, `test/`, `src/`, or `tools/`. Use an anchor (`file.js:"the line"`) or run `npm run cites -- --apply`.
 
 `npm test` is the whole suite (thousands of files). Use it when the change can move hosts the pins read, or leave it to CI. Do not delete a test to go green.
 
