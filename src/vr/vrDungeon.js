@@ -15,6 +15,7 @@ import { XrInputManager } from './xrInput.js';
 import { XrWeapons } from './xrWeapons.js';
 import { XrSkeleton } from './xrSkeleton.js';
 import { XrCombatUI } from './xrUI.js';
+import { XrMenu } from './xrMenu.js';
 
 import { DFPalette } from '../formats/dfPalette.js';
 import { BlocksFile } from '../formats/blocksFile.js';
@@ -67,6 +68,7 @@ let player = null;
 let skeleton = null;
 let weapons = null;
 let combatUI = null;
+let menu = null;
 let xrInput = null;
 
 let presenting = false;
@@ -137,6 +139,9 @@ async function boot() {
   // Floating VR Status UI
   combatUI = new XrCombatUI(renderer, [spawn[0], spawn[1] + 1.8, spawn[2] + 4.2], 0);
 
+  // In-World Diegetic VR Menu Slate (Inventory, Chargen, Stats, Options)
+  menu = new XrMenu(renderer);
+
   dbg('Pronto! Coloque o Quest e aperte Enter VR para entrar na masmorra!');
 }
 
@@ -187,6 +192,9 @@ function drawDungeonPass(proj, view, eyePos) {
   // 6. In-World VR Status UI
   if (combatUI) combatUI.draw();
 
+  // 7. In-World Diegetic Menu Slate
+  if (menu) menu.draw();
+
   renderer.resolveFrame();
 }
 
@@ -197,10 +205,18 @@ function xrFrame(time, frame) {
     lastTime = time;
 
     // 1. Locomotion on Quest controllers (with dungeon capsule collision)
+    // Pauses locomotion when menu is open so player can freely click items
     xrInput.poll(session, refSpace, frame);
-    xrInput.updateLocomotion(rig, dt, 0, ctx?.collider);
+    if (!menu || !menu.isOpen) {
+      xrInput.updateLocomotion(rig, dt, 0, ctx?.collider);
+    }
 
-    // 2. Update Weapons & Collision with Skeletal Warrior
+    // 2. In-World Menu Raycasting & Hover/Click Input
+    if (menu) {
+      menu.update(xrInput, rig);
+    }
+
+    // 3. Update Weapons & Collision with Skeletal Warrior
     const targets = [];
     if (skeleton && skeleton.loaded) {
       targets.push({

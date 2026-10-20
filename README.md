@@ -1,105 +1,110 @@
-# DFO Online
+# Daggerfall VR — Standalone WebXR Edition
 
-**DFO Online** - an open-source reimplementation of a classic 1996 RPG,
-played from your own copy of The Elder Scrolls II: Daggerfall. It began as a
-1:1 port of Daggerfall Unity (MIT, Interkarma and contributors) and is now its
-own game: Daggerfall Unity is the reference for its data layer and logic, not a
-target to match. Presentation rebuilt on hand-rolled WebGL2. MIT licensed, with
-Daggerfall Unity's notice alongside (LICENSE). DFO Online is an independent,
-unofficial project, not affiliated with or endorsed by Bethesda Softworks or
-ZeniMax Media. The Elder Scrolls and Daggerfall are trademarks of ZeniMax
-Media Inc.
+> **The Elder Scrolls II: Daggerfall** running natively in Standalone VR for Meta Quest 2, Quest 3, and Quest Pro via WebXR, built on top of the open-source DFO WebGL2 engine.
 
-The project's working name in the docs and the code is `project-dagger`, and
-the repository, the live domain, the servers and the desktop app's identifier
-still carry the old `daggerfall` spellings - renaming those is a move outside
-this tree (BR1, BR5).
+[![WebXR](https://img.shields.io/badge/WebXR-Meta%20Quest%203%20Native-blue.svg)](https://immersiveweb.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-felipevc13%2Fdaggerfall--vr-success.svg)](https://github.com/felipevc13/daggerfall-vr)
 
-Play it: https://daggerfalljs.dev/
+---
 
-The site is `index.html` (what it is, how to play, credits); the game is
-`play/index.html`, served at `/play/`. Both deploy from `main` to GitHub
-Pages. The landing page takes its palette and fonts from the enhanced skin
-at build (`scripts/landingHtml.mjs`) and carries no game data or imagery.
+## 🧭 Visão Geral do Projeto (Overview for Developers & Agents)
 
-Docs live in `bible/` - start at `bible/Home.md`.
+Este repositório adiciona suporte completo a **Realidade Virtual Standalone (6DOF)** para o Daggerfall, permitindo que o jogador entre nas masmorras clássicas de Tamriel (começando pela icônica *Privateer's Hold*) diretamente pelo navegador **Meta Quest Browser** sem a necessidade de PCVR ou cabos.
 
-Original game data (ARENA2) is required and never committed. Point tests at it
-with `ARENA2_PATH`.
+### Destaques da Implementação VR:
+- **Óptica Estereoscópica Calibrada (Zero Estrabismo)**: Projeção de paridade esquerda/direita ajustada especificamente para as lentes Pancake do Quest 3 (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, `proj[0] = -proj[0]`).
+- **Combate Físico 6DOF**: Espada longa de ferro na mão direita e tocha iluminando a masmorra na mão esquerda com detecção de velocidade e impacto.
+- **Inimigos Clássicos Autênticos**: Esqueleto Guerreiro (*TEXTURE.270*) em billboarding dinâmico com recorte alpha de 1-bit e física de recuo ao ser golpeado.
+- **Locomoção Suave com Colisão**: Movimento no analógico esquerdo com deslizamento em cápsula física contra paredes e arquitetura da masmorra (`ctx.collider.move`).
+- **Menus & UIs Holográficas Diegéticas**: Telas do jogo (Inventário, Paperdoll, Ficha e o Mapa de Tamriel / Chargen) abertas em painéis 3D no espaço do mundo com ponteiro laser 6DOF e feedback tátil (haptics).
+- **Telemetria Remota em Tempo Real**: Streaming contínuo de logs e erros do headset Quest 3 para o servidor de desenvolvimento via `/api/vr-log`.
 
-## Support development
+---
 
-DFO Online is free and open source. Active development currently
-costs about **$600 per month** to sustain across development tooling,
-multiplayer infrastructure, testing, builds, releases, and mod compatibility
-work.
+## 🚀 Como Rodar e Testar em VR (Quickstart & Testing Guide)
 
-Support on Patreon: https://www.patreon.com/c/dfenhanced
-
-Support on Ko-fi: https://ko-fi.com/daggerfallonline
-
-The monthly goal, suggested support levels, and funding breakdown are in
-[`SUPPORT.md`](SUPPORT.md). Sponsorship does not lock gameplay, source code,
-or normal releases behind a paywall.
-
-## Reporting exploits and security issues
-
-Privately, please: type `/bug` in the game, or see [`SECURITY.md`](SECURITY.md)
-for the other ways in and what to include. Please don't post exploits in public until
-they are fixed.
-
-## Scripts
-
-Node 20.19+ or 22.12+ (Vite 8's floor; CI runs 22).
-
-- `npm run dev` - Vite dev server
-- `npm test` - Node test runner
-- `npm run build` - production build
-- `npm run lint` - eslint over `src/` (no-undef, no-dupe-keys, ...)
-- `npm run check` - lint + test + build (pre-push gate)
-- `npm run cites [-- --apply | -- --check]` - write a line number cited into our code as an anchor, `file.js:"the line's text"`, and resolve every anchor (tools/citeAnchor.mjs)
-- `npm run shot [out.png]` - headless render proof (needs ARENA2_PATH + provisioned Chromium)
-- `node tools/landingProbe.mjs` - the landing page and `/play/` in a real browser, no ARENA2 needed
-- `node tools/verify-deploy.mjs` - after a push: proves the live `/play/` serves your commit
-
-## Desktop app
-
-`app/` is the downloadable build: an Electron shell that loads the
-same `dist/` the website deploys and adds what a browser can't -
-**saves as real files** (DFU's own layout: `Saves/SAVE<n>/SaveData.txt`
-+ `SaveInfo.txt` + `Screenshot.jpg`, settings under `Prefs/`) and
-**ARENA2 read straight from your folder on disk** (found for you on
-first run, or picked once - no ingest, no diet, full sky sets). The browser build
-is unchanged; the storage seam is `src/systems/appStorage.js`.
-
+### 1. Iniciar o Servidor de Desenvolvimento
+No terminal do computador, execute:
+```bash
+npm run dev
 ```
-npm run build && cd app && npm install && npm start
+O Vite iniciará o servidor em `http://0.0.0.0:5173`.
+
+### 2. Acessar no Meta Quest (Quest 2 / Quest 3 / Quest Pro)
+
+#### Método A: Cabo USB (Recomendado para Desenvolvimento)
+Conecte o Quest via USB com depuração USB ativa e rode no terminal:
+```bash
+adb reverse tcp:5173 tcp:5173
+```
+No navegador do Quest (Meta Quest Browser), abra:
+```
+http://localhost:5173/vr-dungeon.html
 ```
 
-The app opens on a **launcher** (`app/launcher/`), the game's front
-door: the latest patch notes (what came since you last played marked
-NEW), your game files, saves and update settings, and a big **Play**. It
-checks for an update and brings it before you play - the game's own
-files, only those that changed, on every platform; a release that changes
-the app itself is installed by the Windows `-setup` install and the Linux
-AppImage, and offered as a download on macOS and the portable exe - and on first run finds
-Daggerfall - on Steam, GOG, in Daggerfall Unity's settings, or an
-unpacked DaggerfallGameFiles.zip. An update that lands mid-session is
-told in the game and waits under File > Restart to Update (on macOS and
-the portable exe, File > Download v...).
+#### Método B: Rede Wi-Fi Local (Sem Fio)
+Descubra o IP local do seu computador (ex: `192.168.0.30`) e abra no navegador do Quest:
+```
+http://192.168.0.30:5173/vr-dungeon.html
+```
 
-`npm run dist` in `app/` packages installers. Every push to main
-builds them for all three OSes and publishes them as ONE GitHub Release
-(`.github/workflows/release-desktop.yml`: staged as a draft, published
-whole once every OS built) at `app-v<major>.<minor>.<commit count>` -
-the version is derived from the commit, never bumped by hand - with the
-`## Patch notes` of every pull request it brings as its notes (written in
-the PR description, never as a file in the tree). The files carry no version in
-their names, so `releases/latest/download/DFO-Online-win-x64-setup.exe`
-(and `-mac-arm64.dmg`, `-linux-x86_64.AppImage`) is always the newest,
-and the landing page links each directly. Pushing a tag shaped `app-v*`
-cuts one by hand. Details
-in `bible/01-Overview/Desktop-App.md`; headless proof:
-`xvfb-run -a node tools/appShellProbe.mjs` (point `DAGGER_SHELL_EXE`
-at a packaged binary to prove an installer's payload). The packaged
-app bundles NO game data - same doctrine as the site.
+### 3. Entrar na Masmorra
+Clique no botão verde **"ENTER VR"** no centro da tela.
+- **Analógico Esquerdo**: Andar e deslizar lateralmente (strafe).
+- **Analógico Direito**: Girar a visão (Snap Turn em 45°).
+- **Mão Direita**: Empunhar e golpear com a espada.
+- **Mão Esquerda**: Iluminar os corredores com a tocha.
+- **Botão [Y] / Menu**: Abrir e fechar o Menu Holográfico / Mapa de Tamriel.
+- **Gatilho Direito (Trigger)**: Clicar com o ponteiro laser nas opções do menu.
+
+---
+
+## 🏛️ Arquitetura Modular & Guia de Arquivos (Codebase Map)
+
+> **Regra Fundamental de Modularidade**: Todo o código de Realidade Virtual é estritamente isolado no diretório `src/vr/` e na página `vr-dungeon.html`. Nenhuma classe base do jogo original (`PlayerMotor`, `Renderer`, `DungeonContext`, etc.) foi hackeada ou modificada. Isso garante que atualizações do repositório original (`Lattymoy/daggerfall-js-source`) possam ser sincronizadas via `git merge origin/main` sem conflitos.
+
+### Mapa de Arquivos VR (`src/vr/`):
+
+| Arquivo | Descrição & Responsabilidade |
+|---|---|
+| [`vr-dungeon.html`](vr-dungeon.html) | Ponto de entrada HTML do WebXR. Configura o canvas WebGL2, meta tags de viewport e inicializa a masmorra. |
+| [`src/vr/vrDungeon.js`](src/vr/vrDungeon.js) | **Masmorra Principal (Privateer's Hold)**. Carrega blocos 3D originais, geometria, luzes, conecta o framebuffer do WebXR layer ao `Renderer` (bypassa FBOs desktop) e orquestra o loop de renderização estéreo. |
+| [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | **Câmera Estereoscópica Calibrada**. Extrai matrizes de pose dos olhos do WebXR, converte o sistema de coordenadas de mão direita (+X, +Y, -Z) para a convenção do jogo (+X, +Y, +Z) e aplica a correção óptica **Preset 5** (`VR_EYE_X = 1`, `IPD_SCALE = 0.75`, espelho apenas em `out[0]`). |
+| [`src/vr/xrInput.js`](src/vr/xrInput.js) | **Entrada dos Controles do Quest**. Lê analógicos, botões (A, B, X, Y, Grips, Triggers), calcula locomoção suave com colisão de cápsula contra a masmorra (`ctx.collider.move`) e envia pulsos hápticos (`pulseHaptic`). |
+| [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | **Armas 6DOF**. Controla a espada longa na mão direita e a tocha na esquerda. Rastreia vetor de velocidade da ponta da lâmina (`tipSpeed`) e calcula interseção de caixa de colisão com alvos. |
+| [`src/vr/xrSkeleton.js`](src/vr/xrSkeleton.js) | **Esqueleto Guerreiro (TEXTURE.270)**. Inimigo autêntico com billboarding vertical em direção ao jogador, recorte de transparência 1-bit, cálculo de HP e física de recuo ao ser golpeado. |
+| [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | **Menu Diegético Holográfico**. Renderiza Inventário (Paperdoll), Ficha de Atributos, Opções e o Mapa de Tamriel (Chargen inicial). Possui cálculo de raycasting de laser 6DOF e injeção de cliques. |
+| [`src/vr/xrUI.js`](src/vr/xrUI.js) | **HUD Flutuante de Combate**. Mostra barras de HP do jogador e do inimigo, além do registro do último golpe desferido. |
+| [`src/vr/xrSession.js`](src/vr/xrSession.js) | **Gerenciador de Sessão WebXR**. Solicita sessão `immersive-vr` com `local-floor`, monta o botão de entrada e gerencia ciclo de vida do WebXR. |
+| [`src/vr/xrLog.js`](src/vr/xrLog.js) | **Telemetria Remota**. Intercepta `console.log`, `warn`, `error` e exceções da janela do Quest 3 e envia via `POST /api/vr-log`. |
+
+---
+
+## 🛠️ Detalhes Técnicos & Lições Aprendidas (Gotchas & Solutions)
+
+1. **Tela Preta no WebXR (LightingLane / FBO redirection)**:
+   - *Causa*: O renderer original do Daggerfall criava um FBO offscreen (`_frameFbo`) para pós-processamento de desktop (`AirPass`). O WebGL desenhava tudo no FBO e deixava o buffer do WebXR em branco.
+   - *Solução*: Em VR, chamamos `renderer.setLightingLane(null)` e desenhamos diretamente no `layer.framebuffer` do WebXR.
+2. **Convergência Estéreo e Foco das Lentes (Preset 5)**:
+   - *Causa*: O espelho de coordenadas do Daggerfall Unity inverte o NDC X. Espelhar o centro óptico (`out[8]`) causava distorção e náusea ao olhar para objetos próximos (como a espada).
+   - *Solução*: Espelhar apenas a escala `out[0] = -out[0]` e relaxar a separação virtual de IPD em 75% (`IPD_SCALE = 0.75`). A visão é instantaneamente nítida tanto para armas próximas quanto para paredes distantes.
+3. **Mapeamento de Mão Invertida**:
+   - *Causa*: Multiplicar o eixo X do controle por constantes de espelho da câmera fazia a mão direita mover a espada no lado esquerdo.
+   - *Solução*: As coordenadas de rastreamento do controle do WebXR já são físicas (+X direita, +Y cima, -Z frente) e nunca devem ser invertidas pelo sinal do olho.
+
+---
+
+## 📜 Sobre o Jogo Base (DFO Online)
+
+Este mod é construído sobre o **DFO Online**, uma reimplementação open-source em WebGL2 de *The Elder Scrolls II: Daggerfall*.
+
+### Scripts Úteis:
+- `npm run dev`: Inicia o servidor Vite local.
+- `npm run build`: Compila o bundle de produção.
+- `npm test`: Executa os testes automatizados do motor.
+- `npm run lint`: Checa a sintaxe e padrões de código.
+
+### Licença
+Distribuído sob a licença **MIT**.
+The Elder Scrolls e Daggerfall são marcas registradas da Bethesda Softworks / ZeniMax Media Inc. Este é um projeto sem fins lucrativos e não oficial feito por fãs.
