@@ -225,12 +225,13 @@ export class XrMenu {
     const left = xrInput.state.left;
     const right = xrInput.state.right;
 
-    // Toggle menu with [Y] button or [X]
-    if (left.yBtn && !this._toggleLatched) {
+    // Toggle menu with [Y] or [X] button on left controller
+    const togglePressed = left.yBtn || left.xBtn;
+    if (togglePressed && !this._toggleLatched) {
       this.toggle(rig);
       xrInput.pulseHaptic('left', 0.5, 40);
     }
-    this._toggleLatched = left.yBtn;
+    this._toggleLatched = togglePressed;
 
     // Close with [B] if open
     if (this.isOpen && right.bBtn) {

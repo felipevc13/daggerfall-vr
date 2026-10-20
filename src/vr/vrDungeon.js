@@ -216,9 +216,9 @@ function xrFrame(time, frame) {
       menu.update(xrInput, rig);
     }
 
-    // 3. Update Weapons & Collision with Skeletal Warrior
+    // 3. Update Weapons & Collision with Skeletal Warrior (only active when menu is closed)
     const targets = [];
-    if (skeleton && skeleton.loaded) {
+    if (!menu?.isOpen && skeleton && skeleton.loaded) {
       targets.push({
         id: 'skeleton',
         pos: skeleton.pos,
