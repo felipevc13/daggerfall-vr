@@ -1,7 +1,11 @@
 // Remote Telemetry & Error Logger for Meta Quest Standalone VR
 // Streams console logs, WebXR events, and runtime errors to the host machine via /api/vr-log.
+// ANTICHEAT A2: the install, including window.__vrLoggerInstalled, runs only on a ?shot boot.
 
-(function initRemoteLogger() {
+import { pageHas } from '../systems/pageQuery.js';
+
+function installVrLogger() {
+  if (pageHas('shot')) {
   if (window.__vrLoggerInstalled) return;
   window.__vrLoggerInstalled = true;
 
@@ -85,4 +89,7 @@
     `Screen: ${window.innerWidth}x${window.innerHeight}`,
     `WebXR Available: ${'xr' in navigator}`,
   ]);
-})();
+  }
+}
+
+if (typeof window !== 'undefined') installVrLogger();

@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { graph } from '../importGraph.mjs';   // ACC4: the walk moved to a helper so the ACCOUNT Worker's deploy filter is held to its own graph by the same law
 import { RELAY_VERSION } from '../../src/net/wire.js';   // LOCALDEV1: the worker entry exports handlers alone
+import { FORK } from '../fork/overrides.js';   // world219's hash on this fork; the version is not bumped
 
 /** SLAM13 (AUDIT SLAM, final lens): THE LAW IS THE WHOLE BUNDLE, not two files. wrangler bundles every relative import
  *  the worker reaches - server/src/relay.js, src/net/wire.js and, since ONCRASH1, src/world/mat4.js (wrapAngle, which
@@ -270,9 +271,17 @@ test('SLAM8: RELAY_VERSION names exactly one relay law - change the worker or th
   for (const f of RELAY_GRAPH) h.update(rd(f));
   const hash = h.digest('hex');
   assert.ok(LAW[RELAY_VERSION], `RELAY_VERSION is '${RELAY_VERSION}' and this file has no law recorded for it - add the row`);
-  assert.equal(hash, LAW[RELAY_VERSION],
+  // FORK: the recorded row stays upstream's bytes. This checkout's hash is
+  // test/fork/overrides.js, and it must not equal that row - when it does,
+  // the override is stale and comes out. Do not bump RELAY_VERSION for it.
+  const forkHash = FORK.relayLawHash[RELAY_VERSION];
+  if (forkHash) assert.notEqual(forkHash, LAW[RELAY_VERSION], `upstream recorded these bytes for ${RELAY_VERSION} - drop the fork override`);
+  const expectHash = forkHash ?? LAW[RELAY_VERSION];
+  assert.equal(hash, expectHash,
     `THE RELAY'S LAW CHANGED UNDER '${RELAY_VERSION}'.\n`
-    + `  Bump RELAY_VERSION in src/net/wire.js and add a row here in the SAME commit:\n`
+    + (forkHash
+      ? `  These bytes are not upstream's row. Update test/fork/overrides.js relayLawHash.${RELAY_VERSION} in the SAME commit, and say why - do not bump RELAY_VERSION for a relay this fork does not deploy:\n`
+      : `  Bump RELAY_VERSION in src/net/wire.js and add a row here in the SAME commit:\n`)
     + `      ${'<new version>'}: '${hash}',\n`
     + `  /health is the only pre-flight check the event has, and it has to mean something.`);
   assert.equal(new Set(Object.values(LAW)).size, Object.keys(LAW).length, 'two versions cannot name the same bytes');

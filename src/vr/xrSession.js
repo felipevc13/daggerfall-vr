@@ -116,7 +116,7 @@ export async function makeEnterVrButton({ gl, canvas = null, label = 'Enter VR',
   const button = doc.createElement('button');
   button.type = 'button';
   button.textContent = label;
-  button.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:50;padding:8px 14px;' +
+  button.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:30;padding:8px 14px;' +
     'font:600 14px system-ui,sans-serif;color:#e9e4d9;background:#1b1f26;border:1px solid #3a424e;' +
     'border-radius:6px;cursor:pointer;';
   button.addEventListener('click', async () => {

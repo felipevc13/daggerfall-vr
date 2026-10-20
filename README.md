@@ -2,6 +2,8 @@
 
 > **The Elder Scrolls II: Daggerfall** running natively in Standalone VR for Meta Quest 2, Quest 3, and Quest Pro via WebXR, built on top of the open-source DFO WebGL2 engine.
 
+Play it: https://daggerfalljs.dev/
+
 [![WebXR](https://img.shields.io/badge/WebXR-Meta%20Quest%203%20Native-blue.svg)](https://immersiveweb.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-felipevc13%2Fdaggerfall--vr-success.svg)](https://github.com/felipevc13/daggerfall-vr)
@@ -18,7 +20,7 @@ This repository brings full **Standalone 6DOF Virtual Reality** to Daggerfall. P
 - **Classic Enemies with 6DOF Hit Physics**: Authentic Daggerfall Skeletal Warrior (*TEXTURE.270*) featuring upright billboarding, 1-bit alpha transparency cutout, and dynamic recoil wobble physics when struck.
 - **Smooth Locomotion & Wall Collisions**: Left thumbstick locomotion with genuine capsule sliding collision against 3D dungeon walls and geometry (`ctx.collider.move`), plus 45° snap turn on the right thumbstick.
 - **In-World Diegetic VR Menus & Chargen**: Floating 3D holographic slates for Inventory (Paperdoll), Character Stats, Options, and the full Tamriel Province Map (Character Creation / Chargen) operated with a 6DOF laser pointer and haptic feedback.
-- **Real-Time Remote Telemetry**: Automatic bi-directional streaming of Quest 3 browser logs and exceptions to the development server at `/api/vr-log` saved into `.quest-vr.log`.
+- **Real-Time Remote Telemetry**: On a `?shot` boot, Quest 3 browser logs and exceptions stream to the development server at `/api/vr-log` and are saved into `.quest-vr.log`. The same shot gate covers the frame counter.
 
 ---
 
@@ -85,7 +87,7 @@ These modules constitute the permanent VR mod layer:
 | [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | **6DOF Weapon System**. Right-hand steel sword and left-hand torch. Tracks blade tip velocity (`tipSpeed`) and calculates strike bounding-sphere hits. |
 | [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | **Diegetic VR Menu Slate**. In-world floating 3D canvas for Inventory (Paperdoll), Character Stats, Options, and Tamriel Chargen Map with 6DOF laser raycasting. |
 | [`src/vr/xrSession.js`](src/vr/xrSession.js) | **WebXR Lifecycle Manager**. Manages `immersive-vr` sessions and `local-floor` reference space. |
-| [`src/vr/xrLog.js`](src/vr/xrLog.js) | **Remote Telemetry Client**. Intercepts Quest 3 browser logs and streams them to the server at `/api/vr-log`. |
+| [`src/vr/xrLog.js`](src/vr/xrLog.js) | **Remote Telemetry Client**. On a `?shot` boot, intercepts Quest 3 browser logs and streams them to the server at `/api/vr-log`. |
 
 ---
 

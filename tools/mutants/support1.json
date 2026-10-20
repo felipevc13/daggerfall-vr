@@ -316,7 +316,7 @@
   {
     "name": "SUPPORT1-readme-old-kofi",
     "file": "README.md",
-    "old": "Support on Ko-fi: https://ko-fi.com/daggerfallonline",
+    "old": "This repository brings full **Standalone 6DOF Virtual Reality** to Daggerfall.",
     "new": "Support on Ko-fi: https://ko-fi.com/dfjs",
     "tests": [
       "test/ui/enhanced/landing.test.js"

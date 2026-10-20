@@ -17,6 +17,7 @@ import { createRequire } from 'node:module';
 import { updateNumber, UPDATE_LINE_FILE, UPDATE_LINE_RE, UPDATE_RE, UPDATE_ENV } from '../../scripts/updateNumber.mjs';
 import { UPDATE_LINE } from '../../scripts/updateLine.mjs';
 import { tagSource } from '../../scripts/buildTag.mjs';
+import { FORK } from '../fork/overrides.js';   // this fork's committed stamp carries an update number
 
 const ROOT = new URL('../..', import.meta.url).pathname;
 const rd = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -99,8 +100,13 @@ test('REL8: the build stamps it beside the commit - src/buildTag.js UPDATE, the 
   r.pr('numbering', [[UPDATE_LINE_FILE, LINE_TEXT]]);
   assert.equal(stamp(), `export const BUILD_TAG = '${sha()}';\nexport const UPDATE = '0.0.1';\n`);
   assert.equal(stamp({ [UPDATE_ENV]: '0.0.7' }), `export const BUILD_TAG = '${sha()}';\nexport const UPDATE = '0.0.7';\n`, 'told');
-  // the committed stamp (what a checkout carries before its first build) knows no number
-  assert.match(rd('src/buildTag.js'), /^export const BUILD_TAG = '[0-9a-f]{12}';\nexport const UPDATE = null;\n$/);
+  // the committed stamp (what a checkout carries before its first build) knows no number.
+  // FORK: this checkout's stamp is pinned exactly, tag and number, rather than reset to null.
+  if (FORK.committedUpdate != null) {
+    assert.equal(rd('src/buildTag.js'), `export const BUILD_TAG = '${FORK.committedBuildTag}';\nexport const UPDATE = '${FORK.committedUpdate}';\n`);
+  } else {
+    assert.match(rd('src/buildTag.js'), /^export const BUILD_TAG = '[0-9a-f]{12}';\nexport const UPDATE = null;\n$/);
+  }
 });
 
 test('REL8 (BUILD-LEFTOVERS, 2026-10-15) ONE STAMP: every name the game imports from src/buildTag.js is exported by scripts/buildTag.mjs tagSource - found by walking src/ - and no tool or script writes the file\'s text but through it (tools/staleChunkProbe.mjs wrote BUILD_TAG alone after REL8 added UPDATE, and every build it made failed to bundle) (mutants: the probe\'s own stamp again; UPDATE dropped from the stamp)', () => {

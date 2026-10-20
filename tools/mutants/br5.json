@@ -84,12 +84,12 @@
   {
     "name": "BR5-readme-old-name",
     "file": "README.md",
-    "old": "# DFO Online\n",
+    "old": "# Daggerfall VR — Standalone WebXR Edition\n",
     "new": "# Daggerfall Online\n",
     "tests": [
       "test/ui/brand.test.js"
     ],
-    "note": "BR5: the rebrand to DFO Online (2026-10-11)"
+    "note": "FORK: the README opens on the VR door (test/fork/overrides.js). Putting the old product name back fails that first line and the BR5 sweep."
   },
   {
     "name": "BR5-door-width-at-the-old-ratio",

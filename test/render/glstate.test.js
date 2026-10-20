@@ -243,7 +243,7 @@ test('AUDIT 65 RS-2: the sprite pass hands back the FBO, the world rect AND the 
   // there is no seam to make the stub's readPixels throw, so this half
   // is pinned on the source (the funnel-law idiom above).
   assert.match(readFileSync('src/render/renderer.js', 'utf8'),
-    /try \{ gl\.readPixels\(0, 0, pw, ph, gl\.RGBA, gl\.UNSIGNED_BYTE, raw\); \}\s*\n\s*finally \{ gl\.bindFramebuffer\(gl\.FRAMEBUFFER, this\._frameFbo \?\? null\); \}/,   // EL4: the frame image while the lane draws into one, the canvas otherwise
+    /try \{ gl\.readPixels\(0, 0, pw, ph, gl\.RGBA, gl\.UNSIGNED_BYTE, raw\); \}\s*\n\s*finally \{ gl\.bindFramebuffer\(gl\.FRAMEBUFFER, this\._frameTarget\(\)\); \}/,   // EL4; PIN MOVED (VR1): _frameTarget() is the frame image, the headset target, or the canvas
     'renderCharacterSpriteImage returns the read-back bind too');
 });
 

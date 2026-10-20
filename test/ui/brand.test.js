@@ -50,6 +50,7 @@
 // hold keep their spelling, as BR1 ruled - each is listed with what moving it
 // would break.
 import { test } from 'node:test';
+import { FORK } from '../fork/overrides.js';   // this fork's README is its own door; the other surfaces stay
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -118,7 +119,10 @@ test('BR1: every surface the player reads carries the one name', () => {
   // PIN MOVED (REL8): the update number leads where the build knows it (rel8_updates runs the line both ways)
   assert.match(read('src/ui/pauseWindow.js'), new RegExp(`const ver = UPDATE \\? \\\`${NAME} \\$\\{UPDATE\\} \\(\\$\\{BUILD_TAG\\}\\)\\\` : \\\`${NAME} \\$\\{BUILD_TAG\\}\\\`;`),
     'the PAUSE SCREEN\'s version line - the whole of the branding surface a player reads in game, and the working name sat on it');
-  assert.match(read('README.md'), new RegExp(`^# ${NAME}\\n`), 'the repository\'s own first line');
+  // FORK: the README opens on the VR door. Every surface above still says DFO Online.
+  const readme = read('README.md');
+  if (FORK.readmeFirstLine) assert.ok(readme.startsWith(`${FORK.readmeFirstLine}\n`), 'the fork README opens on its own door');
+  else assert.match(readme, new RegExp(`^# ${NAME}\\n`), 'the repository\'s own first line');
 });
 
 test('BR1: the tagline is one sentence, and it is the same sentence everywhere', () => {
@@ -129,7 +133,8 @@ test('BR1: the tagline is one sentence, and it is the same sentence everywhere',
   assert.ok(read('index.html').includes(TAGLINE), 'the landing page\'s description');
   assert.ok(JSON.parse(read('public/manifest.webmanifest')).description.startsWith(TAGLINE), 'the PWA\'s');
   assert.ok(read('src/ui/enhanced/enhancedMenu.js').includes(`'${TAGLINE}.'`), 'the About panel\'s');
-  assert.ok(read('README.md').includes(`${TAGLINE.toLowerCase().replace('rpg', 'RPG')},\nplayed from your own copy of The Elder Scrolls II: Daggerfall.`), 'and the README\'s - with the copy a player brings, named');
+  // FORK: that sentence is the product page's. This README is the mod's door (test/fork/overrides.js).
+  if (!FORK.readmeIsModDoor) assert.ok(read('README.md').includes(`${TAGLINE.toLowerCase().replace('rpg', 'RPG')},\nplayed from your own copy of The Elder Scrolls II: Daggerfall.`), 'and the README\'s - with the copy a player brings, named');
   assert.match(read('src/ui/enhanced/enhancedMenu.js'), new RegExp(`el\\('h3', null, '${NAME}'\\)`), 'the About panel names the product');
 });
 
@@ -396,7 +401,8 @@ test('BR5: the original game is named only where it must be - in what a player r
   const landing = read('index.html');
   assert.ok(landing.includes('You need <b>your own copy</b> of The Elder Scrolls II: Daggerfall, free since 2009.'), 'the copy a player brings, by its whole name');
   assert.ok(landing.includes('The Elder Scrolls and Daggerfall are trademarks of ZeniMax Media Inc.'), 'the trademark notice on the site');
-  assert.ok(read('README.md').includes('The Elder Scrolls and Daggerfall are trademarks of ZeniMax\nMedia Inc.'), 'and in the README');
+  // FORK: the trademark paragraph stays on the site. The mod README does not carry the product page's copy of it.
+  if (!FORK.readmeIsModDoor) assert.ok(read('README.md').includes('The Elder Scrolls and Daggerfall are trademarks of ZeniMax\nMedia Inc.'), 'and in the README');
   assert.ok(read('LICENSE').includes('The Elder Scrolls II: Daggerfall is the property of Bethesda Softworks.'), 'the licence\'s own line');
   assert.match(read('src/ui/credits.js'), /title: 'The Elder Scrolls II: Daggerfall',\n {6}author: 'Bethesda Softworks',/, 'the credits\' first row');
   assert.match(read('app/lib/launcherState.cjs'), /title: 'Where is Daggerfall\?',/, 'the launcher asks for the files by the game\'s name');

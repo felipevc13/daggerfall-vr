@@ -78,12 +78,12 @@
   {
     "name": "DEPLOY-4-wrangler-stops-naming-the-workflow",
     "file": "server/wrangler.toml",
-    "old": "# `.github/workflows/relay-deploy.yml` runs on EVERY PUSH TO MAIN. It",
-    "new": "# The CI workflow runs on EVERY PUSH TO MAIN. It",
+    "old": "# in CI does it. `.github/workflows/relay-deploy.yml` is workflow_dispatch",
+    "new": "# in CI does it. The CI workflow is workflow_dispatch",
     "tests": [
       "test/server/relaydeploy.test.js"
     ],
-    "note": "A person opening the Worker's config must be able to find the thing that deploys it."
+    "note": "FORK: the config still names relay-deploy.yml. Dropping the file name leaves a person unable to find the workflow (re-aimed by content off the automatic-push sentence this fork no longer has)."
   },
   {
     "name": "DEPLOY-5-the-population-stops-walking",

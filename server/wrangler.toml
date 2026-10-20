@@ -5,14 +5,16 @@
 # host's snapshot of the place in the object's storage; the save stays
 # on the player's machine.
 #
-# THE DEPLOY IS AUTOMATIC, and has been since SRV-N/CI (PR #209):
-# `.github/workflows/relay-deploy.yml` runs on EVERY PUSH TO MAIN. It
-# reads RELAY_VERSION out of src/net/wire.js, asks the live /health, and
-# deploys only when the two differ - then POLLS /health until it names
-# the version the run built, because a wrangler exit code of 0 over an
-# unchanged Worker is a green deploy that did not happen. The token
-# lives in the repo's secrets, so nobody has to hold it, and a
-# workflow_dispatch forces a run.
+# THE DEPLOY IS BY HAND on this fork (felipevc13/daggerfall-vr): nothing
+# in CI does it. `.github/workflows/relay-deploy.yml` is workflow_dispatch
+# only - a push to main does not run it - and the job still refuses every
+# repository but Lattymoy/daggerfall-js-source, so a dispatch here does not
+# publish upstream's Worker. It reads RELAY_VERSION out of src/net/wire.js,
+# asks the live /health, and deploys only when the two differ - then POLLS
+# /health until it names the version the run built, because a wrangler exit
+# code of 0 over an unchanged Worker is a green deploy that did not happen.
+# The token lives in the repo's secrets. Upstream still deploys on every
+# push to its own main (SRV-N/CI, PR #209); this fork does not.
 #
 # ═══ AND A DEPLOY DROPS EVERY CONNECTED PLAYER ════════════════════
 # Every Durable Object restarts and every socket in the game closes at
