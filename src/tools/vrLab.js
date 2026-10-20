@@ -26,6 +26,7 @@ import { eyeMatrices, setVrEyeX, rigView } from '../vr/xrCamera.js';
 import { enterVrSession, endVrSession, makeEnterVrButton, viewerPose, requestFrame } from '../vr/xrSession.js';
 import { XrInputManager } from '../vr/xrInput.js';
 import { pageHas, pageParam } from '../systems/pageQuery.js';
+import { guardedSetXrTarget, probeVrEngineHooks } from '../vr/engineBridge.js';
 
 function startVrLab() {
   const canvas = document.getElementById('c');
@@ -149,7 +150,7 @@ function startVrLab() {
 
         // --- RENDERER PATH: draw the actual scene on top ---
         try {
-          renderer.setXrTarget(layer.framebuffer, vp);
+          if (!guardedSetXrTarget(renderer, layer.framebuffer, vp)) continue;
           const { proj, view } = eyeMatrices(v, rig, NEAR, FAR);
           if (frameCount < 3 && i === 0) {
             dbg(`proj[0..3]=${proj[0].toFixed(3)},${proj[5].toFixed(3)},${proj[10].toFixed(3)},${proj[14].toFixed(3)}`);
@@ -178,7 +179,7 @@ function startVrLab() {
 
   function onSessionEnd() {
     presenting = false;
-    renderer.setXrTarget(null);   // VR1: the frame is the canvas's again
+    guardedSetXrTarget(renderer, null, null);   // VR1: the frame is the canvas's again
     session = null; layer = null; refSpace = null;
     lastXrTime = 0;
     rafId = requestAnimationFrame(loop);
@@ -234,11 +235,17 @@ function startVrLab() {
 
   // #region - the door and the probes
   const mount = document.getElementById('door');
-  makeEnterVrButton({
-    gl: renderer.gl, canvas, label: 'Enter VR',
-    depthNear: NEAR, depthFar: FAR,
-    onEnter: enterSession,
-    onError: (err) => { mount.textContent = String(err?.message ?? err); },
+  probeVrEngineHooks().then((probe) => {
+    if (!probe.ok) {
+      mount.textContent = `VR off (engine hooks missing: ${probe.missing.join(', ')})`;
+      return null;
+    }
+    return makeEnterVrButton({
+      gl: renderer.gl, canvas, label: 'Enter VR',
+      depthNear: NEAR, depthFar: FAR,
+      onEnter: enterSession,
+      onError: (err) => { mount.textContent = String(err?.message ?? err); },
+    });
   }).then((button) => { if (button) mount.append(button); });
 
   window.__lab = {

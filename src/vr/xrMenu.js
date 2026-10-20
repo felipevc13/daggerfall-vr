@@ -4,7 +4,8 @@
 // Map of Tamriel / Chargen, Options) into a floating 3D holographic panel.
 // Interacted with via 6DOF Quest controller laser pointer & trigger click.
 
-import { identity } from '../world/mat4.js';
+import { gameMat4 } from './engineBridge.js';
+const { identity } = gameMat4;
 import { XrVoiceManager } from './xrVoice.js';
 
 export class XrMenu {

@@ -1,0 +1,44 @@
+# Manual check that an upstream DFO update still satisfies the
+# VR module's engine hooks. workflow_dispatch only: it does not run on push,
+# on a pull request, or on a schedule. It does not publish, and it reads no
+# secret. The merge happens on the runner and is never pushed.
+name: VR upstream contract
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vr-upstream-contract
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Merge upstream main on a throwaway branch
+        run: |
+          set -eu
+          git remote add upstream https://github.com/Lattymoy/daggerfall-js-source.git
+          git fetch upstream main
+          git checkout -B vr-upstream-probe
+          if ! git merge --no-edit upstream/main; then
+            echo 'Upstream merge conflict. These files need a human:'
+            git diff --name-only --diff-filter=U
+            exit 1
+          fi
+      - name: VR engine contract
+        run: node --test test/vr/engineContract.test.js

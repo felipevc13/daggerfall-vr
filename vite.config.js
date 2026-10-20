@@ -345,7 +345,7 @@ export default defineConfig({
         water: 'water.html', // WATER1: the enhanced water lab (src/tools/waterLab.js)
         abyss: 'abyss.html', // SD-LAB: the Shattered Hour and the Rift, made in code, drawn by the game's renderer (src/tools/abyssLab.js)
         vr: 'vr.html', // VR1: the WebXR lab - a made room drawn once per eye into the XRWebGLLayer through the game's own Renderer (src/tools/vrLab.js) - tools/vrProbe.mjs
-        vrDungeon: 'vr-dungeon.html', // the Privateer's Hold headset page (src/vr/vrDungeon.js) - a tracked root page, so the build ships it
+        vrDungeon: 'vr-dungeon.html', // VR dungeon: Privateer's Hold (src/vr/vrDungeon.js). A tracked root page, so the build ships it; the flat game at /play/ does not load it.
         spire: 'spire.html', // EG-G2: an Elite Breach's circle in its band's dress, made in code (src/tools/spireLab.js) - tools/spireLabProbe.mjs
         cards: 'cards.html', // CARDS3: the card table lab (src/tools/cardsLab.js) - tools/cardsProbe.mjs
         // MW-D: the Morrowind data inspector. Reads a player's own

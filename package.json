@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:quest": "node scripts/devQuest.mjs",
+    "dev:quest:https": "node scripts/devQuest.mjs --https",
     "build": "vite build",
     "preview": "vite preview",
     "test": "node tools/testShards.mjs 1/1",

@@ -8,7 +8,8 @@
 //   - Zero-strabismus calibrated stereo projection
 
 import { Renderer, WORLD_FRAME } from '../render/renderer.js';
-import { lookAt, perspective, mirrorProjectionX, identity, UP_Y } from '../world/mat4.js';
+import { gameMat4, guardedSetXrTarget, probeVrEngineHooks } from './engineBridge.js';
+const { lookAt, perspective, mirrorProjectionX, identity, UP_Y } = gameMat4;
 import { eyeMatrices } from './xrCamera.js';
 import { enterVrSession, endVrSession, makeEnterVrButton, viewerPose, requestFrame } from './xrSession.js';
 import { XrInputManager } from './xrInput.js';
@@ -255,7 +256,7 @@ function startVrDungeon() {
       for (let i = 0; i < views.length; i++) {
         const v = views[i];
         const vp = layer.getViewport(v);
-        renderer.setXrTarget(layer.framebuffer, vp);
+        if (!guardedSetXrTarget(renderer, layer.framebuffer, vp)) continue;
         const { eye, proj, view } = eyeMatrices(v, rig, NEAR, FAR);
         if (frameCount < 2) {
           console.log(`[VR EYE ${i} (${v.eye})] m12=${v.transform?.matrix?.[12]?.toFixed(4)}, eye=[${eye.map(n => n.toFixed(3)).join(',')}], proj0=${proj[0].toFixed(3)}, proj8=${proj[8].toFixed(3)}`);
@@ -305,35 +306,46 @@ function startVrDungeon() {
 
   function onSessionEnd() {
     presenting = false;
-    renderer.setXrTarget(null);
+    guardedSetXrTarget(renderer, null, null);
     session = null; layer = null; refSpace = null;
     lastTime = 0;
     rafId = requestAnimationFrame(loop);
   }
 
   const mount = document.getElementById('door');
-  makeEnterVrButton({
-    gl: renderer.gl, canvas, label: 'Enter VR Dungeon',
-    depthNear: NEAR, depthFar: FAR,
-    onEnter: (opened) => {
-      console.log('[VR] WebXR session granted and entered successfully!');
-      enterSession(opened);
-    },
-    onError: (err) => {
-      const msg = String(err?.message ?? err);
-      console.error('[VR ERROR] Failed to start WebXR session:', msg);
-      dbg(`ERRO AO ENTRAR VR: ${msg}`);
+  probeVrEngineHooks().then((probe) => {
+    if (!probe.ok) {
+      const msg = `VR desligado. Ganchos do motor ausentes: ${probe.missing.join(', ')}`;
+      console.warn('[vr]', msg);
+      dbg(msg);
       mount.textContent = msg;
-    },
-  }).then((button) => {
-    if (button) {
-      console.log('[VR] Immersive-VR is supported by this browser. Button mounted.');
-      button.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:30;padding:16px 36px;font:bold 18px system-ui,sans-serif;color:#fff;background:linear-gradient(135deg,#c08a3e,#996321);border:2px solid #ffd700;border-radius:10px;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,0.8);';
-      mount.append(button);
-    } else {
-      console.warn('[VR] Immersive-VR NOT supported on this browser or origin.');
-      mount.innerHTML = '<div style="background:rgba(0,0,0,0.8);color:#e2b774;padding:8px 14px;border-radius:6px;font:13px sans-serif;">Nenhum headset VR detectado (ou use o Meta Quest Browser)</div>';
+      return null;
     }
+    return makeEnterVrButton({
+      gl: renderer.gl, canvas, label: 'Enter VR Dungeon',
+      depthNear: NEAR, depthFar: FAR,
+      onEnter: (opened) => {
+        console.log('[VR] WebXR session granted and entered successfully!');
+        enterSession(opened);
+      },
+      onError: (err) => {
+        const msg = String(err?.message ?? err);
+        console.error('[VR ERROR] Failed to start WebXR session:', msg);
+        dbg(`ERRO AO ENTRAR VR: ${msg}`);
+        mount.textContent = msg;
+      },
+    });
+  }).then((button) => {
+    if (!button) {
+      if (!mount.textContent) {
+        console.warn('[VR] Immersive-VR NOT supported on this browser or origin.');
+        mount.innerHTML = '<div style="background:rgba(0,0,0,0.8);color:#e2b774;padding:8px 14px;border-radius:6px;font:13px sans-serif;">Nenhum headset VR detectado (ou use o Meta Quest Browser)</div>';
+      }
+      return;
+    }
+    console.log('[VR] Immersive-VR is supported by this browser. Button mounted.');
+    button.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:30;padding:16px 36px;font:bold 18px system-ui,sans-serif;color:#fff;background:linear-gradient(135deg,#c08a3e,#996321);border:2px solid #ffd700;border-radius:10px;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,0.8);';
+    mount.append(button);
   });
 
   window.addEventListener('keydown', (e) => {

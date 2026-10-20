@@ -4,6 +4,9 @@ dist/
 dist-gun/
 .DS_Store
 .quest-vr.log
+.vr-chat.json
+.vr-user-request.json
+.quest-certs/
 
 # Original game data - freeware but not redistributable. NEVER commit.
 ARENA2/

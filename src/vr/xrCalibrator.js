@@ -5,7 +5,8 @@
 // When the user finds the perfect, comfortable setting, they press Save,
 // transmitting the winning profile to the development server.
 
-import { identity } from '../world/mat4.js';
+import { gameMat4 } from './engineBridge.js';
+const { identity } = gameMat4;
 
 export class XrCalibrator {
   /**

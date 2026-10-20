@@ -5,7 +5,8 @@
 // 3. Performs continuous blade-segment collision against target hitboxes
 // 4. Triggers Quest haptics on impact and produces dynamic sound effects
 
-import { identity } from '../world/mat4.js';
+import { gameMat4 } from './engineBridge.js';
+const { identity } = gameMat4;
 import { VR_EYE_X } from './xrCamera.js';
 
 /** Synthesizes procedural retro/fantasy sounds via WebAudio with zero latency */

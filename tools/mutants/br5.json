@@ -84,7 +84,7 @@
   {
     "name": "BR5-readme-old-name",
     "file": "README.md",
-    "old": "# Daggerfall VR — Standalone WebXR Edition\n",
+    "old": "# Daggerfall VR\n",
     "new": "# Daggerfall Online\n",
     "tests": [
       "test/ui/brand.test.js"

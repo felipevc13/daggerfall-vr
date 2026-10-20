@@ -9,7 +9,7 @@
 /** @type {const} */
 export const FORK = {
   // The README is this fork's door. Every other brand surface stays "DFO Online".
-  readmeFirstLine: '# Daggerfall VR — Standalone WebXR Edition',
+  readmeFirstLine: '# Daggerfall VR',
   // Skip the upstream tagline, the trademark paragraph, and the support-ask
   // URLs on README.md only. SUPPORT.md, the landing page, and FUNDING.yml stay.
   readmeIsModDoor: true,

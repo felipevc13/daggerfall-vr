@@ -6,6 +6,6 @@ This fork's CI runs upstream's suite. Two kinds of red are not the same, and the
 
 **An engine rule** is fixed in the VR code, not in the test. A headset module must import under Node, so `window`, `document`, and `location` are read inside the boot, and the page query is read through `pageParam` / `pageHas`. `window.__frame` and `window.__vrLoggerInstalled` publish only on a `?shot` boot. Overlay `z-index` values stay below the asset picker's. `src/vr/` is a row on the code map. The headset demo's existing sentences are recorded on the localization ratchet so a new one has to go through `t()`. The renderer's frame target and the HUD strip were already correct for a flat frame (`_frameTarget()` is `_frameFbo` when no headset target is set; the strip is recorded only then). The tests that quoted the old lines were moved onto those lines. `renderer.js` was not edited.
 
-`docs/repo-map.md` and `AGENTS.md` are on the unmerged docs pull request. This page is the note until that lands. The flat game does not import `src/vr/`.
+`docs/repo-map.md` and `AGENTS.md` point here. The flat game does not import `src/vr/`.
 
 The README still carries `Play it: https://daggerfalljs.dev/` because the terms and privacy URLs are derived from that line.
