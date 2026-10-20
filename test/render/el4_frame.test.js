@@ -117,7 +117,9 @@ test('EL4: the frame-target law - the helper and the clouds restore the frame, n
   const vc = read('src/render/volumetricClouds.js');
   assert.match(vc, /gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, frameTarget\(\)\);/, 'the clouds\' blit restores the frame');
   assert.match(vc, /import \{[^}]*frameTarget[^}]*\} from '\.\/renderTarget\.js';/);
-  assert.equal((read('src/render/renderer.js').match(/gl\.bindFramebuffer\(gl\.FRAMEBUFFER, this\._frameFbo \?\? null\);/g) || []).length, 5, 'the sprite pass\'s three restores hand back the frame, the body batch\'s one bind (MWNPC2) its fourth, and the weapon glow field\'s bake (WEAPON-GLOW1, AUDIT SPR-1) its fifth');   // PIN MOVED (MWNPC2); PIN MOVED (AUDIT WEAPON-GLOW SPR-1: renderer.js _glowField hands back the frame its bake borrowed)
+  const renderer = read('src/render/renderer.js');
+  assert.match(renderer, /_frameTarget\(\) \{ return this\._frameFbo \?\? this\._xrTarget\?\.fb \?\? null; \}/, 'a flat frame still restores _frameFbo, and an eye restores the headset target');
+  assert.equal((renderer.match(/gl\.bindFramebuffer\(gl\.FRAMEBUFFER, this\._frameTarget\(\)\);/g) || []).length, 5, 'the sprite pass\'s three restores hand back the frame, the body batch\'s one bind (MWNPC2) its fourth, and the weapon glow field\'s bake (WEAPON-GLOW1, AUDIT SPR-1) its fifth');   // PIN MOVED (MWNPC2); PIN MOVED (AUDIT WEAPON-GLOW SPR-1); PIN MOVED (VR1: the five sites call _frameTarget(), which is _frameFbo ?? null when no headset target is set)
   const others = ['src/render/enhancedSky.js', 'src/render/dynamicSkiesRenderer.js', 'src/render/precipitation.js', 'src/render/labGrass.js', 'src/render/skyRenderer.js', 'src/render/waterSurface.js', 'src/render/farRing.js'];
   for (const f of others) assert.ok(!/bindFramebuffer\(/.test(read(f)), `${f} binds no framebuffer of its own - it draws into whatever is bound`);
 });

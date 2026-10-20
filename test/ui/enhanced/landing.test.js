@@ -19,6 +19,7 @@
 //     the root; one left behind would spend a session proving a landing
 //     page cannot swing a sword.
 import { test } from 'node:test';
+import { FORK } from '../../fork/overrides.js';   // the mod README does not repeat the site's support asks
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync, statSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -508,11 +509,15 @@ test('U64 + PATREON1 + SUPPORT1: the corner asks are Patreon then Ko-fi, each a 
   const byId = Object.fromEntries(SUPPORT_ASKS.map((a) => [a.id, a]));
   const funding = read('.github/FUNDING.yml');
   assert.equal(funding.trim(), `custom: ["${byId.patreon.url}"]\nko_fi: ${new URL(byId.kofi.url).pathname.slice(1)}`, 'the Sponsor button asks on both');
-  for (const doc of ['README.md', 'SUPPORT.md']) {
+  // FORK: README.md is the mod's door, so the two asks are required on SUPPORT.md alone.
+  // The retired Ko-fi page stays forbidden on both.
+  const askDocs = FORK.readmeIsModDoor ? ['SUPPORT.md'] : ['README.md', 'SUPPORT.md'];
+  for (const doc of askDocs) {
     const text = read(doc);
     for (const a of SUPPORT_ASKS) assert.ok(text.includes(a.url), `${doc} asks on ${a.name}, at the same page`);
     assert.doesNotMatch(text, /ko-fi\.com\/dfjs|ko_fi: dfjs/, `${doc}: no retired Ko-fi`);
   }
+  if (FORK.readmeIsModDoor) assert.doesNotMatch(read('README.md'), /ko-fi\.com\/dfjs|ko_fi: dfjs/, 'README: no retired Ko-fi');
 });
 
 test('SUPPORT1: the asks\' marks are the game\'s - injected verbatim after the tokens, and the skin draws its door\'s icons from the same block', () => {

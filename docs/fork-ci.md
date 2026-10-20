@@ -1,0 +1,11 @@
+# Fork CI overrides
+
+This fork's CI runs upstream's suite. Two kinds of red are not the same, and they are not fixed the same way.
+
+**A fork decision** is a pin that still describes upstream and no longer describes this repository: the README's first line, the support asks on that README, a push to `main` deploying the relay or cutting a desktop release, the committed `UPDATE` stamp, and the relay bundle hash after `perspectiveOffCenter` landed in `src/world/mat4.js`. Those pins stay. `test/fork/overrides.js` is the only place the fork's answer is written, and each test keeps upstream's assertion in the other branch. Deleting a key there restores the upstream pin. Mutant records that named text this fork no longer has were re-aimed at the text that now plays that role. Nothing was added to the carried-stale list.
+
+**An engine rule** is fixed in the VR code, not in the test. A headset module must import under Node, so `window`, `document`, and `location` are read inside the boot, and the page query is read through `pageParam` / `pageHas`. `window.__frame` and `window.__vrLoggerInstalled` publish only on a `?shot` boot. Overlay `z-index` values stay below the asset picker's. `src/vr/` is a row on the code map. The headset demo's existing sentences are recorded on the localization ratchet so a new one has to go through `t()`. The renderer's frame target and the HUD strip were already correct for a flat frame (`_frameTarget()` is `_frameFbo` when no headset target is set; the strip is recorded only then). The tests that quoted the old lines were moved onto those lines. `renderer.js` was not edited.
+
+`docs/repo-map.md` and `AGENTS.md` are on the unmerged docs pull request. This page is the note until that lands. The flat game does not import `src/vr/`.
+
+The README still carries `Play it: https://daggerfalljs.dev/` because the terms and privacy URLs are derived from that line.

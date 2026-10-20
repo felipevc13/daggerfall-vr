@@ -19,6 +19,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RELAY_GRAPH } from '../net/relayversion.test.js';   // the files a relay deploy would have to reship
+import { FORK } from '../fork/overrides.js';   // this fork does not deploy the relay on a push to main
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const rd = (p) => readFileSync(join(root, p), 'utf8');
@@ -59,8 +60,17 @@ test('SRV-N/CI: the deploy greps RELAY_VERSION out of the file that actually dec
 test('SRV-N/CI: the deploy is triggered by the VERSION drifting, not by a path filter', () => {
   const wf = rd(WF);
 
-  // It runs on every push to main...
-  assert.match(wf, /on:\s*\n\s*push:\s*\n\s*branches: \[main\]/, 'it runs on push to main');
+  // It runs on every push to main... unless this fork has turned that trigger off
+  // (test/fork/overrides.js): a push here must not drop upstream's players.
+  if (FORK.relayDeployOnPush) {
+    assert.match(wf, /on:\s*\n\s*push:\s*\n\s*branches: \[main\]/, 'it runs on push to main');
+  } else {
+    const on = wf.slice(wf.search(/^on:/m));
+    const head = on.slice(0, on.search(/^permissions:/m) >>> 0);
+    assert.match(head, /workflow_dispatch:/, 'a person can still force a deploy');
+    assert.doesNotMatch(head, /branches:\s*\[\s*main\s*\]/, 'a push to main does not deploy this fork\'s relay');
+    assert.match(wf, /github\.repository == 'Lattymoy\/daggerfall-js-source'/, 'and the job still refuses every other repository');
+  }
   assert.match(wf, /workflow_dispatch:/, 'and can still be forced by hand');
 
   // ...but a PATH FILTER would be the wrong automation and must not appear.

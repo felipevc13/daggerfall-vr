@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { FORK } from '../fork/overrides.js';   // this fork does not cut a desktop release on a push to main
 
 const require = createRequire(import.meta.url);
 const { parseReleaseTag, parseVersion, isNewerRelease } = require('../../app/lib/updateCheck.cjs');
@@ -50,7 +51,14 @@ test('DA6/REL1/REL3: the release\'s number is ONE variable - the tag and the sta
   assert.equal(isNewerRelease('0.1.960', derived), false, 'a build of this very release must not nag');
   // every main push is a release: no paths filter narrows the door, and runs queue rather than cancel
   const on = wf.slice(wf.indexOf('\non:'), wf.indexOf('\npermissions:'));
-  assert.match(on, /branches:\n\s+- main\n/, 'main pushes cut releases');
+  // FORK: a pushed app-v tag and a dispatch still cut a release. A push to main does not.
+  if (FORK.desktopReleaseOnPush) assert.match(on, /branches:\n\s+- main\n/, 'main pushes cut releases');
+  else {
+    assert.match(on, /tags:\n\s+- 'app-v\*'\n/, 'a pushed app-v tag still cuts a release');
+    assert.match(on, /workflow_dispatch:/, 'and a person can still build by hand');
+    assert.doesNotMatch(on, /branches:\s*\n\s+- main\n/, 'a push to main does not cut a desktop release on this fork');
+    assert.match(wf, /github\.repository == 'Lattymoy\/daggerfall-js-source'/, 'and the job still refuses every other repository');
+  }
   assert.doesNotMatch(on, /paths:/, 'every merge, not a marker');
   // a release half uploaded is worse than one late - and AUDIT INSTALL L3-6: main pushes share one group (the newest
   // waiting merge is cut next), while a manual door is a group of its own that no merge cancels
