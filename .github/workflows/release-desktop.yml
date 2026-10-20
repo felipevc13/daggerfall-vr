@@ -54,8 +54,6 @@ on:
   push:
     tags:
       - 'app-v*'
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       release_tag:
