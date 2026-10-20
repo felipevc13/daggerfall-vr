@@ -33,7 +33,7 @@
 //     the head pose is composed onto it here. Snap/smooth turn writes `rig.yaw`
 //     (the body), never the head.
 
-import { lookAt, perspectiveOffCenter, mirrorProjectionX } from '../world/mat4.js';
+import { lookAt, mirrorProjectionX, perspectiveOffCenter } from './engineBridge.js';
 
 const DEG = Math.PI / 180;
 
@@ -124,9 +124,11 @@ export function projectionMatrix(view, near, far) {
     const r = near * Math.tan(f.rightDegrees * DEG);
     const b = -near * Math.tan(f.downDegrees * DEG);
     const t = near * Math.tan(f.upDegrees * DEG);
-    return mirrorProjectionX(perspectiveOffCenter(l, r, b, t, near, far));
+    const raw = perspectiveOffCenter(l, r, b, t, near, far);
+    return raw ? mirrorProjectionX(raw) : null;
   }
-  return mirrorProjectionX(perspectiveOffCenter(-0.04, 0.04, -0.04, 0.04, near ?? 0.05, far ?? 300));
+  const raw = perspectiveOffCenter(-0.04, 0.04, -0.04, 0.04, near ?? 0.05, far ?? 300);
+  return raw ? mirrorProjectionX(raw) : null;
 }
 
 /** Both matrices and the eye, the three things a host's frame needs. */

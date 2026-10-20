@@ -8,7 +8,7 @@
 import { TextureFile } from '../formats/textureFile.js';
 import { DFPalette } from '../formats/dfPalette.js';
 import { fetchBytes } from '../scenes/shared.js';
-import { identity } from '../world/mat4.js';
+import { identity } from './engineBridge.js';
 
 export class XrSkeleton {
   /**

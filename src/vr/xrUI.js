@@ -2,7 +2,7 @@
 //
 // Renders dynamic player and enemy vitals into an in-world 3D panel.
 
-import { identity } from '../world/mat4.js';
+import { identity } from './engineBridge.js';
 
 export class XrCombatUI {
   /**

@@ -5,7 +5,7 @@
 // When the user finds the perfect, comfortable setting, they press Save,
 // transmitting the winning profile to the development server.
 
-import { identity } from '../world/mat4.js';
+import { identity } from './engineBridge.js';
 
 export class XrCalibrator {
   /**
