@@ -42,22 +42,15 @@ const DEG = Math.PI / 180;
  *  with it, so the two eyes' lateral offsets must be mirrored by the same sign
  *  or the depth reads INSIDE-OUT (a wall through a doorway sits behind it).
  *  The mirror is the view's and the projection's; this constant is the eye's.
-/** VR1 - THE HANDEDNESS SEAM: On the Quest, VR_EYE_X = 1 matches the natural
- *  human IPD eye separation when combined with m[0] mirroring. */
+/** VR1 - CALIBRATED QUEST OPTICS PROFILE (Preset 5):
+ *  - eyeX = 1: Unmirrored controller and eye coordinate space matching physical Quest IPD
+ *  - ipdScale = 0.75: 75% virtual IPD distance eliminating stereoscopic eye strain and strabismus
+ *  - proj[0] = -proj[0]: Left-handed world parity mirror without disturbing optical lens center proj[8]
+ */
 export const VR_EYE_X = 1;
+export const IPD_SCALE = 0.75;
 
-let _eyeX = VR_EYE_X;
-let _ipdScale = 0.75;
-let _projMode = 'out0';
-
-export function setVrEyeX(v) { const s = Math.sign(Number(v)); if (s) _eyeX = s; }
-export function vrEyeX() { return _eyeX; }
-
-export function setStereoProfile(eyeX, ipdScale = 1.0, projMode = 'out0') {
-  _eyeX = eyeX;
-  _ipdScale = ipdScale;
-  _projMode = projMode;
-}
+export function vrEyeX() { return VR_EYE_X; }
 
 /** WebXR vector -> the game's frame: (x, y, z) -> (x, y, -z). The module's one
  *  handedness conversion (the file header's law). Answers a fresh triple. */
@@ -88,8 +81,8 @@ export function rigView(view, rig) {
   const upXr = toGame(m[4], m[5], m[6]);
   const fwdXr = toGame(-m[8], -m[9], -m[10]);
   // The head's offset from the origin, mapped, with the stereo sign on x
-  // (VR_EYE_X) and the rig's yaw over it - the eye's world position.
-  const off = rigRotate([_eyeX * _ipdScale * m[12], m[13], -m[14]], rig.yaw);
+  // (VR_EYE_X * IPD_SCALE) and the rig's yaw over it - the eye's world position.
+  const off = rigRotate([VR_EYE_X * IPD_SCALE * m[12], m[13], -m[14]], rig.yaw);
   const eye = [rig.pos[0] + off[0], rig.pos[1] + off[1], rig.pos[2] + off[2]];
   // The head's own axes, turned by the rig's yaw alone (not mirrored: the
   // view direction is the game's, the mirror is the projection's).
@@ -118,9 +111,6 @@ export function viewMatrix(view, rig) {
  */
 export function projectionMatrix(view, near, far) {
   if (view?.projectionMatrix) {
-    if (_projMode === 'both') {
-      return mirrorProjectionX(new Float32Array(view.projectionMatrix));
-    }
     const out = new Float32Array(view.projectionMatrix);
     out[0] = -out[0];
     return out;

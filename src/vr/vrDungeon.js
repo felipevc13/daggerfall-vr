@@ -9,13 +9,12 @@
 
 import { Renderer, WORLD_FRAME } from '../render/renderer.js';
 import { lookAt, perspective, mirrorProjectionX, identity, UP_Y } from '../world/mat4.js';
-import { eyeMatrices, setVrEyeX, setStereoProfile } from './xrCamera.js';
+import { eyeMatrices, setVrEyeX } from './xrCamera.js';
 import { enterVrSession, endVrSession, makeEnterVrButton, viewerPose, requestFrame } from './xrSession.js';
 import { XrInputManager } from './xrInput.js';
 import { XrWeapons } from './xrWeapons.js';
 import { XrSkeleton } from './xrSkeleton.js';
 import { XrCombatUI } from './xrUI.js';
-import { XrCalibrator } from './xrCalibrator.js';
 
 import { DFPalette } from '../formats/dfPalette.js';
 import { BlocksFile } from '../formats/blocksFile.js';
@@ -69,7 +68,6 @@ let player = null;
 let skeleton = null;
 let weapons = null;
 let combatUI = null;
-let calibrator = null;
 let xrInput = null;
 
 let presenting = false;
@@ -140,9 +138,6 @@ async function boot() {
   // Floating VR Status UI
   combatUI = new XrCombatUI(renderer, [spawn[0], spawn[1] + 1.8, spawn[2] + 4.2], 0);
 
-  // In-VR Optical & Stereo Calibrator Panel
-  calibrator = new XrCalibrator(renderer);
-
   dbg('Pronto! Coloque o Quest e aperte Enter VR para entrar na masmorra!');
 }
 
@@ -193,9 +188,6 @@ function drawDungeonPass(proj, view, eyePos) {
   // 6. In-World VR Status UI
   if (combatUI) combatUI.draw();
 
-  // 7. Live Calibration HUD
-  if (calibrator) calibrator.draw();
-
   renderer.resolveFrame();
 }
 
@@ -208,14 +200,6 @@ function xrFrame(time, frame) {
     // 1. Locomotion on Quest controllers (with dungeon capsule collision)
     xrInput.poll(session, refSpace, frame);
     xrInput.updateLocomotion(rig, dt, 0, ctx?.collider);
-
-    // Live in-VR Optical & Stereo Calibration
-    if (calibrator) {
-      calibrator.pollInput(xrInput);
-      const cur = calibrator.current;
-      setStereoProfile(cur.eyeX, cur.ipdScale, cur.projMode);
-      calibrator.updatePosition(rig);
-    }
 
     // 2. Update Weapons & Collision with Skeletal Warrior
     const targets = [];
