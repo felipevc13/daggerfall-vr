@@ -200,6 +200,21 @@ test('UI presence reads the engine only through the bridge, and the hooks are st
   assert.match(dungeon.slice(flag, flag + 700), /publishedOpen/);
 });
 
+test('the frame clock lives in src/vr and aims the existing eye hook', () => {
+  const loop = read('src/vr/xrFrameLoop.js');
+  const plug = read('src/vr/installVr.js');
+  for (const file of [loop, plug]) {
+    assert.doesNotMatch(file, /from ['"]\.\.\/render\//);
+    assert.doesNotMatch(file, /from ['"]\.\.\/scenes\//);
+    assert.doesNotMatch(file, /from ['"]\.\.\/world\//);
+    assert.doesNotMatch(file, /from ['"]\.\.\/systems\/frameCap/);
+  }
+  assert.match(plug, /guardedSetXrTarget/);
+  assert.doesNotMatch(plug, /syncCanvasToLayer\s*\(/);
+  assert.match(loop, /session\.requestAnimationFrame/);
+  assert.match(loop, /setTarget/);
+});
+
 test('the upstream contract workflow is manual, fetches public upstream, and does not publish', () => {
   const wf = read('.github/workflows/vr-upstream-contract.yml');
   assert.match(wf, /workflow_dispatch:/);

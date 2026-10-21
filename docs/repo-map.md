@@ -48,8 +48,9 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 
 | File | Job |
 | --- | --- |
-| `src/vr/installVr.js` | The only file the game calls. Probes the engine hooks, asks `isSessionSupported('immersive-vr')`, and mounts `makeEnterVrButton`. The press opens a session, logs that the frame loop is not wired, and ends the session. |
-| `src/vr/xrSession.js` | `immersive-vr` session, `local-floor`, `XRWebGLLayer`, and `makeEnterVrButton`. Returns null when the browser has no headset, so a flat page shows nothing. |
+| `src/vr/installVr.js` | The only file the game calls. Probes the engine hooks, asks `isSessionSupported('immersive-vr')`, and mounts `makeEnterVrButton`. The press keeps the session open. `src/vr/xrFrameLoop.js` moves the page clock onto `session.requestAnimationFrame` and puts the window clock back on end. |
+| `src/vr/xrFrameLoop.js` | The page's `requestAnimationFrame` stand-in while a session is active. The host still calls `requestAnimationFrame` once. The first eye is `guardedSetXrTarget`. Later eyes get a copy of that picture. |
+| `src/vr/xrSession.js` | `immersive-vr` session, `local-floor`, `XRWebGLLayer`, and `makeEnterVrButton`. Returns null when the browser has no headset, so a flat page shows nothing. On `/play/?vr` the plaque stays up and the next click is Exit. |
 | `src/vr/xrCamera.js` | One eye: WebXR pose into the engine's `lookAt` / mirrored projection. Preset 5 (`VR_EYE_X`, `IPD_SCALE`, `proj[0] = -proj[0]`). |
 | `src/vr/xrInput.js` | Sticks, snap turn, buttons, haptics, `ctx.collider.move`. |
 | `src/vr/xrWeapons.js` | Right-hand sword, left-hand torch, tip speed. |
@@ -158,14 +159,14 @@ The same test can be run against a fresh merge without a local conflict dance: A
 
 ## Making it a drop-in module
 
-The door is in. The frame loop is not. The shape that stays mergeable:
+The door is in. The frame clock is in. Per-eye cameras are not. The shape that stays mergeable:
 
 1. Done. `src/vr/installVr.js` is the only file the game calls. `src/main.js` dynamic-imports it (`import('./vr/installVr.js')`) when `params.has('vr')`, on the boot's one `URLSearchParams`. It cannot sit between `new Renderer` and `onPageGone`: `test/ui/ink/fb1003_glleak.test.js` pins that pair, and `test/systems/perfurl_doors.test.js` pins the one parse. `test/scenes/boot1.test.js` still forbids a static import of a host from `main.js`. The import stays dynamic so a broken VR module cannot throw while the flat game evaluates, and the call's `.catch` is the second net.
-2. Done. `installVr` awaits `probeVrEngineHooks()`. If `ok` is false, it returns. If `immersiveVrSupported()` is false, it returns. Otherwise it mounts `makeEnterVrButton`. The press opens the session, `relayVrLog` records that the frame loop is not wired, and `endVrSession` ends it. A flat `/play/` gets no button and no VR request. Stereo through `guardedSetXrTarget` is the next step, in a module a host wires (`src/scenes/fishHost.js` is the shape), not in a longer `bootWorld`.
-3. On enter, the active host (the four in `CLAUDE.md`: exterior, world, worldModes, dungeon) drives `requestFrame` and calls `guardedSetXrTarget` once per eye, then its existing draw with the matrices from `eyeMatrices`. That call belongs in a module the host wires, not in a longer `bootWorld`. `src/scenes/fishHost.js` is the shape `CLAUDE.md` names.
+2. Done. `installVr` awaits `probeVrEngineHooks()`. If `ok` is false, it returns. If `immersiveVrSupported()` is false, it returns. Otherwise it mounts `makeEnterVrButton`. The press opens the session and `createXrFrameClock` moves the page's `requestAnimationFrame` onto the session. End, a failed arm, or a failed present puts the window clock back and ends the session when the headset would otherwise stay black. A flat `/play/` gets no button and no VR request.
+3. Done for one picture, not for two cameras. The hosts are unchanged. They still call `requestAnimationFrame` and draw once. `xrFrameLoop.js` stands in front of that clock the way `installFramePacer` does, and only after `?vr` has loaded the module. Before the host callback it hands the first eye to `guardedSetXrTarget`. After it, the other eyes get a color copy. `syncCanvasToLayer` is not called, so the flat layout stays the window's size. Per-eye `eyeMatrices` are the next step. That still belongs in a module a host wires (`src/scenes/fishHost.js` is the shape), not in a longer `bootWorld`.
 4. Move `vrDungeon.js`'s engine imports behind one dynamic loader, for example `src/vr/dungeonAdapter.js`, that returns `{ ok: false, missing }` when a symbol is gone. The demo then shows the missing list instead of a red page. The online game would not use that adapter; it would use the real hosts.
 5. Keep the renderer and mat4 diffs as those named functions so a sync is a re-apply, not a second camera inside the VR folder.
-6. Upstream the module only when (3) is true and the contract test is green against current `upstream/main`. Until then, https://daggerfalljs.dev/play/ has no Enter VR, which is what a Quest browser shows today. This fork's `/play/?vr` does.
+6. Upstream the module only when per-eye cameras (the rest of step 3) are in and the contract test is green against current `upstream/main`. Until then, https://daggerfalljs.dev/play/ has no Enter VR, which is what a Quest browser shows today. This fork's `/play/?vr` keeps the session open.
 
 ## Dev helpers that are not the game
 

@@ -286,7 +286,7 @@ For each family in the inventory, on both skins, opened from the controller and 
 
 ## Risks
 
-1. **The game's frame loop under XR does not exist yet.** **[V]** The world host schedules itself with `requestAnimationFrame`. **[S]** `window.rAF` may stall during an immersive session, and the VR frame is `session.requestAnimationFrame` (`xrSession.js`). The `installVr` plug has to solve that before the panel can show classic UI, and the 2D pass has to run once per frame rather than once per eye. The detector does not depend on it.
+1. **The game's frame clock under XR is one picture, not a panel.** **[V]** The world host still schedules itself with `requestAnimationFrame`. **[S]** While `?vr` has a session, `src/vr/xrFrameLoop.js` moves that callback onto `session.requestAnimationFrame` and hands the first eye to `guardedSetXrTarget`. The other eye gets a copy of that picture. Hosts are unchanged. DOM menus are still not a VR panel, and the 2D pass still runs once per frame rather than once per eye. The detector does not depend on it.
 2. **`syncCanvasToLayer` versus the 2D layout.** See above. Stretching the canvas to the stereo buffer lays classic UI out across both eyes.
 3. **`renderer.js` moves.** The canvas hook has to sit next to `setXrTarget`, with a contract regex, and the panel has to fall back to the escape hatch when `setUiTarget` is gone.
 4. **DOM raster fidelity.** Fonts, `backdrop-filter`, CSS animation, and child canvases. E and D are the mitigations.

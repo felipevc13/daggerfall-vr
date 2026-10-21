@@ -2,7 +2,7 @@
 
 A VR mod for [DFO](https://daggerfalljs.dev/), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a player who does not pass `?vr` never loads the VR module.
 
-**Status:** Privateer's Hold can be entered in VR from `vr-dungeon.html`. The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press opens a session and ends it; the stereo frame loop is the next step. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button.
+**Status:** Privateer's Hold can be entered in VR from `vr-dungeon.html`. The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press keeps the session open and draws the game's picture into both eyes. Per-eye cameras are the next step. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button.
 
 Play it: https://daggerfalljs.dev/
 
@@ -62,6 +62,7 @@ Upstream engine (do not treat as the mod): `src/characters`, `src/world`, `src/r
 | --- | --- |
 | [`src/vr/engineBridge.js`](src/vr/engineBridge.js) | Hook probe and the only `src/vr` import of `mat4`. |
 | [`src/vr/xrSession.js`](src/vr/xrSession.js) | Session and the Enter VR button. |
+| [`src/vr/xrFrameLoop.js`](src/vr/xrFrameLoop.js) | Moves the page frame clock onto the headset, and back on exit. |
 | [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | Eye matrices. Preset 5. |
 | [`src/vr/xrInput.js`](src/vr/xrInput.js) | Sticks, snap turn, collisions, haptics. |
 | [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | Sword and torch. |
