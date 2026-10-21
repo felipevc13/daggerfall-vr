@@ -101,31 +101,29 @@ export function guardedSetXrTarget(renderer, framebuffer, viewport) {
 //   input.hostPaused             the host's pause, once it has handed its
 //                                hooks to an input layer (null before that)
 //   enhancedOverlays.overlayOpen the DOM doors' close-arm stack
-//   windowStack.pauseWhileOpen   the stack's own pause law, applied to a
-//                                stack object the caller already holds
 //
-// The four hosts keep their stacks in closures. There is no global list
-// to import. hostPaused() is how a host publishes the latch. A caller
-// that holds a stack (a test, a later plug) passes that object through.
+// The four hosts keep their stacks in closures. ROAD-tail
+// (test/scenes/roadb_host_pause.test.js) reserves the stack's pause
+// method for those hosts. This module does not import that module and
+// does not call that method. hostPaused() is the read upstream added
+// for everyone else. The dungeon demo, which never registers a host,
+// passes the context's published uiOverlayActive into the detector.
 
 /** Names probeVrUiHooks reports. Same list the contract test pins. */
 export const VR_UI_HOOKS = Object.freeze([
   'input.hostPaused',
   'enhancedOverlays.overlayOpen',
-  'windowStack.makeWindowStack',
-  'windowStack.pauseWhileOpen',
 ]);
 
 let uiHooksPromise = null;
 
-/** Load the three UI modules once. A failed import is a missing module. */
+/** Load the two UI modules once. A failed import is a missing module. */
 export function loadVrUiHooks() {
   if (!uiHooksPromise) {
     uiHooksPromise = (async () => {
-      const out = { input: null, overlays: null, stack: null };
+      const out = { input: null, overlays: null };
       try { out.input = await import('../ui/input.js'); } catch { out.input = null; }
       try { out.overlays = await import('../ui/enhanced/enhancedOverlays.js'); } catch { out.overlays = null; }
-      try { out.stack = await import('../ui/windowStack.js'); } catch { out.stack = null; }
       return out;
     })();
   }
@@ -138,8 +136,6 @@ export async function probeVrUiHooks() {
   const missing = [];
   if (typeof mods.input?.hostPaused !== 'function') missing.push('input.hostPaused');
   if (typeof mods.overlays?.overlayOpen !== 'function') missing.push('enhancedOverlays.overlayOpen');
-  if (typeof mods.stack?.makeWindowStack !== 'function') missing.push('windowStack.makeWindowStack');
-  if (typeof mods.stack?.pauseWhileOpen !== 'function') missing.push('windowStack.pauseWhileOpen');
   return { ok: missing.length === 0, missing };
 }
 
@@ -169,41 +165,6 @@ export function readOverlayOpen(mods) {
   if (typeof fn !== 'function') return valueStatus('missing');
   try {
     return valueStatus('value', !!fn());
-  } catch {
-    return valueStatus('threw');
-  }
-}
-
-/** Call a method the caller already holds. ROAD-tail's sweep
- *  (test/scenes/roadb_host_pause.test.js) reserves the dotted pause
- *  call for the stack-owning hosts. This reader asks that same latch;
- *  it is not a fifth host. */
-function callHeld(obj, name) {
-  const fn = obj?.[name];
-  if (typeof fn !== 'function') return undefined;
-  return fn.call(obj);
-}
-
-/** Whether one stack currently holds a pausing window.
- *  The stack's pause method is the latch. `pauseWhileOpen` is the same
- *  law the hosts OR onto the live slot for the frame before reconcile.
- *  A window with no `pauseWhileOpen: false` pauses (the engine's
- *  default). If that law itself is gone, a live top still counts:
- *  showing the panel is the failure mode. */
-export function readStackModal(mods, stack, slot = null) {
-  if (stack == null && slot == null) return valueStatus('value', false);
-  const pauseWhileOpen = mods?.stack?.pauseWhileOpen;
-  const pauses = (win) => {
-    if (!win) return false;
-    if (typeof pauseWhileOpen !== 'function') return true;
-    try { return pauseWhileOpen(win) === true; } catch { return true; }
-  };
-  try {
-    if (pauses(slot)) return valueStatus('value', true);
-    if (callHeld(stack, 'paused')) return valueStatus('value', true);
-    const top = callHeld(stack, 'topWindow');
-    if (top && pauses(top)) return valueStatus('value', true);
-    return valueStatus('value', false);
   } catch {
     return valueStatus('threw');
   }

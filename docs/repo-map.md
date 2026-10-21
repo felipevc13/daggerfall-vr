@@ -57,7 +57,7 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 | `src/vr/xrLog.js` | Console and errors to `/api/vr-log`. |
 | `src/vr/xrSkeleton.js`, `xrUI.js`, `xrCalibrator.js` | Demo enemy, combat slate, and the old optics bench. |
 | `src/vr/vrDungeon.js` | Demo host. Not the online game. |
-| `src/vr/engineBridge.js` | Feature detection, the `gameMat4` namespace, `offCenterProjection`, and the read-only UI hooks (`hostPaused`, `overlayOpen`, `pauseWhileOpen`). |
+| `src/vr/engineBridge.js` | Feature detection, the `gameMat4` namespace, `offCenterProjection`, and the read-only UI hooks (`hostPaused`, `overlayOpen`). |
 | `src/vr/uiPresence.js` | Generic "is a modal open?" detector. No menu list. Loaded by the dungeon demo only under `?vrui`. |
 
 `makeEnterVrButton` is the entry point a future game host should call. It already no-ops without WebXR. Non-VR players are unaffected because the game entry never calls it.
@@ -87,7 +87,7 @@ How the game's own windows open, and the plan for mirroring them on a floating p
 
 ### What `src/vr` still imports itself
 
-Through `engineBridge.js`: `gameMat4` (lookAt, perspective, mirrorProjectionX, identity, UP_Y) and `offCenterProjection`, which returns null if `perspectiveOffCenter` is gone. Those mat4 names are not re-exported. `probeVrEngineHooks` dynamic-imports `Renderer` and checks `setXrTarget` and `_frameTarget`. `guardedSetXrTarget` no-ops when the method is gone. `probeVrUiHooks` dynamic-imports `ui/input.js`, `ui/enhanced/enhancedOverlays.js`, and `ui/windowStack.js` and checks `hostPaused`, `overlayOpen`, `makeWindowStack`, and `pauseWhileOpen`. Those imports run only when something asks (`uiPresence.start`, or the contract test). A missing export is a status, not a throw.
+Through `engineBridge.js`: `gameMat4` (lookAt, perspective, mirrorProjectionX, identity, UP_Y) and `offCenterProjection`, which returns null if `perspectiveOffCenter` is gone. Those mat4 names are not re-exported. `probeVrEngineHooks` dynamic-imports `Renderer` and checks `setXrTarget` and `_frameTarget`. `guardedSetXrTarget` no-ops when the method is gone. `probeVrUiHooks` dynamic-imports `ui/input.js` and `ui/enhanced/enhancedOverlays.js` and checks `hostPaused` and `overlayOpen`. It does not import the window stack. Those imports run only when something asks (`uiPresence.start`, or the contract test). A missing export is a status, not a throw. The dungeon demo's `?vrui` flag passes `uiOverlayActive` into the detector; that page never registers a host.
 
 `vrDungeon.js` still constructs `Renderer` and imports the dungeon stack directly:
 

@@ -366,14 +366,14 @@ function startVrDungeon() {
 
   // VR1: ?vrui logs when the generic modal detector changes. The import
   // stays inside the flag so a normal dungeon session does not load the
-  // UI readers. The dungeon's stack is not published through hostPaused
-  // (this page never calls noteHostInput); uiOverlayActive is that latch.
+  // UI readers. This page never calls noteHostInput, so hostPaused stays
+  // idle. uiOverlayActive is the latch the context already publishes.
   if (pageHas('vrui')) {
     import('./uiPresence.js').then(async ({ createUiPresence }) => {
-      const presence = createUiPresence({ watch: true, canvas });
-      presence.observeStack({
-        paused: () => !!ctx?.uiOverlayActive,
-        topWindow: () => null,
+      const presence = createUiPresence({
+        watch: true,
+        canvas,
+        publishedOpen: () => ctx?.uiOverlayActive === true,
       });
       let baseline = true;
       presence.subscribe((s) => {

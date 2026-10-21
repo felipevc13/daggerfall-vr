@@ -83,7 +83,7 @@ const gamePaused = () => staffTeleportHeld || townTalk.overlayActive || (modes?.
 
 **[V]** `hostPaused` is the global read of that object (`src/ui/input.js:100` `noteHostInput`, `:102` `hostPaused`). It returns `null` until some host has registered, and `null` again if `paused()` throws. The boot menu and the cinematic have no host, so they do not answer here. `staffTeleportHeld` is OR'd into `gamePaused`, so a true answer is not always a window. Treating that as "show the panel" is the fail-open rule, not a claim that the staff is a menu.
 
-There is no exported list of live stacks. The objects stay inside the hosts. `hostPaused()` is how a host publishes the latch. A caller that already holds a stack can ask `paused()` and `pauseWhileOpen` itself. `uiPresence.observeStack` is that door. The Privateer's Hold demo builds `dungeonContext` and never calls `noteHostInput`, so `hostPaused()` stays idle there. The context does publish `uiOverlayActive` (`src/scenes/dungeonContext.js:9875`), which is `dungeonPaused()`. `?vrui` watches that.
+There is no exported list of live stacks. The objects stay inside the hosts, and so does the stack's pause method: `test/scenes/roadb_host_pause.test.js` allows that call only in the four hosts that own a stack. `hostPaused()` is the read upstream added for everyone else. The detector does not import the stack module and does not call that method. The Privateer's Hold demo builds `dungeonContext` and never calls `noteHostInput`, so `hostPaused()` stays idle there. The context does publish `uiOverlayActive` (`src/scenes/dungeonContext.js:9875`), which is `dungeonPaused()`. `?vrui` passes that getter as `publishedOpen`.
 
 **[V]** DOM doors register a close function. `registerOverlay` is `src/ui/enhanced/enhancedOverlays.js:71`, `overlayOpen` is `:84`, `closeTopOverlay` is `:92`. 27 other files call `registerOverlay`. The registry holds functions, not elements, so it can say that something is open and cannot say which node.
 
@@ -105,7 +105,7 @@ The panel's pointer bridge should call these functions through the engine bridge
 
 ## Inventory
 
-Columns: **R** is where it draws (C canvas, D DOM, C/D depends on the skin, D² DOM on both skins). **P** is whether the stack pauses. "Slot" means the host's window slot, which is what `hostPaused` and `observeStack` see.
+Columns: **R** is where it draws (C canvas, D DOM, C/D depends on the skin, D² DOM on both skins). **P** is whether the stack pauses. "Slot" means the host's window slot. The host's pause reader already includes it, and `hostPaused()` is what the detector reads.
 
 This is a map of families, not a whitelist. Counts above are why it cannot be a whitelist.
 
@@ -119,7 +119,7 @@ This is a map of families, not a whitelist. Counts above are why it cannot be a 
 | Sheet, spellbook, maps, books, rest, transport | The doors in the table above; automap and travel map actions at `input.js:984` and `:994` | Their actions in `routeAction` (`input.js:931`) | C/D | Yes, unless the window sets `pauseWhileOpen: false` |
 | Talk, trade, bank, tavern, guild, Wyrd | `talkDoor.js:56`, `tradeDoor.js:35`, `wyrdDoor.js:27` | Activate in the world | C/D or D² | Yes, via the slot and, for the DOM doors, `registerOverlay` |
 | Message boxes, yes/no, input | `src/systems/notify.js`, `src/ui/yesNoBox.js`, `src/ui/inputMessageBox.js` | Game systems | C/D | Yes on the stack. The enhanced notice element is passive in the DOM scan (pointer-events none, id `enhanced-notice`). |
-| Status readout | `src/ui/statusBox.js` | Status action | C/D | **No.** `pauseWhileOpen: false`. The detector follows that. |
+| Status readout | `src/ui/statusBox.js` | Status action | C/D | **No.** `pauseWhileOpen: false`. The host's pause reader is false, so `hostPaused()` is false. |
 | Death | `src/ui/deathScreen.js` | Event | C/D | Yes, and `holdsTop` |
 | Radial dial, notice board, bounty, broker, arena, naval, Elite Gates | `pixelDial.js` and the `*Door.js` files that call `registerOverlay` | World activation or Tab | D² in general | Yes, via the registry or the slot |
 | Chat and the other online panels | `chatPanel.js:570` | Enter, and the social keys | D² | Usually no. Chat still matches the DOM rule because it is fixed and has inputs. |
@@ -153,10 +153,11 @@ No host, window, or door has to know the click came from a controller. That brid
 
 | Hook | Where | What VR uses it for |
 | --- | --- | --- |
-| `hostPaused()` | `src/ui/input.js:102` | "A host says a pausing window is up." Null before any host registers. Read by `readHostPaused` in the bridge. |
+| `hostPaused()` | `src/ui/input.js:102` | "A host says a pausing window is up." Null before any host registers. Read by `readHostPaused` in the bridge. This is the pause signal. |
 | `overlayOpen()` / `closeTopOverlay()` | `enhancedOverlays.js:84`, `:92` | "A DOM door registered." The detector reads the first. The second is the panic-close for a later PR. |
 | Fixed body children | Door hosts, z 11–14 (`enhancedStyle.js:944`) | The DOM scan. Geometry and pointer events, not id prefixes. `wyrd-host` is the counterexample the prefix misses. |
-| `makeWindowStack` / `paused()` / `pauseWhileOpen` | `windowStack.js:126`, `:371`, `:43` | Used when the caller holds the stack (`observeStack`). Not imported by `uiPresence.js`; the bridge dynamic-imports them. The bridge does not spell the dotted pause call: `test/scenes/roadb_host_pause.test.js` reserves that spelling for the four stack-owning hosts. |
+| `uiOverlayActive` | `dungeonContext.js:9875` | The dungeon demo's published latch, passed as `publishedOpen`. That page never calls `noteHostInput`. |
+| `makeWindowStack` and its pause method | `windowStack.js:126`, `:371` | The four hosts only. Not a VR hook. |
 | `domTargetAt`, `domPointer`, `domHoverChange`, `interactiveAt` | `plusPad.js:391`, `:398`, `:417`, `:321` | The future pointer bridge. Not called by the detector. |
 | `setCursorActive` | `pointerLock.js:98` | The future pointer bridge, so synthetic canvas clicks do not lock the mouse. |
 | `drawScreenQuad` / `endWorldPass` | `renderer.js:4818`, `:2144` | The future canvas layer. A named `setUiTarget` next to `setXrTarget`, or nothing until that PR. `renderer.js` is the file upstream rewrites most often. |
@@ -211,11 +212,13 @@ Show the panel when any signal says a modal is up. In doubt, show it. The bad ca
 ```text
 open =
      hostPaused() === true
-  || an observed stack has a pausing window (paused() or pauseWhileOpen on the top or the hand-written slot)
+  || publishedOpen() === true
   || overlayOpen()
   || the DOM scan finds a window
   || a live read threw
 ```
+
+`publishedOpen` is optional. The dungeon demo passes `uiOverlayActive`. A page that does not pass one leaves that term idle.
 
 A missing export is not a throw. The other signals still answer, and the contract test fails so the sync is visible. `hostPaused() === null` means "no host yet", not "open". The boot menu is caught by the DOM scan. The classic Begin canvas, which has no host and no DOM window, is not caught yet. **[S]** That phase should keep the panel up for the whole 2D plane. It can ride the canvas-layer PR, when "something was drawn in 2D this frame" exists. Doing it now, with no 2D target, would mean "no host registered" equals "modal", and the dungeon demo would show a panel for the whole session.
 
@@ -235,7 +238,7 @@ The scan runs only after `start()`, at 5 Hz, plus a `MutationObserver` on the bo
 - A canvas or host pause, with no DOM hit: `kind: 'canvas'`, the game canvas and its rectangle, when a canvas was passed or the document has one.
 - Open with no box (the overlay registry alone, and no canvas): `kind: 'none'`, a null rectangle. The panel PR can fall back to the viewport.
 
-`?vrui` on `vr-dungeon.html` starts a watching detector and logs `[vrui]` to the console (and so to `/api/vr-log`) when that snapshot changes, including `innerWidth` and `innerHeight`. **[S]** Those two numbers during an immersive session are not known until someone wears the headset. The log is how that gets measured. The demo's own HUD and the Enter VR button are `data-vr-chrome`, so they are not a false open.
+`?vrui` on `vr-dungeon.html` starts a watching detector, passes `uiOverlayActive` as `publishedOpen`, and logs `[vrui]` to the console (and so to `/api/vr-log`) when that snapshot changes, including `innerWidth` and `innerHeight`. **[S]** Those two numbers during an immersive session are not known until someone wears the headset. The log is how that gets measured. The demo's own HUD and the Enter VR button are `data-vr-chrome`, so they are not a false open.
 
 ### What the panel PR still has to decide
 

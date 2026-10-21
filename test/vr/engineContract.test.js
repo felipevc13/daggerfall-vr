@@ -94,16 +94,26 @@ test('UI presence reads the engine only through the bridge, and the hooks are st
   assert.doesNotMatch(bridge, /from ['"]\.\.\/ui\//);
   assert.match(bridge, /import\('\.\.\/ui\/input\.js'\)/);
   assert.match(bridge, /import\('\.\.\/ui\/enhanced\/enhancedOverlays\.js'\)/);
-  assert.match(bridge, /import\('\.\.\/ui\/windowStack\.js'\)/);
+  assert.doesNotMatch(bridge, /windowStack/);
+  assert.doesNotMatch(presence, /windowStack/);
+  assert.doesNotMatch(presence, /observeStack/);
   assert.doesNotMatch(presence, /startsWith\(\s*['"]enhanced-/);
+  for (const file of jsFiles('src/vr')) {
+    const text = read(file);
+    assert.doesNotMatch(text, /\.paused\s*\(/, file);
+    assert.doesNotMatch(text, /\[['"]paused['"]\]/, file);
+  }
   const probe = await probeVrUiHooks();
   assert.deepEqual(probe.missing, [], probe.missing.join(', '));
   assert.equal(probe.ok, true);
   const dungeon = read('src/vr/vrDungeon.js');
   assert.doesNotMatch(dungeon, /from ['"]\.\/uiPresence\.js['"]/);
+  assert.doesNotMatch(dungeon, /observeStack/);
+  assert.match(dungeon, /uiOverlayActive/);
   const flag = dungeon.indexOf("pageHas('vrui')");
   assert.ok(flag > 0);
-  assert.match(dungeon.slice(flag, flag + 500), /import\('\.\/uiPresence\.js'\)/);
+  assert.match(dungeon.slice(flag, flag + 700), /import\('\.\/uiPresence\.js'\)/);
+  assert.match(dungeon.slice(flag, flag + 700), /publishedOpen/);
 });
 
 test('the upstream contract workflow is manual, fetches public upstream, and does not publish', () => {

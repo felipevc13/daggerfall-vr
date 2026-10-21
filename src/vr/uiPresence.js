@@ -5,18 +5,18 @@
 // under ?vrui, and does not call it otherwise). Until start(), nothing
 // here loads the engine, watches the DOM, or sets a timer.
 //
-// Four signals, OR'd. Any one of them opens. A read that throws opens
-// too: an extra panel is the failure, a modal the headset cannot see
-// is the bug. A missing export does not open by itself — the other
-// signals still answer, which is how an upstream rename degrades.
+// Signals, OR'd. Any one of them opens. A read that throws opens too:
+// an extra panel is the failure, a modal the headset cannot see is the
+// bug. A missing export does not open by itself — the other signals
+// still answer, which is how an upstream rename degrades.
 //
 //   hostPaused   the host's own pause, via engineBridge (null until a
-//                host hands its hooks to an input layer)
-//   stack        a window stack the caller holds. The four hosts keep
-//                theirs in closures; there is no global to import.
-//                pauseWhileOpen is the engine's law, read through the
-//                bridge, so a status readout (pauseWhileOpen: false)
-//                is not a modal and a plain canvas window is.
+//                host hands its hooks to an input layer). This is the
+//                pause upstream publishes. The stack's own pause method
+//                stays inside the four hosts that own a stack.
+//   published    an optional latch the page already holds. The dungeon
+//                demo passes dungeonContext's uiOverlayActive, because
+//                that page never calls noteHostInput.
 //   overlay      enhancedOverlays.overlayOpen, the DOM doors' registry
 //   dom          direct children of the body that look like a window:
 //                fixed or absolute, visible, taking the pointer, and
@@ -25,7 +25,7 @@
 //                A new door with a new id is a window because of how
 //                it sits on the page, not because we named it.
 
-import { loadVrUiHooks, readHostPaused, readOverlayOpen, readStackModal } from './engineBridge.js';
+import { loadVrUiHooks, readHostPaused, readOverlayOpen } from './engineBridge.js';
 
 /** Fraction of the viewport a child must cover to count with no control inside it. */
 export const DOM_MODAL_AREA = 0.25;
@@ -217,7 +217,7 @@ function closedSnapshot(viewport) {
     element: null,
     rect: null,
     viewport,
-    signals: { hostPaused: 'idle', stack: 'closed', overlay: 'closed', dom: false },
+    signals: { hostPaused: 'idle', published: 'idle', overlay: 'closed', dom: false },
   };
 }
 
@@ -237,7 +237,6 @@ async function engineReaders() {
   return {
     hostPaused: () => readHostPaused(mods),
     overlayOpen: () => readOverlayOpen(mods),
-    stackModal: (stack, slot) => readStackModal(mods, stack, slot),
   };
 }
 
@@ -248,8 +247,9 @@ async function engineReaders() {
  * once, then again only when the snapshot changes.
  *
  * @param {{ document?: Document|null, canvas?: any, viewport?: {w:number,h:number}|null,
- *   watch?: boolean, schedule?: (fn: Function, ms: number) => any, cancel?: (id: any) => void,
- *   getComputedStyle?: Function, readers?: { hostPaused: Function, overlayOpen: Function, stackModal: Function }|null }} [options]
+ *   watch?: boolean, publishedOpen?: (() => boolean)|null,
+ *   schedule?: (fn: Function, ms: number) => any, cancel?: (id: any) => void,
+ *   getComputedStyle?: Function, readers?: { hostPaused: Function, overlayOpen: Function }|null }} [options]
  */
 export function createUiPresence(options = {}) {
   const doc = options.document === undefined ? globalThis.document : options.document;
@@ -258,35 +258,27 @@ export function createUiPresence(options = {}) {
   const cancel = options.cancel ?? null;
   let readers = options.readers ?? null;
   let viewportOverride = options.viewport ?? null;
-  const stacks = new Set();
   const listeners = new Set();
   let current = closedSnapshot(viewportOf(doc, viewportOverride));
-  let started = false;
   let watching = false;
   let timer = null;
   let observer = null;
   let lastSig = signature(current);
 
-  function readSlot(entry) {
-    if (typeof entry.slot === 'function') return entry.slot();
-    return entry.slot ?? null;
+  function readPublished() {
+    if (typeof options.publishedOpen !== 'function') return { status: 'idle' };
+    try {
+      return { status: 'value', value: options.publishedOpen() === true };
+    } catch {
+      return { status: 'threw' };
+    }
   }
 
   function sample() {
     const viewport = viewportOf(doc, viewportOverride);
     const host = readers ? ask(() => readers.hostPaused()) : { status: 'missing' };
     const overlay = readers ? ask(() => readers.overlayOpen()) : { status: 'missing' };
-    let stackStatus = 'closed';
-    let stackThrew = false;
-    if (readers && stacks.size) {
-      for (const entry of stacks) {
-        let slot = null;
-        try { slot = readSlot(entry); } catch { stackThrew = true; continue; }
-        const reading = ask(() => readers.stackModal(entry.stack, slot));
-        if (reading?.status === 'threw') stackThrew = true;
-        else if (reading?.status === 'value' && reading.value === true) stackStatus = 'open';
-      }
-    }
+    const published = readPublished();
     const dom = findDomModal(doc?.body?.children, {
       viewport,
       canvas: options.canvas ?? doc?.querySelector?.('canvas') ?? null,
@@ -294,10 +286,10 @@ export function createUiPresence(options = {}) {
     });
     const reasons = [];
     if (host.status === 'value' && host.value === true) reasons.push('hostPaused');
-    if (stackStatus === 'open') reasons.push('stack');
+    if (published.status === 'value' && published.value === true) reasons.push('published');
     if (overlay.status === 'value' && overlay.value === true) reasons.push('overlay');
     if (dom.open) reasons.push('dom');
-    const uncertain = host.status === 'threw' || overlay.status === 'threw' || stackThrew;
+    const uncertain = host.status === 'threw' || overlay.status === 'threw' || published.status === 'threw';
     if (uncertain) reasons.push('uncertain');
     const open = reasons.length > 0;
     let kind = 'none';
@@ -325,7 +317,7 @@ export function createUiPresence(options = {}) {
       viewport,
       signals: {
         hostPaused: host.status === 'value' ? (host.value ? 'open' : 'closed') : host.status,
-        stack: stackThrew && stackStatus !== 'open' ? 'threw' : stackStatus,
+        published: published.status === 'value' ? (published.value ? 'open' : 'closed') : published.status,
         overlay: overlay.status === 'value' ? (overlay.value ? 'open' : 'closed') : overlay.status,
         dom: dom.open,
       },
@@ -378,7 +370,6 @@ export function createUiPresence(options = {}) {
     /** Load readers and take one sample. With `watch`, keep sampling. */
     async start() {
       if (!readers) readers = await engineReaders();
-      started = true;
       const snap = sample();
       if (watch) arm();
       return snap;
@@ -397,20 +388,6 @@ export function createUiPresence(options = {}) {
     activeElement() { return current.element; },
     activeRect() { return current.rect; },
     snapshot() { return current; },
-    /**
-     * Watch one stack. `stack` is a makeWindowStack result, or any object
-     * with paused() / topWindow(). `slot` is the host's hand-written top,
-     * for the frame before reconcile. Returns an unsubscribe.
-     */
-    observeStack(stack, slot = null) {
-      const entry = { stack, slot };
-      stacks.add(entry);
-      if (started) sample();
-      return () => {
-        stacks.delete(entry);
-        if (started) sample();
-      };
-    },
     /** Test and debug seam: replace the viewport the area fraction uses. */
     setViewport(next) { viewportOverride = next; },
   };

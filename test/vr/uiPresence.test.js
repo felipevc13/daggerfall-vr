@@ -1,7 +1,9 @@
 // VR1: a modal is detected from the signals every door already has to
 // use, not from a list of menus. Headless: element-shaped objects stand
-// in for the DOM. The engine readers are the real ones (host pause,
-// overlay registry, window stack), loaded through the bridge.
+// in for the DOM. The engine readers are the real ones (host pause and
+// the overlay registry), loaded through the bridge. A canvas window is
+// seen because the host publishes it through hostPaused. The test may
+// ask a stack; src/vr does not.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -9,7 +11,7 @@ import { join } from 'node:path';
 import { createUiPresence } from '../../src/vr/uiPresence.js';
 import { noteHostInput } from '../../src/ui/input.js';
 import { registerOverlay, overlayOpen, closeTopOverlay } from '../../src/ui/enhanced/enhancedOverlays.js';
-import { makeWindowStack } from '../../src/ui/windowStack.js';
+import { makeWindowStack, pauseWhileOpen } from '../../src/ui/windowStack.js';
 
 const VIEW = { w: 1000, h: 800 };
 
@@ -75,7 +77,6 @@ function drainOverlays() { let guard = 0; while (overlayOpen() && guard < 20) { 
 const idleReaders = () => ({
   hostPaused: () => ({ status: 'idle' }),
   overlayOpen: () => ({ status: 'value', value: false }),
-  stackModal: () => ({ status: 'value', value: false }),
 });
 
 async function openPresence(doc, extra = {}) {
@@ -94,62 +95,95 @@ function jsFiles(dir, acc = []) {
 }
 
 describe('ui presence against the live engine signals', { concurrency: 1 }, () => {
-  test('a canvas window on a stack opens the detector, and pop closes it', async () => {
-    resetHost();
+  test('a canvas window the host reports opens the detector, and pop closes it', async () => {
     drainOverlays();
     const canvas = canvasNode();
-    const presence = await openPresence(page([canvas], canvas));
     const stack = makeWindowStack();
-    presence.observeStack(stack);
-    assert.equal(presence.isOpen(), false);
-    stack.pushWindow({ draw() {} });
-    presence.sample();
-    const open = presence.snapshot();
-    assert.equal(open.open, true);
-    assert.deepEqual(open.reasons, ['stack']);
-    assert.equal(open.kind, 'canvas');
-    assert.equal(presence.activeElement(), canvas);
-    assert.deepEqual(presence.activeRect(), { x: 0, y: 0, w: VIEW.w, h: VIEW.h });
-    stack.popWindow();
-    presence.sample();
-    assert.equal(presence.isOpen(), false);
-    assert.equal(presence.activeElement(), null);
-    assert.equal(presence.activeRect(), null);
+    noteHostInput({ paused: () => stack.paused() });
+    try {
+      const presence = await openPresence(page([canvas], canvas));
+      assert.equal(presence.isOpen(), false);
+      stack.pushWindow({ draw() {} });
+      presence.sample();
+      const open = presence.snapshot();
+      assert.equal(open.open, true);
+      assert.deepEqual(open.reasons, ['hostPaused']);
+      assert.equal(open.kind, 'canvas');
+      assert.equal(presence.activeElement(), canvas);
+      assert.deepEqual(presence.activeRect(), { x: 0, y: 0, w: VIEW.w, h: VIEW.h });
+      stack.popWindow();
+      presence.sample();
+      assert.equal(presence.isOpen(), false);
+      assert.equal(presence.activeElement(), null);
+      assert.equal(presence.activeRect(), null);
+    } finally {
+      resetHost();
+    }
   });
 
   test('a window that opts out of pause (the status readout) is not a modal', async () => {
-    resetHost();
     drainOverlays();
     const canvas = canvasNode();
-    const presence = await openPresence(page([canvas], canvas));
     const stack = makeWindowStack();
-    presence.observeStack(stack);
-    stack.pushWindow({ pauseWhileOpen: false, draw() {} });
-    presence.sample();
-    assert.equal(presence.isOpen(), false);
+    noteHostInput({ paused: () => stack.paused() });
+    try {
+      const presence = await openPresence(page([canvas], canvas));
+      stack.pushWindow({ pauseWhileOpen: false, draw() {} });
+      presence.sample();
+      assert.equal(presence.isOpen(), false);
+    } finally {
+      resetHost();
+    }
   });
 
   test('a HUD-only stack is not a modal', async () => {
-    resetHost();
     drainOverlays();
-    const presence = await openPresence(page([]));
-    presence.observeStack(makeWindowStack({ hud: { pauseWhileOpen: false } }));
-    assert.equal(presence.isOpen(), false);
+    const stack = makeWindowStack({ hud: { pauseWhileOpen: false } });
+    noteHostInput({ paused: () => stack.paused() });
+    try {
+      const presence = await openPresence(page([]));
+      assert.equal(presence.isOpen(), false);
+    } finally {
+      resetHost();
+    }
   });
 
-  test('a slot written by hand counts before the stack is told', async () => {
-    resetHost();
+  test('a slot the host counts before reconcile opens through hostPaused', async () => {
     drainOverlays();
-    const presence = await openPresence(page([]));
     const stack = makeWindowStack();
     let slot = null;
-    presence.observeStack(stack, () => slot);
+    noteHostInput({ paused: () => stack.paused() || pauseWhileOpen(slot) });
+    try {
+      const presence = await openPresence(page([]));
+      assert.equal(presence.isOpen(), false);
+      slot = { draw() {} };
+      presence.sample();
+      assert.equal(presence.isOpen(), true);
+      assert.deepEqual(presence.snapshot().reasons, ['hostPaused']);
+      slot = null;
+      presence.sample();
+      assert.equal(presence.isOpen(), false);
+    } finally {
+      resetHost();
+    }
+  });
+
+  test('a published latch, the shape of the dungeon demo, opens and closes', async () => {
+    resetHost();
+    drainOverlays();
+    let up = false;
+    const canvas = canvasNode();
+    const presence = await openPresence(page([canvas], canvas), {
+      publishedOpen: () => up,
+    });
     assert.equal(presence.isOpen(), false);
-    slot = { draw() {} };
+    assert.equal(presence.snapshot().signals.published, 'closed');
+    up = true;
     presence.sample();
     assert.equal(presence.isOpen(), true);
-    assert.deepEqual(presence.snapshot().reasons, ['stack']);
-    slot = null;
+    assert.deepEqual(presence.snapshot().reasons, ['published']);
+    assert.equal(presence.snapshot().kind, 'canvas');
+    up = false;
     presence.sample();
     assert.equal(presence.isOpen(), false);
   });
@@ -283,14 +317,18 @@ describe('ui presence against the live engine signals', { concurrency: 1 }, () =
     const seen = [];
     presence.subscribe((s) => seen.push(s.open));
     presence.sample();
-    const stack = makeWindowStack();
-    presence.observeStack(stack);
-    stack.pushWindow({ draw() {} });
-    presence.sample();
-    presence.sample();
-    stack.popWindow();
-    presence.sample();
-    assert.deepEqual(seen, [false, true, false]);
+    let up = false;
+    try {
+      noteHostInput({ paused: () => up });
+      up = true;
+      presence.sample();
+      presence.sample();
+      up = false;
+      presence.sample();
+      assert.deepEqual(seen, [false, true, false]);
+    } finally {
+      resetHost();
+    }
   });
 });
 
@@ -300,19 +338,25 @@ test('a reader that throws shows the panel; a missing export does not', async ()
     readers: {
       hostPaused: () => { throw new Error('host down'); },
       overlayOpen: () => ({ status: 'value', value: false }),
-      stackModal: () => ({ status: 'value', value: false }),
     },
   });
   await threw.start();
   assert.equal(threw.isOpen(), true);
   assert.ok(threw.snapshot().reasons.includes('uncertain'));
 
+  const publishedThrew = createUiPresence({
+    document: page([]), viewport: VIEW, watch: false, readers: idleReaders(),
+    publishedOpen() { throw new Error('latch down'); },
+  });
+  await publishedThrew.start();
+  assert.equal(publishedThrew.isOpen(), true);
+  assert.ok(publishedThrew.snapshot().reasons.includes('uncertain'));
+
   const missing = createUiPresence({
     document: page([]), viewport: VIEW, watch: false,
     readers: {
       hostPaused: () => ({ status: 'missing' }),
       overlayOpen: () => ({ status: 'missing' }),
-      stackModal: () => ({ status: 'value', value: false }),
     },
   });
   await missing.start();
