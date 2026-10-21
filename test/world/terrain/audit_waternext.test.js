@@ -279,7 +279,7 @@ test('AUDIT WATER-NEXT G2/G11/G12/G14: the sea takes its own copy; a copy forget
   const r = rd('src/render/renderer.js');
   const sea = r.slice(r.indexOf('  drawSeaSurfaces(list, liftY, u, color, arrayTex) {'));
   assert.ok(sea.indexOf('this._underWater = undefined;') > 0 && sea.indexOf('this._underWater = undefined;') < sea.indexOf('this._waterFrameBlock(L, u, 1, liftY);'), 'a fresh copy, before the sea\'s frame block takes one');
-  const begin = r.slice(r.indexOf('beginFrame(proj, view, lightDir, opts = null) {'), r.indexOf('beginFrame(proj, view, lightDir, opts = null) {') + 6400);   // VR1: the headset notes sit in beginFrame ahead of the stamp, past upstream's 6000 (the ripple reset is at ~6003). PIN MOVED, 6000 -> 6400. The two lines stay adjacent.
+  const begin = r.slice(r.indexOf('beginFrame(proj, view, lightDir, opts = null) {'), r.indexOf('beginFrame(proj, view, lightDir, opts = null) {') + 7200);   // VR1: the headset notes and the eye-image aim sit in beginFrame ahead of the stamp. PIN MOVED, 6000 -> 6400, then 6400 -> 7200. The two lines stay adjacent.
   assert.match(begin, /this\._frameStamp\+\+;   \/\/ PERF3\n\s*this\._ripples = null;/, 'beginFrame: no field but this frame\'s');
   const comp = r.slice(r.indexOf('  _compositeAir() {'), r.indexOf('  _compositeAir() {') + 1600);
   assert.ok(comp.indexOf('this._underWater = undefined;') > comp.indexOf('if (!this._air?.pending) return;'), 'dropped at the resolve');

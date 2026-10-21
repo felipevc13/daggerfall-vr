@@ -5745,17 +5745,18 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       if (this._worldViewportPx) this._restoreWorldViewport();
     }
     this._beginLane(proj, view, lightDir, opts?.world === true);   // EL2/EL3/EL4: the maps, the images and the frame, before the clear
+    // LC1: the lantern grid for this frame's lights, on a WORLD frame of the lane alone (a panel bracket's frame is another view and another viewport: every light)
+    this._clustersLive = !!this._lane && opts?.world === true && !this._panelSaved && this._spriteDepth === 0 && this._studioDepth === 0 && this._buildClusters(proj, view);
     // VR1: the air image is the eye's size and its origin is 0. The scissor
     // set above is the eye's place in the stereo buffer; left on the image
     // it clears only the bottom of a window, or nothing, and both eyes
-    // then show that one crop.
+    // then show that one crop. It sits after the lantern grid, and it only
+    // aims the clear.
     if (xrWorld && this._frameFbo && this._xrTarget?.vp) {
       const v = this._xrTarget.vp;
       gl.viewport(0, 0, v.width, v.height);
       if (this._xrScissor) gl.scissor(0, 0, v.width, v.height);
     }
-    // LC1: the lantern grid for this frame's lights, on a WORLD frame of the lane alone (a panel bracket's frame is another view and another viewport: every light)
-    this._clustersLive = !!this._lane && opts?.world === true && !this._panelSaved && this._spriteDepth === 0 && this._studioDepth === 0 && this._buildClusters(proj, view);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     if (this._xrScissor) { gl.disable(gl.SCISSOR_TEST); this._xrScissor = false; }   // VR1: the eye's rect guarded the clear alone
     s.viewDraws = this._rwOutside ? 0 : this._rwViewDraws;
