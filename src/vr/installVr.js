@@ -13,6 +13,7 @@ import { endVrSession, immersiveVrSupported, makeEnterVrButton } from './xrSessi
 import { relayVrLog } from './xrLog.js';
 import { createXrFrameClock } from './xrFrameLoop.js';
 import { createDungeonStereo, DUNGEON_NEAR, DUNGEON_FAR } from './dungeonStereo.js';
+import { createTitlePanel } from './titlePanel.js';
 
 /**
  * Mount Enter VR on the real game, or mount nothing.
@@ -56,19 +57,24 @@ export async function installVr(renderer, hooks = {}) {
     if (!doc?.body || !renderer?.gl) return { mounted: false, reason: 'no-surface' };
 
     const stereo = createDungeonStereo((fb, vp) => guardedSetXrTarget(renderer, fb, vp));
+    let panel = null;
+    const stopPanel = () => { try { panel?.stop(); } catch { /* the window loop does not draw the quad */ } };
     clock = Clock({
       win,
       gl: renderer.gl,
       setTarget: (fb, vp) => guardedSetXrTarget(renderer, fb, vp),
       onDisengage: () => {
+        stopPanel();
         try { stereo.release(); } catch { /* the next session captures a new head */ }
         try { console.log(say('info', 'VR session ended. The window frame loop is back.')); } catch { /* the flat game continues */ }
       },
       onArmFail: () => {
+        stopPanel();
         try { console.warn(say('warn', 'VR frame clock stopped. Ending the session.')); } catch { /* still end it */ }
         stop(live);
       },
       onPresentFail: () => {
+        stopPanel();
         try { console.warn(say('warn', 'VR could not aim the frame at the headset. Ending the session.')); } catch { /* still end it */ }
         stop(live);
       },
@@ -77,6 +83,7 @@ export async function installVr(renderer, hooks = {}) {
       },
     });
     try { clock.dungeonEyes = (draw, camera) => stereo.paint(clock, draw, camera); } catch { /* no seam: the clock's copy remains */ }
+    panel = createTitlePanel({ gl: renderer.gl, doc, win, clock });
     if (!clock.install()) {
       console.warn(say('warn', 'VR off. This page has no frame clock to move.'));
       return { mounted: false, reason: 'no-clock' };
@@ -99,9 +106,11 @@ export async function installVr(renderer, hooks = {}) {
         }
         if (!on) {
           try { console.warn(say('warn', 'VR frame loop failed. Ending the session.')); } catch { /* still end the session */ }
+          stopPanel();
           stop(live);
           return;
         }
+        try { panel.start(); } catch { /* no quad: the session still shows the world's frames */ }
         try { console.log(say('info', 'VR frame loop is on the headset. The dungeon draws each eye. Other places still share one picture.')); } catch { /* the session is already up */ }
       },
       onError: (err) => {

@@ -23,6 +23,7 @@
 // the window clock. Nothing here throws into the caller.
 
 import { XrInputManager, questSampleOf, trackingYawOf } from './xrInput.js';
+import { rayFromTransform } from './panelHit.js';
 
 const QUEUE_ID = 2 ** 20;
 
@@ -279,20 +280,49 @@ export function createXrFrameClock({
   const copyEyes = mirror ?? ((fbLayer, views) => eyeMirror.copy(fbLayer, views));
   const questInput = new XrInputManager();
   let questSample = null;
+  let questRays = { left: null, right: null };
+  let viewerMatrix = null;
+
+  function handRay(source, xrFrame) {
+    const space = source?.targetRaySpace;
+    if (!space || typeof xrFrame?.getPose !== 'function') return null;
+    let pose = null;
+    try { pose = xrFrame.getPose(space, refSpace); } catch { return null; }
+    const ray = rayFromTransform(pose?.transform?.matrix);
+    if (!ray) return null;
+    const button = source.gamepad?.buttons?.[0];
+    const trigger = (Number(button?.value) || 0) >= 0.5 || button?.pressed === true;
+    return { origin: ray.origin, direction: ray.direction, trigger };
+  }
 
   function publishQuest(xrFrame) {
     questSample = null;
+    questRays = { left: null, right: null };
+    viewerMatrix = null;
     if (mode !== 'session' || !session || !xrFrame) return;
     try {
       questInput.poll(session, refSpace, xrFrame);
       let headYaw = null;
       try {
         const pose = typeof xrFrame.getViewerPose === 'function' ? xrFrame.getViewerPose(refSpace) : null;
-        headYaw = trackingYawOf(pose?.transform?.matrix);
-      } catch { headYaw = null; }
+        const matrix = pose?.transform?.matrix;
+        if (matrix && matrix.length >= 16) viewerMatrix = Array.from(matrix);
+        headYaw = trackingYawOf(matrix);
+      } catch { headYaw = null; viewerMatrix = null; }
       questSample = questSampleOf(questInput.state, headYaw);
+      const sources = session.inputSources;
+      if (sources) {
+        for (const source of sources) {
+          const hand = source?.handedness;
+          if (hand !== 'left' && hand !== 'right') continue;
+          const ray = handRay(source, xrFrame);
+          if (ray) questRays[hand] = ray;
+        }
+      }
     } catch {
       questSample = null;
+      questRays = { left: null, right: null };
+      viewerMatrix = null;
     }
   }
 
@@ -446,6 +476,8 @@ export function createXrFrameClock({
     framePack = null;
     stereoClaimed = false;
     questSample = null;
+    questRays = { left: null, right: null };
+    viewerMatrix = null;
     try { setTarget(null, null); } catch { /* already the canvas */ }
     try { eyeMirror.release(); } catch { /* nothing left to free */ }
     if (listener && ending) {
@@ -528,6 +560,8 @@ export function createXrFrameClock({
     eyePack: () => framePack,
     claimStereo: () => { stereoClaimed = true; },
     questMotor: () => (mode === 'session' ? questSample : null),
+    questRays: () => (mode === 'session' ? questRays : null),
+    viewerMatrix: () => (mode === 'session' ? viewerMatrix : null),
     get installed() { return installed; },
     get presenting() { return mode === 'session'; },
   };
