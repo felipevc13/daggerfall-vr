@@ -68,7 +68,7 @@ and what it takes out lands loose in `src/scenes/` or `src/systems/`.
 | `src/systems/` | Game law that is not combat or online: items, quests, guilds, travel, time, saving, sound. |
 | `src/tools/` | The labs' code: the modules the root `*.html` lab pages load, and two they share. |
 | `src/ui/` | Every window, menu and HUD element, classic and Enhanced. |
-| `src/vr/` | The headset module: the dungeon demo, the XR session, cameras, weapons, and the Quest logger. The flat game does not import it. |
+| `src/vr/` | The headset module: the dungeon demo, the XR session, cameras, weapons, the Quest logger, and `installVr.js`. A flat `/play/` does not load it. `/play/?vr` dynamic-imports that one file. |
 | `src/world/` | The world's assembly: terrain, blocks, locations, dungeons, buildings, water, the world's set pieces. |
 | `src/assets/` | Source art the code imports (meshes, textures and their `source/` originals). Not mapped further. |
 

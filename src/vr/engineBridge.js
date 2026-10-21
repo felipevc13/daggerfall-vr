@@ -3,7 +3,8 @@
 // Product shape: this repository is a VR mod for DFO
 // (https://daggerfalljs.dev/, upstream https://github.com/Lattymoy/daggerfall-js-source).
 // The flat game must keep booting when this module is absent or when an
-// upstream merge drops a hook. src/main.js does not import src/vr. Pages that
+// upstream merge drops a hook. src/main.js reaches this folder only by a
+// dynamic import of installVr.js, and only when the URL has ?vr. Pages that
 // do import it ask this file whether the hooks are still there, and skip
 // "Enter VR" when they are not.
 //
@@ -93,7 +94,7 @@ export function guardedSetXrTarget(renderer, framebuffer, viewport) {
 
 // VR1: UI PRESENCE. Read-only questions the menu detector asks so it can
 // tell "a modal is up" without a list of menus. Nothing here is called
-// while a flat frame draws: src/main.js does not import src/vr, and these
+// while a flat frame draws: a /play/ without ?vr does not load src/vr, and these
 // loaders run only when a headset page asks. Each import is dynamic and
 // the answer is a status, never a throw, so an upstream rename degrades
 // to "missing" and the other signals still answer.

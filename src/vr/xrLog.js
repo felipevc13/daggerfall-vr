@@ -4,6 +4,28 @@
 
 import { pageHas } from '../systems/pageQuery.js';
 
+/** VR1: one line to the dev server's `/api/vr-log`, without installing the
+ *  console hook. The hook (and `window.__vrLoggerInstalled`) stays behind
+ *  `?shot`. When that hook is already installed, this posts nothing: the
+ *  caller's `console.log` is forwarded by the hook, so the line is not sent twice.
+ *  A missing route, including production, is ignored. */
+export function relayVrLog(level, message) {
+  const text = String(message ?? '');
+  if (globalThis.window?.__vrLoggerInstalled) return text;
+  const fetchFn = globalThis.fetch;
+  if (typeof fetchFn !== 'function') return text;
+  const known = level === 'error' || level === 'warn' || level === 'info' ? level : 'info';
+  try {
+    const pending = fetchFn('/api/vr-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level: known, message: text, timestamp: Date.now() }),
+    });
+    Promise.resolve(pending).catch(() => {});
+  } catch { /* no dev server; the flat game continues */ }
+  return text;
+}
+
 function installVrLogger() {
   if (pageHas('shot')) {
   if (window.__vrLoggerInstalled) return;
