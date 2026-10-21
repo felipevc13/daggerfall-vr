@@ -800,16 +800,12 @@ const HARDCODED = {
   'src/world/windowRoomArt.js': 2,
   'src/world/worldOfDaggerfall/wodLocationData.js': 3,
   'src/world/worldOfDaggerfall/worldOfDaggerfall.js': 7,
-  // The headset demo's existing words (src/vr, and the lab). Recorded so a count cannot rise; a new sentence goes through t().
-  // The missing-hooks line on each page is the demo's own words, recorded with the rest.
+  // Fork: the lab and the Quest logger's existing words. The Privateer's Hold
+  // page and its demo modules were removed; their rows went with the files.
+  // A new sentence still goes through t(). The count cannot rise.
   'src/tools/vrLab.js': 7,
-  'src/vr/vrDungeon.js': 8,
-  'src/vr/xrCalibrator.js': 18,
   'src/vr/xrLog.js': 4,
-  'src/vr/xrMenu.js': 31,
   'src/vr/xrSession.js': 1,
-  'src/vr/xrUI.js': 7,
-  'src/vr/xrVoice.js': 10,
 };
 
 test('L10N4 the ratchet: no file holds more hard-coded English than it did - route a new sentence through t(key, en, args); when a count falls, write the map down again', () => {

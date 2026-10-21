@@ -6,7 +6,7 @@ Guide for an AI agent in this repository. Humans: start at `README.md`. Engine l
 
 A VR mod for [DFO](https://daggerfalljs.dev/), the WebGL2 game from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). Felipe's goal is a module any DFO player can turn on, so someone in a Meta Quest Browser and someone on a monitor share the same world. The Quest build is not a second game.
 
-The module is opt-in. VR code lives in `src/vr/`. The flat game (`play/index.html` → `src/main.js`) dynamic-imports `src/vr/installVr.js` only when the URL has `?vr`. Without that flag it does not fetch the module. The headset demo is `vr-dungeon.html` (Privateer's Hold). The map of the tree, the workflows, and the coupling list is `docs/repo-map.md`. How to wear the headset is `docs/TESTING-ON-QUEST.md`.
+The module is opt-in. VR code lives in `src/vr/`. The flat game (`play/index.html` → `src/main.js`) dynamic-imports `src/vr/installVr.js` only when the URL has `?vr`. Without that flag it does not fetch the module. The headset check is `/play/?dungeon&class=16&vr` (Privateer's Hold, Warrior). The map of the tree, the workflows, and the coupling list is `docs/repo-map.md`. How to wear the headset is `docs/TESTING-ON-QUEST.md`.
 
 Upstream license is MIT (`LICENSE`, copyright Lattymoy, plus Daggerfall Unity's notice). Keep that notice. Do not commit Bethesda's game files.
 
@@ -16,7 +16,7 @@ Upstream license is MIT (`LICENSE`, copyright Lattymoy, plus Daggerfall Unity's 
 - `makeEnterVrButton` in `src/vr/xrSession.js` is the entry point. It returns null when the browser cannot do `immersive-vr`. On `/play/?vr`, `installVr` keeps the session up by moving the page clock in `src/vr/xrFrameLoop.js`. Hosts still call `requestAnimationFrame`. Exit restores the window clock.
 - Do not import `src/vr` from `src/main.js` or `src/scenes/` with a static import. The plug is a dynamic `import('./vr/installVr.js')` after the renderer exists, gated on `params.has('vr')`, as `docs/repo-map.md` describes. Do not grow `bootWorld`, `createWorldModes`, `buildDungeonContext`, `bootExterior`, or the other hosts named in `CLAUDE.md`.
 - The two inherited edits the headset needs are `Renderer.setXrTarget` / `_frameTarget` / `xrCompatible: true` in `src/render/renderer.js`, and `perspectiveOffCenter` in `src/world/mat4.js`. Touch them only to keep those hooks alive, and name the touch in the PR. Any other engine edit has to be justified the same way and covered by `test/vr/engineContract.test.js`.
-- `vrDungeon.js` still imports the dungeon pipeline directly. That list is the next adapter (`docs/repo-map.md`). Do not pretend the bridge already wraps it.
+- Quest sticks are read in `src/vr/xrInput.js`. The empty-room lab calls that reader. `/play/?vr` does not yet, so do not delete it when removing a demo page. Wiring it into the motor is a later change, through `engineBridge`, and a flat frame keeps the keyboard.
 - The flat game has to keep working. A change that throws while `src/main.js` evaluates is a broken mod, even if the headset demo looks fine.
 
 ## Upstream sync
@@ -61,9 +61,9 @@ Patch notes belong in the PR body under `## Patch notes: <title>`, never in a co
 
 ## Quest and telemetry
 
-Follow `docs/TESTING-ON-QUEST.md`. Short form: `npm run dev:quest`, USB debugging, Quest Browser at `http://localhost:5173/vr-dungeon.html`. LAN `http://192.168…` does not enter VR.
+Follow `docs/TESTING-ON-QUEST.md`. Short form: `npm run dev:quest`, USB debugging, Quest Browser at `http://localhost:5173/play/?dungeon&class=16&vr`. LAN `http://192.168…` does not enter VR.
 
-`/api/vr-log` is a Vite middleware (`vrLogServer` in `vite.config.js`). The page `src/vr/xrLog.js` posts console output there. It is not part of the hosted game. Read the terminal or `.quest-vr.log`. Voice is `/api/vr-voice` and `.vr-user-request.json`. Chat replies are `node scripts/aiReply.mjs "text"` into `.vr-chat.json`.
+`/api/vr-log` is a Vite middleware (`vrLogServer` in `vite.config.js`). The page `src/vr/xrLog.js` posts console output there. It is not part of the hosted game. Read the terminal or `.quest-vr.log`.
 
 Also open `http://localhost:5173/play/` and https://daggerfalljs.dev/play/ and confirm there is still no Enter VR button. That is the current online flow.
 

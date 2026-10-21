@@ -1,5 +1,10 @@
 // VR1 / VR2 - THE WEBXR INPUT SYSTEM FOR QUEST STANDALONE
 //
+// Kept when the Privateer's Hold page (vr-dungeon.html) was removed.
+// The empty-room lab still calls poll and updateLocomotion. /play/?vr
+// does not: the real hosts read the keyboard in ui/input.js. toMotorInput
+// is the bag the next wiring should hand the motor.
+//
 // Reads Quest 2/3/Pro controllers (thumbsticks, triggers, grips, buttons)
 // and handles:
 //   1. Smooth Locomotion (Left Thumbstick -> Walk / Strafe)

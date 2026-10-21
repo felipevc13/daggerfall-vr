@@ -16,11 +16,6 @@
 // by it. The game eye is already in metres. The XR view's translation is
 // already the eye, so this pass does not add a second IPD.
 //
-// Two dev flags, read through engineBridge (pageQuery). No effect unless
-// this module loaded, which is `?vr`. `ipd=0` parks both eyes on the head
-// centre and keeps each eye's projection. `swapeyes` exchanges the XRView
-// (pose and projection) and leaves the layer's viewport on its own rect.
-//
 // A missing pose, one eye, a view without a projection, or a target that will
 // not take the eye returns false before any draw, and the host paints its
 // flat camera once so the copy still has a picture. A failure after a draw
@@ -28,7 +23,6 @@
 // throws.
 
 import { eyeMatrices, headsetDeltaView, GAME_UNIT_IN_METERS } from './xrCamera.js';
-import { readVrEyeDebug } from './engineBridge.js';
 
 export { GAME_UNIT_IN_METERS };
 
@@ -40,7 +34,7 @@ export const DUNGEON_FAR = 800;
 /**
  * @param {(fb: unknown, vp: {x:number,y:number,width:number,height:number}|null) => boolean} setTarget
  */
-export function createDungeonStereo(setTarget, debugOf = readVrEyeDebug) {
+export function createDungeonStereo(setTarget) {
   let neutral = null;
   let session = null;
 
@@ -65,35 +59,11 @@ export function createDungeonStereo(setTarget, debugOf = readVrEyeDebug) {
       session = pack.session ?? null;
       neutral = [pack.head[0], pack.head[1], pack.head[2]];
     }
-    let debug = { zeroIpd: false, swapEyes: false };
-    try {
-      const got = debugOf?.();
-      if (got) debug = got;
-    } catch { debug = { zeroIpd: false, swapEyes: false }; }
-    // Pose stays paired with the layer's rect. Swapping the pack wholesale
-    // would swap the viewports too, and the picture would not move.
-    const paired = [];
+    const shots = [];
     for (let i = 0; i < pack.views.length; i++) {
       const rec = pack.views[i];
-      paired.push({ view: rec.view, x: rec.x, y: rec.y, width: rec.width, height: rec.height });
-    }
-    if (debug.swapEyes && paired.length >= 2) {
-      const pose0 = paired[0].view;
-      paired[0].view = paired[1].view;
-      paired[1].view = pose0;
-    }
-    const shots = [];
-    for (let i = 0; i < paired.length; i++) {
-      const rec = paired[i];
       if (!(rec.width > 0) || !(rec.height > 0)) return false;
       const posed = headsetDeltaView(rec.view, neutral, GAME_UNIT_IN_METERS);
-      if (debug.zeroIpd && posed?.transform?.matrix && pack.head) {
-        const m = posed.transform.matrix;
-        const scale = GAME_UNIT_IN_METERS;
-        m[12] = (Number(pack.head[0]) - Number(neutral[0])) * scale;
-        m[13] = (Number(pack.head[1]) - Number(neutral[1])) * scale;
-        m[14] = (Number(pack.head[2]) - Number(neutral[2])) * scale;
-      }
       if (!posed?.projectionMatrix && !posed?.fov) return false;
       let mats = null;
       try { mats = eyeMatrices(posed, { pos: [eye[0], eye[1], eye[2]], yaw }, DUNGEON_NEAR, DUNGEON_FAR); }

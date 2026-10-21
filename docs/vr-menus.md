@@ -193,7 +193,7 @@ When a DOM menu opens, end the session. The Quest shows the page on its own floa
 
 ### F. Rebuild the menus in 3D — rejected
 
-**[V]** `src/vr/xrMenu.js` draws its own tabs (inventory, stats, chargen, chat, options) on a 2D canvas with fixed sample data, and toggles on left X or Y (`:248`). Every new upstream menu is a miss, and the game rules would be copied. The mesh, the ray cast, and the laser are worth keeping when the real panel exists. The slate itself should go. That removal is one of the open questions.
+**[V]** The Privateer's Hold page used to draw its own tabs (inventory, stats, chargen, chat, options) on a 2D canvas with fixed sample data. That slate left with the page. Rebuilding the game's menus in 3D stays rejected: every new upstream menu is a miss, and the game rules would be copied.
 
 | | A | B | C | D | E | F |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -218,9 +218,9 @@ open =
   || a live read threw
 ```
 
-`publishedOpen` is optional. The dungeon demo passes `uiOverlayActive`. A page that does not pass one leaves that term idle.
+`publishedOpen` is optional. Nothing on `/play/` passes one, so that term stays idle.
 
-A missing export is not a throw. The other signals still answer, and the contract test fails so the sync is visible. `hostPaused() === null` means "no host yet", not "open". The boot menu is caught by the DOM scan. The classic Begin canvas, which has no host and no DOM window, is not caught yet. **[S]** That phase should keep the panel up for the whole 2D plane. It can ride the canvas-layer PR, when "something was drawn in 2D this frame" exists. Doing it now, with no 2D target, would mean "no host registered" equals "modal", and the dungeon demo would show a panel for the whole session.
+A missing export is not a throw. The other signals still answer, and the contract test fails so the sync is visible. `hostPaused() === null` means "no host yet", not "open". The boot menu is caught by the DOM scan. The classic Begin canvas, which has no host and no DOM window, is not caught yet. **[S]** That phase should keep the panel up for the whole 2D plane. It can ride the canvas-layer PR, when "something was drawn in 2D this frame" exists. Doing it now, with no 2D target, would mean "no host registered" equals "modal", and a dungeon session would show a panel the whole time.
 
 ### DOM scan
 
@@ -238,7 +238,7 @@ The scan runs only after `start()`, at 5 Hz, plus a `MutationObserver` on the bo
 - A canvas or host pause, with no DOM hit: `kind: 'canvas'`, the game canvas and its rectangle, when a canvas was passed or the document has one.
 - Open with no box (the overlay registry alone, and no canvas): `kind: 'none'`, a null rectangle. The panel PR can fall back to the viewport.
 
-`?vrui` on `vr-dungeon.html` starts a watching detector, passes `uiOverlayActive` as `publishedOpen`, and logs `[vrui]` to the console (and so to `/api/vr-log`) when that snapshot changes, including `innerWidth` and `innerHeight`. **[S]** Those two numbers during an immersive session are not known until someone wears the headset. The log is how that gets measured. The demo's own HUD and the Enter VR button are `data-vr-chrome`, so they are not a false open.
+The `?vrui` watcher lived on the removed Privateer's Hold page. `uiPresence.js` is still the detector. Nothing on `/play/` starts it, so it does not import into the flat game. **[S]** `innerWidth` and `innerHeight` during an immersive session are not known until someone wears the headset. A later plug can post that snapshot to `/api/vr-log`. The Enter VR button stays `data-vr-chrome`, so it is not a false open.
 
 ### What the panel PR still has to decide
 
@@ -291,8 +291,8 @@ For each family in the inventory, on both skins, opened from the controller and 
 3. **`renderer.js` moves.** The canvas hook has to sit next to `setXrTarget`, with a contract regex, and the panel has to fall back to the escape hatch when `setUiTarget` is gone.
 4. **DOM raster fidelity.** Fonts, `backdrop-filter`, CSS animation, and child canvases. E and D are the mitigations.
 5. **`isTrusted === false`.** **[V]** A few sites ignore untrusted events: chat (`src/ui/chatPanel.js` checks `isTrusted`), a real Escape in `pointerLock.js:174`, and at least one minigame. File pickers and a native `<select>` need a real gesture. **[S]** The select popup will not appear inside a raster. The escape hatch is the way through those screens.
-6. **Quest viewport during the session.** **[S]** `?vrui` logs `innerWidth` and `innerHeight` so this can be measured instead of assumed.
-7. **Buttons already mean something.** A, B, X, and Y drive jump, crouch, and the demo slate (`xrMenu.js:248`). The pointer bridge needs one written map and the stale-edge rule.
+6. **Quest viewport during the session.** **[S]** `innerWidth` and `innerHeight` during an immersive session still have to be measured on a headset. The old `?vrui` log went away with the demo page.
+7. **Buttons already mean something.** `xrInput.toMotorInput` maps A to jump, B to crouch, and the left thumb click to run. X, Y, and the triggers are polled and not mapped. The pointer bridge needs one written map and the stale-edge rule, and it has to share that map with the motor wiring.
 8. **Chat and the quick-loot plaque.** Chat matches the DOM rule today, so the detector reports it open. That is fail-open. A passive mode that leaves chat on a smaller panel, or hides it, belongs with the HUD question below.
 
 ## Questions for Felipe
@@ -303,4 +303,4 @@ For each family in the inventory, on both skins, opened from the controller and 
 4. **Panel follow.** Fixed in the world when it opens (the recommendation), or a lazy follow that is on by default?
 5. **HUD in VR.** Part of this same panel in a passive mode (health, compass, hotbar), or a separate study (wrist, or anchored to a hand)? The detector ignores `.hud` on purpose. Chat currently counts as modal because it has controls. Both of those are this question.
 6. **Flat-screen escape.** Is it acceptable to drop out of the immersive session for the screens a rasterizer cannot operate (the ARENA2 folder, mods, native selects)?
-7. **`xrMenu.js`.** Remove the demo slate once the real panel is in, and keep voice and the dev chat? It is still the menu the dungeon demo toggles with X and Y. This change does not delete it.
+7. **The demo slate.** It left with the Privateer's Hold page, and so did the voice route and the dev chat script. The detector stays. Voice is not part of the motor wiring.
