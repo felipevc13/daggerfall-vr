@@ -23,6 +23,7 @@ export class XrInputManager {
     this.snapAngle = (options.snapAngleDeg ?? 45) * (Math.PI / 180);
     this.smoothTurnSpeed = options.smoothTurnSpeed ?? 2.0; // rad/s
     this.moveSpeed = options.moveSpeed ?? 4.0; // m/s (approx Daggerfall walk)
+    this.debug = options.debug ?? false;
 
     // Snap turn edge detection latch
     this._snapLatched = false;
@@ -58,16 +59,12 @@ export class XrInputManager {
         if (gp.axes.length >= 4) {
           rawX = gp.axes[2] ?? 0;
           rawY = gp.axes[3] ?? 0;
-          if (Math.abs(rawX) < 0.05 && Math.abs(rawY) < 0.05 && (Math.abs(gp.axes[0]) > 0.05 || Math.abs(gp.axes[1]) > 0.05)) {
-            rawX = gp.axes[0] ?? 0;
-            rawY = gp.axes[1] ?? 0;
-          }
         } else {
           rawX = gp.axes[0] ?? 0;
           rawY = gp.axes[1] ?? 0;
         }
 
-        if (handedness === 'left' && (Math.abs(rawX) > 0.1 || Math.abs(rawY) > 0.1)) {
+        if (this.debug && handedness === 'left' && (Math.abs(rawX) > 0.1 || Math.abs(rawY) > 0.1)) {
           if (!this._lastStickLog || Date.now() - this._lastStickLog > 500) {
             this._lastStickLog = Date.now();
             console.log(`[STICK LEFT] axes: [${gp.axes.map(v => v.toFixed(2)).join(', ')}] -> x=${rawX.toFixed(2)}, y=${rawY.toFixed(2)}`);
