@@ -38,19 +38,6 @@ const { lookAt, mirrorProjectionX } = gameMat4;
 
 const DEG = Math.PI / 180;
 
-/** VR1 - THE HANDEDNESS SEAM, ONE SIGN, WRITTEN DOWN. The engine mirrors NDC x
- *  at the projection (mat4's HANDEDNESS LAW); that mirror flips the STEREO pair
- *  with it, so the two eyes' lateral offsets must be mirrored by the same sign
- *  or the depth reads INSIDE-OUT (a wall through a doorway sits behind it).
- *  The mirror is the view's and the projection's; this constant is the eye's.
-/** VR1 - CALIBRATED QUEST OPTICS PROFILE (Preset 5):
- *  - eyeX = 1: Unmirrored controller and eye coordinate space matching physical Quest IPD
- *  - ipdScale = 0.75: 75% virtual IPD distance eliminating stereoscopic eye strain and strabismus
- *  - proj[0] = -proj[0]: Left-handed world parity mirror without disturbing optical lens center proj[8]
- */
-export const VR_EYE_X = 1;
-export const IPD_SCALE = 0.75;
-
 /** VR1: one game metre is one headset metre.
  *  Classic units become metres when a mesh is read (`GLOBAL_SCALE` 0.025 in
  *  world/meshReader.js, DFU's MeshReader.GlobalScale). A dungeon block face is
@@ -59,10 +46,6 @@ export const IPD_SCALE = 0.75;
  *  shrink the player to a few centimetres, so the headset delta is multiplied
  *  by 1 and the game position is left as the motor stored it. */
 export const GAME_UNIT_IN_METERS = 1;
-
-export function vrEyeX() { return VR_EYE_X; }
-export function setVrEyeX() {}
-export function setStereoProfile() {}
 
 /** WebXR vector -> the game's frame: (x, y, z) -> (x, y, -z). The module's one
  *  handedness conversion (the file header's law). Answers a fresh triple. */
@@ -87,14 +70,16 @@ function rigRotate(local, yaw) {
  */
 export function rigView(view, rig) {
   const m = view.transform.matrix;
-  // The head's basis in XR space, column-major: right = col0, up = col1,
-  // forward = -col2 (WebXR's camera looks down its own -z).
+  // Column-major pose (XRRigidTransform.matrix): col0 right, col1 up, col2
+  // is the camera's +Z, which points backward. Forward is -col2. toGame
+  // reflects each axis's z. That keeps a level head level (forward y is 0)
+  // and a pitch up (positive rotation about the eye's right) looking up.
   const right = toGame(m[0], m[1], m[2]);
   const upXr = toGame(m[4], m[5], m[6]);
   const fwdXr = toGame(-m[8], -m[9], -m[10]);
-  // The head's offset from the origin, mapped, with the stereo sign on x
-  // (VR_EYE_X * IPD_SCALE) and the rig's yaw over it - the eye's world position.
-  const off = rigRotate([VR_EYE_X * IPD_SCALE * m[12], m[13], -m[14]], rig.yaw);
+  // The eye's own translation, already the move since the captured head when
+  // the dungeon called headsetDeltaView. 1:1 with the headset. No IPD scale.
+  const off = rigRotate([m[12], m[13], -m[14]], rig.yaw);
   const eye = [rig.pos[0] + off[0], rig.pos[1] + off[1], rig.pos[2] + off[2]];
   // The head's own axes, turned by the rig's yaw alone (not mirrored: the
   // view direction is the game's, the mirror is the projection's).
@@ -123,9 +108,11 @@ export function viewMatrix(view, rig) {
  */
 export function projectionMatrix(view, near, far) {
   if (view?.projectionMatrix) {
+    // The same mirror the flat lens uses. Negating only [0] leaves the
+    // asymmetric centre [8] on the other side of the eye, and the two
+    // optical centres diverge.
     const out = new Float32Array(view.projectionMatrix);
-    out[0] = -out[0];
-    return out;
+    return mirrorProjectionX(out);
   }
   // Fallback for legacy WebVR or test harnesses that supply view.fov
   if (view?.fov) {

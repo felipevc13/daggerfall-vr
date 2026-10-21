@@ -7,8 +7,6 @@
 
 import { gameMat4 } from './engineBridge.js';
 const { identity } = gameMat4;
-import { VR_EYE_X } from './xrCamera.js';
-
 /** Synthesizes procedural retro/fantasy sounds via WebAudio with zero latency */
 class VrCombatAudio {
   constructor() {

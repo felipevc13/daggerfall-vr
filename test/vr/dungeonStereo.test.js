@@ -83,7 +83,7 @@ test('two eyes get their own target and projection, and the head stays on the ga
   assert.ok(Math.abs(shots[0].eye[1] - 1.7) < 1e-6, shots[0].eye[1]);
   assert.ok(Math.abs(shots[1].eye[1] - 1.7) < 1e-6, shots[1].eye[1]);
   const gap = shots[1].eye[0] - shots[0].eye[0];
-  assert.ok(Math.abs(gap - 0.064 * 0.75) < 1e-6, gap);
+  assert.ok(Math.abs(gap - 0.064) < 1e-6, gap);
   assert.equal(DUNGEON_NEAR, 0.05);
   assert.equal(DUNGEON_FAR, 800);
 });

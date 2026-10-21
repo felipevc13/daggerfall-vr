@@ -204,6 +204,8 @@ test('the air resolve follows the eye the bridge aimed, and the dungeon does not
   const renderer = read('src/render/renderer.js');
   const air = read('src/render/airPass.js');
   assert.match(renderer, /_aimXrResolve\(\) \{/);
+  assert.match(renderer, /xrWorldImageSize/);
+  assert.match(renderer, /gl\.scissor\(0, 0, v\.width, v\.height\)/);
   assert.match(renderer, /_vrEye: true/);
   assert.match(renderer, /if \(this\._xrTarget\?\.vp\)/);
   assert.match(air, /if \(_vp && _vp\.width > 0 && _vp\.height > 0\) gl\.viewport\(_vp\.x, _vp\.y, _vp\.width, _vp\.height\);/);
