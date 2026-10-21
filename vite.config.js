@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { createReadStream, readdirSync, statSync, appendFileSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { createReadStream, readdirSync, statSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { landingHtml, readBuildSha } from './scripts/landingHtml.mjs';
 import { studioArtIndex } from './scripts/studioArtIndex.mjs';   // STUDIO1: the studio's listing, served and built from the folder
@@ -113,95 +113,6 @@ function vrLogServer() {
           res.statusCode = 200;
           res.end('ok');
         }
-      });
-
-      const chatFile = join(process.cwd(), '.vr-chat.json');
-      const readChat = () => {
-        if (!existsSync(chatFile)) {
-          return [
-            { id: 1, sender: 'ai', time: 'Sistema', text: '🤖 Antigravity conectado! Segure o Grip Esquerdo no Quest e fale comigo!' },
-          ];
-        }
-        try { return JSON.parse(readFileSync(chatFile, 'utf8')); } catch { return []; }
-      };
-      const writeChat = (msgs) => {
-        try { writeFileSync(chatFile, JSON.stringify(msgs.slice(-50), null, 2)); } catch (_) {}
-      };
-
-      server.middlewares.use('/api/vr-voice', (req, res) => {
-        if (req.method === 'POST') {
-          let body = '';
-          req.on('data', (chunk) => { body += chunk; });
-          req.on('end', () => {
-            try {
-              const data = JSON.parse(body);
-              const time = new Date().toLocaleTimeString();
-              const text = data.text || '';
-              const line = `\n========================================================\n[${time}] 🎙️ [NOVA MENSAGEM DE VOZ DO USUÁRIO NO QUEST]:\n👉 "${text}"\n========================================================\n\n`;
-              process.stdout.write(line);
-              try {
-                appendFileSync(logFile, line);
-                writeFileSync(join(process.cwd(), '.vr-user-request.json'), JSON.stringify({
-                  timestamp: Date.now(),
-                  time,
-                  text,
-                  hasAudio: !!data.audioBase64,
-                }, null, 2));
-
-                // Append to chat history for in-VR testing display
-                const msgs = readChat();
-                msgs.push({
-                  id: Date.now(),
-                  sender: 'user',
-                  time,
-                  text,
-                });
-                writeChat(msgs);
-              } catch (_) {}
-            } catch (e) {
-              process.stdout.write(`[VR-VOICE-ERROR] ${e.message}\n`);
-            }
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Content-Type', 'application/json');
-            res.statusCode = 200;
-            res.end(JSON.stringify({ status: 'ok', received: true }));
-          });
-        } else {
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.statusCode = 200;
-          res.end('ok');
-        }
-      });
-
-      server.middlewares.use('/api/vr-chat', (req, res) => {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', 'application/json');
-        if (req.method === 'GET') {
-          res.statusCode = 200;
-          return res.end(JSON.stringify(readChat()));
-        }
-        if (req.method === 'POST') {
-          let body = '';
-          req.on('data', (chunk) => { body += chunk; });
-          req.on('end', () => {
-            try {
-              const payload = JSON.parse(body);
-              const msgs = readChat();
-              msgs.push({
-                id: Date.now(),
-                sender: payload.sender || 'ai',
-                time: new Date().toLocaleTimeString(),
-                text: payload.text || '',
-              });
-              writeChat(msgs);
-            } catch (_) {}
-            res.statusCode = 200;
-            res.end(JSON.stringify({ status: 'ok' }));
-          });
-          return;
-        }
-        res.statusCode = 200;
-        res.end('ok');
       });
     },
   };
@@ -345,7 +256,6 @@ export default defineConfig({
         water: 'water.html', // WATER1: the enhanced water lab (src/tools/waterLab.js)
         abyss: 'abyss.html', // SD-LAB: the Shattered Hour and the Rift, made in code, drawn by the game's renderer (src/tools/abyssLab.js)
         vr: 'vr.html', // VR1: the WebXR lab - a made room drawn once per eye into the XRWebGLLayer through the game's own Renderer (src/tools/vrLab.js) - tools/vrProbe.mjs
-        vrDungeon: 'vr-dungeon.html', // VR dungeon: Privateer's Hold (src/vr/vrDungeon.js). A tracked root page, so the build ships it; the flat game at /play/ does not load it.
         spire: 'spire.html', // EG-G2: an Elite Breach's circle in its band's dress, made in code (src/tools/spireLab.js) - tools/spireLabProbe.mjs
         cards: 'cards.html', // CARDS3: the card table lab (src/tools/cardsLab.js) - tools/cardsProbe.mjs
         // MW-D: the Morrowind data inspector. Reads a player's own

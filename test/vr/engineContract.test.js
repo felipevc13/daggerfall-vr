@@ -117,7 +117,7 @@ test('src/vr touches mat4 only through the bridge, and the flat entry does not i
     if (file.endsWith(`${join('src', 'vr', 'engineBridge.js')}`)) continue;
     const text = read(file);
     assert.doesNotMatch(text, /from ['"]\.\.\/world\/mat4\.js['"]/, file);
-    if (!file.endsWith('vrDungeon.js')) assert.doesNotMatch(text, /from ['"]\.\.\/render\/renderer\.js['"]/, file);
+    assert.doesNotMatch(text, /from ['"]\.\.\/render\/renderer\.js['"]/, file);
   }
   const importVr = /from ['"][^'"]*\/vr\//;
   for (const file of jsFiles('src')) {
@@ -129,10 +129,12 @@ test('src/vr touches mat4 only through the bridge, and the flat entry does not i
   assert.doesNotMatch(read('play/index.html'), /src\/vr\//);
 });
 
-test('vr-dungeon.html is a build input, and the upstream publish workflows stay repository-guarded', async () => {
+test('vr.html is a build input, and the upstream publish workflows stay repository-guarded', async () => {
   const input = Object.values((await import('../../vite.config.js')).default.build.rollupOptions.input);
-  assert.ok(input.includes('vr-dungeon.html'));
   assert.ok(input.includes('vr.html'));
+  assert.equal(input.includes('vr-dungeon.html'), false);
+  assert.match(read('src/vr/xrInput.js'), /updateLocomotion/);
+  assert.match(read('src/vr/xrInput.js'), /toMotorInput/);
   for (const file of ['.github/workflows/deploy.yml', '.github/workflows/relay-deploy.yml', '.github/workflows/release-desktop.yml']) {
     assert.match(read(file), /github\.repository == 'Lattymoy\/daggerfall-js-source'/, file);
   }
@@ -190,14 +192,9 @@ test('UI presence reads the engine only through the bridge, and the hooks are st
   const probe = await probeVrUiHooks();
   assert.deepEqual(probe.missing, [], probe.missing.join(', '));
   assert.equal(probe.ok, true);
-  const dungeon = read('src/vr/vrDungeon.js');
-  assert.doesNotMatch(dungeon, /from ['"]\.\/uiPresence\.js['"]/);
-  assert.doesNotMatch(dungeon, /observeStack/);
-  assert.match(dungeon, /uiOverlayActive/);
-  const flag = dungeon.indexOf("pageHas('vrui')");
-  assert.ok(flag > 0);
-  assert.match(dungeon.slice(flag, flag + 700), /import\('\.\/uiPresence\.js'\)/);
-  assert.match(dungeon.slice(flag, flag + 700), /publishedOpen/);
+  // The Privateer's Hold page that booted this detector under ?vrui is gone.
+  // The detector stays. /play/ does not import it.
+  assert.doesNotMatch(read('src/main.js'), /uiPresence/);
 });
 
 test('the air resolve follows the eye the bridge aimed, and the dungeon does not import src/vr', () => {

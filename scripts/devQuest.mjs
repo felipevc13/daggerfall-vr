@@ -58,7 +58,7 @@ await server.listen();
 const addr = server.httpServer?.address();
 const actualPort = typeof addr === 'object' && addr ? addr.port : port;
 const scheme = wantHttps ? 'https' : 'http';
-const dungeon = `${scheme}://localhost:${actualPort}/vr-dungeon.html`;
+const dungeon = `${scheme}://localhost:${actualPort}/play/?dungeon&class=16&vr`;
 const play = `${scheme}://localhost:${actualPort}/play/`;
 const lab = `${scheme}://localhost:${actualPort}/vr.html`;
 
@@ -67,7 +67,7 @@ const adb = spawnSync('adb', ['reverse', `tcp:${actualPort}`, `tcp:${actualPort}
 console.log('');
 console.log('Quest VR dev server');
 console.log(`  dungeon:   ${dungeon}`);
-console.log(`  flat game: ${play}   (no Enter VR today; the online flow is flat)`);
+console.log(`  flat game: ${play}   (no Enter VR; the online flow is flat)`);
 console.log(`  lab:       ${lab}`);
 console.log(`  arena2:    ${process.env.ARENA2_PATH || './arena2'}   served at /arena2/ by the dev server`);
 console.log('  logs:      this terminal and .quest-vr.log  (/api/vr-log)');
@@ -81,12 +81,12 @@ if (adb.status === 0) {
 }
 if (!wantHttps) {
   console.log('  LAN http is not a secure context. The page can load; Enter VR will not:');
-  for (const ip of lanAddrs()) console.log(`    http://${ip}:${actualPort}/vr-dungeon.html`);
+  for (const ip of lanAddrs()) console.log(`    http://${ip}:${actualPort}/play/?dungeon&class=16&vr`);
   console.log(`  Wireless with a trusted certificate: cloudflared tunnel --url http://127.0.0.1:${actualPort}`);
   console.log('  Self-signed LAN (often blocked by the headset warning): npm run dev:quest:https');
 } else {
   console.log('  Self-signed HTTPS. Accepting the warning on the Quest often still hides WebXR.');
   console.log('  Prefer adb reverse and http://localhost, or a cloudflared/ngrok https URL.');
-  for (const ip of lanAddrs()) console.log(`    https://${ip}:${actualPort}/vr-dungeon.html`);
+  for (const ip of lanAddrs()) console.log(`    https://${ip}:${actualPort}/play/?dungeon&class=16&vr`);
 }
 console.log('');

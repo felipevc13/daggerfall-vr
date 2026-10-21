@@ -2,7 +2,7 @@
 
 A VR mod for [DFO](https://daggerfalljs.dev/), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a player who does not pass `?vr` never loads the VR module.
 
-**Status:** Privateer's Hold can be entered in VR from `vr-dungeon.html`. The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press keeps the session open. `/play/?dungeon&vr` draws each eye. The world and interiors still share one picture. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button.
+**Status:** The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press keeps the session open. `/play/?dungeon&class=16&vr` draws each eye in Privateer's Hold as a Warrior. The world and interiors still share one picture. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button. Quest sticks are not wired into the player yet.
 
 Play it: https://daggerfalljs.dev/
 
@@ -18,7 +18,7 @@ npm ci
 npm run dev:quest
 ```
 
-On the Quest, with USB debugging accepted: open `http://localhost:5173/vr-dungeon.html` in the Quest Browser and press **Enter VR Dungeon**. A LAN `http://192.168…` address loads the page and does not start WebXR. Full steps, the flat-game check, and hosted-build options: [docs/TESTING-ON-QUEST.md](docs/TESTING-ON-QUEST.md).
+On the Quest, with USB debugging accepted: open `http://localhost:5173/play/?dungeon&class=16&vr` in the Quest Browser and press **Enter VR**. A LAN `http://192.168…` address loads the page and does not start WebXR. Full steps, the flat-game check, and hosted-build options: [docs/TESTING-ON-QUEST.md](docs/TESTING-ON-QUEST.md).
 
 | Doc | For |
 | --- | --- |
@@ -40,15 +40,12 @@ Players can step into Privateer's Hold through the Quest Browser without PCVR or
 
 ### Core VR Features:
 - **Headset stereo**: Each eye uses that eye's WebXR pose and its own asymmetric projection. The horizontal scale is mirrored (`proj[0]`). The lens centre (`proj[8]`) stays where the runtime put it. One game metre is one headset metre, and the eye offset is the pose's own.
-- **6DOF Physical Weapon Combat**: Steel longsword in the right hand and flickering dungeon torch in the left hand, with real blade tip velocity tracking and physical strike detection.
-- **Classic Enemies with 6DOF Hit Physics**: Authentic Daggerfall Skeletal Warrior (*TEXTURE.270*) featuring upright billboarding, 1-bit alpha transparency cutout, and dynamic recoil wobble physics when struck.
-- **Smooth Locomotion & Wall Collisions**: Left thumbstick locomotion with genuine capsule sliding collision against 3D dungeon walls and geometry (`ctx.collider.move`), plus 45° snap turn on the right thumbstick.
-- **In-World Diegetic VR Menus & Chargen**: Floating 3D holographic slates for Inventory (Paperdoll), Character Stats, Options, and the full Tamriel Province Map (Character Creation / Chargen) operated with a 6DOF laser pointer and haptic feedback.
+- **Quest sticks, not yet on the player**: `src/vr/xrInput.js` reads the thumbsticks, snap turn, and face buttons. The empty-room lab calls it. `/play/?vr` does not, so the real game still walks from the keyboard.
 - **Real-Time Remote Telemetry**: On a `?shot` boot, Quest 3 browser logs and exceptions stream to the development server at `/api/vr-log` and are saved into `.quest-vr.log`. The same shot gate covers the frame counter.
 
 ---
 
-Controls inside the demo: left stick walks (walls stop you), right stick snap-turns, right hand is the sword, left hand is the torch, left **X** or **Y** toggles the menu, right trigger is the laser, left grip holds to talk. Detail and the telemetry files: [docs/TESTING-ON-QUEST.md](docs/TESTING-ON-QUEST.md).
+Detail and the telemetry file: [docs/TESTING-ON-QUEST.md](docs/TESTING-ON-QUEST.md).
 
 ---
 
@@ -64,11 +61,8 @@ Upstream engine (do not treat as the mod): `src/characters`, `src/world`, `src/r
 | [`src/vr/xrSession.js`](src/vr/xrSession.js) | Session and the Enter VR button. |
 | [`src/vr/xrFrameLoop.js`](src/vr/xrFrameLoop.js) | Moves the page frame clock onto the headset, and back on exit. |
 | [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | Eye matrices. The headset's own pose and frustum. Horizontal scale mirrored; lens centre kept. |
-| [`src/vr/xrInput.js`](src/vr/xrInput.js) | Sticks, snap turn, collisions, haptics. |
-| [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | Sword and torch. |
-| [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | In-world menu, X/Y, voice grip. |
+| [`src/vr/xrInput.js`](src/vr/xrInput.js) | Sticks, snap turn, buttons, haptics. Used by the empty-room lab. Not yet by `/play/?vr`. |
 | [`src/vr/xrLog.js`](src/vr/xrLog.js) | On a `?shot` boot, posts logs to `/api/vr-log` on the dev server. |
-| [`vr-dungeon.html`](vr-dungeon.html), [`src/vr/vrDungeon.js`](src/vr/vrDungeon.js) | Privateer's Hold demo. |
 | [`vr.html`](vr.html), [`src/tools/vrLab.js`](src/tools/vrLab.js) | Empty-room lab. |
 
 ---
@@ -80,7 +74,7 @@ Upstream engine (do not treat as the mod): `src/characters`, `src/world`, `src/r
    - *Solution*: Disabled lighting lane redirection in VR with `renderer.setLightingLane(null)` and rendered geometry directly to the WebXR `layer.framebuffer`.
 2. **Two campfires (the eyes do not fuse)**:
    - *Cause*: `mirrorProjectionX` negates `proj[0]` and `proj[8]`. On the flat lens `proj[8]` is 0. On a Quest eye it is the lens centre (about ±0.17 NDC). Negating it places a point straight ahead on the outer side of each lens, about 0.35 NDC from where the runtime projection puts it. The eye offset was already the headset's own (about 0.063 m), not applied twice. The air colour sample is `texture(uFrame, vUV)` into that eye's rectangle. It does not add the other eye's viewport x.
-   - *Solution*: Negate only `proj[0]`. Leave `proj[8]` as the runtime matrix. Dev checks, only while `?vr` is loaded: `&ipd=0` draws both eyes from the head centre, `&swapeyes` swaps which pose lands in which lens.
+   - *Solution*: Negate only `proj[0]`. Leave `proj[8]` as the runtime matrix.
 3. **Inverted Controller Coordinates**:
    - *Cause*: Multiplying controller positions by camera parity flags flipped the right hand to the left side.
    - *Solution*: WebXR controller input coordinates are physical (+X right, +Y up, -Z forward) and must never be multiplied by the eye mirror flag.

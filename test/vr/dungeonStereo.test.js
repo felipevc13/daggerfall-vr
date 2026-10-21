@@ -6,7 +6,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createDungeonStereo, GAME_UNIT_IN_METERS, DUNGEON_NEAR, DUNGEON_FAR } from '../../src/vr/dungeonStereo.js';
-import { readVrEyeDebug } from '../../src/vr/engineBridge.js';
 import { headsetDeltaView } from '../../src/vr/xrCamera.js';
 import { createXrFrameClock } from '../../src/vr/xrFrameLoop.js';
 import { paintDungeonEyes } from '../../src/scenes/dungeonEyeHost.js';
@@ -87,44 +86,6 @@ test('two eyes get their own target and projection, and the head stays on the ga
   assert.ok(Math.abs(gap - 0.064) < 1e-6, gap);
   assert.equal(DUNGEON_NEAR, 0.05);
   assert.equal(DUNGEON_FAR, 800);
-});
-
-test('ipd=0 parks both eyes on the head, and swapeyes exchanges poses not rects', () => {
-  assert.deepEqual(readVrEyeDebug('?dungeon&class=16&vr&ipd=0'), { zeroIpd: true, swapEyes: false });
-  assert.deepEqual(readVrEyeDebug('?dungeon&class=16&vr&swapeyes'), { zeroIpd: false, swapEyes: true });
-  assert.deepEqual(readVrEyeDebug('?dungeon&class=16&vr&ipd=0&swapeyes'), { zeroIpd: true, swapEyes: true });
-  assert.deepEqual(readVrEyeDebug('?dungeon&class=16'), { zeroIpd: false, swapEyes: false });
-  assert.deepEqual(readVrEyeDebug('?vr&ipd=1'), { zeroIpd: false, swapEyes: false });
-  assert.equal(read('src/main.js').includes('swapeyes'), false);
-  assert.equal(read('src/main.js').includes('readVrEyeDebug'), false);
-  assert.match(read('src/vr/engineBridge.js'), /pageParam\('ipd'/);
-  assert.match(read('src/vr/engineBridge.js'), /pageHas\('swapeyes'/);
-  assert.match(read('src/vr/dungeonStereo.js'), /readVrEyeDebug/);
-
-  const pack = eyes();
-  const centre = createDungeonStereo(() => true, () => ({ zeroIpd: true, swapEyes: false }));
-  const centred = [];
-  assert.equal(centre.paint(clockFor(pack), (shot) => centred.push(shot), camera), true);
-  assert.ok(Math.abs(centred[0].eye[0] - camera.eye[0]) < 1e-6, centred[0].eye[0]);
-  assert.ok(Math.abs(centred[1].eye[0] - camera.eye[0]) < 1e-6, centred[1].eye[0]);
-  assert.ok(Math.abs(centred[0].eye[1] - camera.eye[1]) < 1e-6);
-  assert.ok(Math.abs(centred[1].eye[2] - camera.eye[2]) < 1e-6);
-  assert.equal(centred[0].proj[0], -1);
-  assert.equal(centred[1].proj[0], -3);
-  assert.deepEqual(centred[0].vp, { x: 0, y: 0, width: 100, height: 80 });
-  assert.deepEqual(centred[1].vp, { x: 100, y: 0, width: 100, height: 80 });
-
-  const swapped = [];
-  const targets = [];
-  const swap = createDungeonStereo((fb, vp) => { targets.push(vp); return true; }, () => ({ zeroIpd: false, swapEyes: true }));
-  assert.equal(swap.paint(clockFor(pack), (shot) => swapped.push(shot), camera), true);
-  assert.equal(swapped[0].proj[0], -3);
-  assert.equal(swapped[1].proj[0], -1);
-  assert.ok(swapped[0].eye[0] > swapped[1].eye[0]);
-  assert.deepEqual(targets[0], { x: 0, y: 0, width: 100, height: 80 });
-  assert.deepEqual(targets[1], { x: 100, y: 0, width: 100, height: 80 });
-  assert.deepEqual(swapped[0].vp, targets[0]);
-  assert.deepEqual(swapped[1].vp, targets[1]);
 });
 
 test('a missing seam paints once and the clock still copies', () => {

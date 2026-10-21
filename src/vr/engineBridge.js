@@ -22,14 +22,11 @@
 //     pinned by test/vr/engineContract.test.js. makeXRCompatible() in
 //     xrSession.js is the runtime fallback if a browser still accepts it.
 //
-// WHAT DOES NOT CROSS HERE YET. vrDungeon.js still imports the dungeon
-// pipeline (formats, dungeonContext, the motor, lighting) and constructs
-// Renderer itself. src/tools/vrLab.js constructs Renderer too. Moving that
-// graph behind one dynamic adapter is the next step, written in
-// docs/repo-map.md. Doing it in one pass would rewrite the test scene.
+// WHAT DOES NOT CROSS HERE YET. src/tools/vrLab.js constructs Renderer
+// for the empty-room lab. The real game does not. Quest sticks are read
+// in xrInput.js. /play/?vr does not feed them to the motor yet.
 
 import * as mat4 from '../world/mat4.js';
-import { pageHas, pageParam } from '../systems/pageQuery.js';
 
 /** The mat4 namespace. Callers use `gameMat4.lookAt` and the rest. Those
  *  names stay declared once, in world/mat4.js: a second `export const` of
@@ -83,19 +80,6 @@ export async function probeVrEngineHooks() {
   } catch { /* missing.push happens below */ }
   const missing = collectMissingHooks(mat4, Renderer);
   return { ok: missing.length === 0, missing };
-}
-
-/** VR1: dev flags on a `?vr` page. `ipd=0` draws both eyes from the head
- *  centre. `swapeyes` exchanges the two poses and leaves each framebuffer
- *  rect where the layer put it. A flat `/play/` never loads this module, so
- *  the same query does nothing there. Other `ipd` values are ignored. */
-export function readVrEyeDebug(search = globalThis.location?.search ?? '') {
-  const raw = pageParam('ipd', search);
-  const ipd = raw == null || raw === '' ? null : Number(raw);
-  return {
-    zeroIpd: ipd === 0,
-    swapEyes: pageHas('swapeyes', search),
-  };
 }
 
 /** Point the world pass at one eye, or refuse. Never throws: a flat frame
