@@ -38,6 +38,19 @@ curse's pins (`test/systems/quest/cursesync.test.js`) read its `_no_` task. Port
   page is read again), a last line is never one word, and a key is named as the keyboard prints it (`keyWord`: `1`,
   `BACKSPACE`, `NUMPAD /` - never the Controls page's `A1`, `BCKSPC`, `KPADDIVIDE`). `test/ui/tut1_tutorials.test.js`
   holds every page to the limits.
+  CRAFT-HOWTO (FIELD BUGS 2026-10-18d; MoonGeneral, the Discord's #bug-reports: "Write a bit more detailed piece about
+  crafting in the tutorial ... something that helps new players know where to look") added a **Crafting** page to
+  Professions & Survival, after Professions: crafting is done at a station, worked from the Stores page - {Professions}, then Holdings > Stores (AUDIT FB1018D L1-6: "Menu > Holdings" is the Enhanced menu's alone);
+  each station's shops as the interior host's station questions answer them (a forge at Weaponsmiths and Armorers, a
+  loom at Clothing Stores, a workbench at Furniture Stores and joineries, a jeweller's bench at Pawn Shops and Gem
+  Stores, a mason's bench at General Stores, Alchemy at Alchemists, Enchanting at Mages Guild halls), a home's own
+  stations, cooking at any fire, and each crafting profession's own page (`ui/professions/profPages.js` `CRAFT_HOW`)
+  for the rest. Its words are routed through the text core (`tutorials.crafting.*`, drafted in the thirteen whole
+  languages). It pops with the first gather, after Gathering and Professions (`scenes/gatherHost.js`'s press, the one
+  seam of the three). The Professions page's key had been said to open "them and your Stores": since HOLDINGS the key
+  lands on the Professions page and the Stores page is Holdings', so the page says that now. With it the book holds
+  seventy-two pages (it held seventy-one before - the count above is the first cut's). Pinned by
+  `test/ui/professions/fb1018d_crafthowto.test.js`.
 - **The law** - `src/systems/tutorials.js`. The read list and the popups' switch live on the port's prefs shelf
   (`tutorialsSeen`, `tutorialPopups` in `systems/uiPrefs.js` PREF_DEFAULTS) - the PLAYER's, not the character's: a
   second character does not need the inventory explained again. `noteFirstUse(id, { after })` is the trigger every

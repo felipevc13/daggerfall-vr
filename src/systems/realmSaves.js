@@ -48,9 +48,10 @@
 // for the save as stored and opens it here.
 // ═══════════════════════════════════════════════════════════════════
 
-import { storedSession, serviceBase, forgetSession, accountRefusalText, forgetD1Bookmark } from '../net/accountClient.js';   // AUDIT SCALE II A-2: a write forgets the page's D1 bookmark
+import { storedSession, serviceBase, forgetSession, accountRefusalText, forgetD1Bookmark, sessionPassFor, noteSessionPass, forgetSessionPass, passKeptThrough } from '../net/accountClient.js';   // AUDIT SCALE II A-2: a write forgets the page's D1 bookmark; SESSION-SIGN: the checkpoint carries the session's pass
 import { realmTradeRefusalText, LOCKED_SAID_MAX } from '../net/realm/realmTradeLaw.js';   // REALM P2.1: a trade the realm settles
 import { REALM_DOOR_WORD } from '../net/wire.js';   // REALM-DOOR: the relay's word for a token that names no realm character
+import { SESSION_PASS_HEADER } from '../net/sessionPassLaw.js';   // SESSION-SIGN: the pass's one name on the wire
 import { gzipText, gunzipText, saveTextOf, canGzip, canGunzip } from '../net/realm/realmSaveCodec.js';   // REALM-GZIP: a save rides packed
 import { houseLine } from '../net/houseLaw.js';   // LEGACY7: the house on the roster's tile
 
@@ -77,6 +78,8 @@ async function realmAsk(io, path, { method = 'GET', json = null, raw = null, hea
   if (!io) return { ok: false, error: 'signed-out' };
   /** @type {Record<string, string>} */
   const headers = { accept: 'application/json', authorization: `Bearer ${io.secret}`, ...extra };
+  const pass = sessionPassFor(io.secret);   // SESSION-SIGN: the checkpoint is a hot route - its pass, as the one door sends it
+  if (pass) headers[SESSION_PASS_HEADER] = pass;
   if (json) headers['content-type'] = 'application/json';
   if (raw != null) headers['content-type'] = 'application/octet-stream';
   // AUDIT SCALE II A-2 (2026-10-11; Mac: "Lets do an audit on everything. Ensure perfection"): A WRITE FORGETS THE PAGE'S
@@ -90,11 +93,13 @@ async function realmAsk(io, path, { method = 'GET', json = null, raw = null, hea
     res = await io.fetch(`${io.base}${path}`, {
       method, headers, body: json ? JSON.stringify(json) : (raw ?? undefined), ...(keepalive ? { keepalive: true } : {}),
     });
-  } catch {
+  } catch (e) {
     if (writes) forgetD1Bookmark();
+    if (!passKeptThrough(e)) forgetSessionPass();   // SESSION-SIGN: a call that could not be made forgets the pass (accountClient.js call's law)
     return { ok: false, error: 'offline' };
   }
   if (writes) forgetD1Bookmark();
+  noteSessionPass(io.secret, res);
   const type = res.headers?.get?.('content-type') ?? '';
   if (!res.ok) {
     let data = null;
@@ -903,23 +908,23 @@ export function sayRealmSave(/** @type {any} */ outcome, /** @type {(text: strin
 
 /** A realm refusal in the Online door's words: the two this side names itself, the service's own through its table. */
 export function realmRefusalText(/** @type {string} */ error) {
-  if (error === 'signed-out') return 'Sign in - or continue as a guest - to play online.';
+  if (error === 'signed-out') return 'Sign in, or continue as a guest, to play online.';
   // HOUSE-LOSS: "Delete it and make it again" was said of a character brought in too, and its delete took the home
   // customs had carried. One brought in is finished from its offline tile, or undone - never made again.
-  if (error === 'no-data') return 'That online character was never saved. One you brought in: press Bring online on it again, or undo it. One made online: delete it and make it again.';
+  if (error === 'no-data') return 'That online character was never saved. If you brought it in, press Bring online on it again or undo it. If you made it online, delete it and make it again.';
   if (error === 'left') return 'You left the realm.';
-  if (error === 'held') return 'A trade or a purchase is being settled - the save follows it.';   // AUDIT REALM2 C2: F9 mid-transaction
-  if (error === 'too-large') return 'This character\'s save is too big for the realm to take. The realm keeps the last save it took.';   // AUDIT REALM2 C8
+  if (error === 'held') return 'A trade or purchase is being settled. The save will follow.';   // AUDIT REALM2 C2: F9 mid-transaction
+  if (error === 'too-large') return 'This character\'s save is too big for the realm. The realm keeps the last save it accepted.';   // AUDIT REALM2 C8
   if (error === 'customs-load-once') return 'Load this character once offline, then it can be brought online.';
   if (error === 'test-room') return 'A Test Room character plays offline only.';
   if (error === 'no-room') return 'This device has no room for another save. Delete one, then copy again.';
-  if (error === 'unknown') return 'The realm did not answer about a trade in flight. Join again - the realm holds how it ended.';   // REALM P2.1
+  if (error === 'unknown') return 'The realm did not answer about a trade in progress. Join again to see how it ended.';   // REALM P2.1
   return accountRefusalText(error);
 }
 /** RESCUE-SAVE: said once the world stands, when the join played the device's copy of a save the realm never took. */
-export const REALM_RESTORED_TEXT = 'Your last save had not reached the realm when you left. This device kept it, and you play on from it.';
+export const REALM_RESTORED_TEXT = 'Your last save had not reached the realm when you left. This device kept it, and you continue from it.';
 /** Said once the world stands, when an online boot carried no realm character (a stale address, a local save). */
-export const REALM_OFFLINE_TEXT = 'Online characters live in the realm now, so this one plays offline. The Online door brings it in, once.';
+export const REALM_OFFLINE_TEXT = 'Online characters live in the realm now, so this one plays offline. Use the Online door to bring it in. You can do this once.';
 
 /** REALM-DOOR: HAS THE RELAY SHUT ITS DOOR ON THIS SESSION AS NO REALM CHARACTER'S? - a socket closed for good with the
  *  relay's own word (net/wire.js REALM_DOOR_WORD). The words are written for a build from before the realm, which prints

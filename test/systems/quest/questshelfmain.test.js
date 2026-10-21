@@ -30,7 +30,8 @@ function chronicleRig(deps) {
       append(...cs) { for (const c of cs) if (c) n.children.push(c); },
       setAttribute(k, v) { n.attrs[k] = String(v); },
       addEventListener(t, fn) { (n.listeners[t] ??= []).push(fn); }, removeEventListener() {},
-      remove() { n.removed = true; } };
+      remove() { n.removed = true; },
+      querySelectorAll: () => [] };   // FB1018f SPELL-SCROLL: the repaint asks for the scrolled panes first (ui/domRepaint.js) - a fake with no layout has none
     Object.defineProperty(n, 'innerHTML', { set() { n.children = []; }, get() { return ''; } });
     return n;
   };
@@ -104,7 +105,7 @@ test('QUEST-SHELF-MAIN the chronicle\'s Abandon in the player\'s language (L10N4
   } finally {
     tm.setLocale('en');
   }
-  const title = 'Give up this quest for now - reclaim it from the pause menu\'s Quests tab';
+  const title = 'Give up this quest for now. You can reclaim it from the pause menu\'s Quests tab';
   assert.deepEqual(words(), [['Abandon', title, 'Abandon this quest'], ['Click again', title, 'Click again to abandon this quest']], 'English again, byte for byte');
 });
 

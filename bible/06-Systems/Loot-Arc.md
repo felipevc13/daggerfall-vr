@@ -171,11 +171,11 @@ as a CHAMPION, with one TRAIT:
 
 | trait | does |
 |---|---|
-| Mighty | its blows land half again as hard |
-| Stalwart | half again its health, on top of a champion's double |
+| Mighty | its blows hit 50% harder |
+| Stalwart | it has 50% more health, on top of a champion's double |
 | Swift | thirty more Speed (at most 100): it closes and attacks sooner |
-| Vampiric | half of what its blows take from you heals it |
-| Thorned | your blows that land on it hurt you back, a seventh of them |
+| Vampiric | it heals for half the damage it deals you |
+| Thorned | your hits on it hurt you for a seventh of their damage |
 
 Every champion has twice its health and its blows a quarter harder (damageScale, multiplied - never overwriting an
 elite's). Its name is the trait's and its own - `Mighty Orc Warlord` - on the HUD's target bar, its corpse and its
@@ -478,8 +478,30 @@ threshold, past its cap but never past the Rare threshold; `rarityChances` takes
 `legendaryFindMult` once a list). The reach powers spare an ally or a foe at peace, a foe a storey away and one behind
 a wall, as Cleave and the Nova do.
 
+**A foe's share of its health** (the execution's quarter, venom's half) is the one law, `combat/healthShare.js`
+healthShare (FIELD BUGS 2026-10-18f RELAY-SHARE). On a body the relay runs - the gate's Warden, his crystals and host,
+the Remnant, its Echoes and Hearts, every lord and add of an Elite Breach, the sea serpent - the blow is computed
+against a stand-in whose health is a placeholder (`world/gate/gateBoss.js` bossStandIn, 1e9 of 1e9). Until RELAY-SHARE
+this page's powers read it as whole there, so Sweet Mother's Kiss and Serpent's Kiss's double never fired on any of
+them. The stand-in now carries its owner's reader of the relay's word of that body's health (the share its bar draws),
+and a body whose word is unheard reads as whole. An imprint is its Legendary's power exactly (`wornPowers`), so the
+same holds for a Rare that carries one.
+
 **Seen.** `lootHudChips` - Flow's and Bedrock's stacks, Dawnward's charges, a recovery running - beside the sets' chips
 (`scenes/world.js` hands the HUD both, line-neutral), in the Legendary's orange (`ui/enhanced/enhancedHud.js`).
+
+**A reach says its harm** (FIELD BUGS 2026-10-19f CHAIN-SEEN; a player's private report: a Legendary bow's Chain Lightning
+shows nothing). The arc landed - half the shaft, as shock, on the nearest other foe within 6 m - through that foe's own
+pool's door, which runs no formula, so HN1's numbers (`10-UI/UI-Arc.md`) never heard it: no number, no word, while
+`again()`'s follow-up beside it raised its own since ROSE-SEEN. Every reach of a blow on another foe was the same
+omission - Earthshaker's quake, Dragonfire's burst - and Dragonfire's own second burn rose untagged. Each lands through
+one door now (`lootPowers.js:"function reachOn(door, f, n, word) {"`), its number risen and tagged with its power's name
+(`showFollowUp`), before the foe takes it; enhanced only, as HN1 is. NOT the same omission, left: thorns, an affix line
+that answers a foe's blow where its attacker stands (as the sets' Spite of the Spurned does), not a reach of my blow at the
+reticle - a number of its own is the owner's call; and the arcane paths' arcs (`arcanePowers.js` - Rift Lance, the
+Elementalist's own Chain Lightning, Blood Boil, Dawnbolt's burn), the same silence outside this page.
+Pinned: `test/systems/fb1019f_chainseen.test.js` (2); `tools/mutants/fb1019f_chainseen.json` (9, all dead); `gilded2.json`'s
+four Dragonfire records re-aimed by content (all dead).
 
 **What it moved.** SET5's pin on the HUD's wiring reads both lists; five mutant records whose anchors the arc's edits
 moved were re-aimed by content (DISC29-B's unguarded name, SET3's import and its fall, SET5's chips, LOOT4's focus
@@ -679,6 +701,29 @@ grade and no `provenance` (a made piece stays `'not'` - the Enchanting Station's
 says); the Salvage page lists it after every piece that breaks, its press "Classic magic" and disabled, "No shards",
 the reason its title; the pack card's Salvage, pressed, says why (`enhancedInventory.js` `SALVAGE_CLASSIC`) and asks
 nothing. `test/systems/fb1012d_salvageclassic.test.js` (4), `tools/mutants/fb1012d_salvageclassic.json` (11, all dead).
+
+**BATCH-SALVAGE (2026-10-19, the owner: "We need to add the ability to batch salvage in the inventory")**: the pack
+breaks many pieces at once. The enhanced pack's header gains Batch salvage, shown while any piece would break (or while
+it chooses); pressed, a pack row's press puts a tick on it instead of opening its card - ahead of Shift's stow and drop
+and the double click's wear - and so does every other gesture on a pack row while it chooses: the menu's press
+(right-click, long-press, pad Y) and pad X tick, no drag starts, and Stash all is not offered (AUDIT BATCH C3: no press
+of the choosing moves or wears a piece). A piece that will not break is dimmed, and pressed says why in the card's own
+words where it has them (`enhancedInventory.js` `batchRefusal`: the lock's, the gems', classic magic's); a piece that
+stops breaking (locked from the menu, worn) is let go of the choice before its row is drawn (C4). A foot under the list
+counts the chosen and their shards and sweeps in every Magic, every Rare or every junk piece (LOOT18's mark) that would
+break now - never a Legendary, an Exalted one or a junk-marked one with it, each one chosen by hand (`sweepSpares`,
+C2); Clear empties the choice, Cancel, Back or the button again stop it. Its Salvage asks once, in the one question's
+slot with the single piece's keys (Y breaks, N, Enter, Escape or a press outside keep; a double press's second click
+breaks nothing) - the count, the shards and the first six names and "and n more" - and Keep keeps every piece with its
+tick. Yes breaks them through `reforge.js` `salvageMany`: each through `salvagePiece`, in order, so a refusal since the
+choice (worn, locked) costs only its own piece and is counted in the line it says ("Salvaged 3 pieces, for 7 Welkynd
+Shards. 1 would not break and was kept."); a piece chosen twice breaks once. The law is LOOT9's unchanged. Its words
+are the text core's (`t('inventory.batch.*')`, L10N4 - the question's two buttons too), drafted in-session for the
+thirteen whole languages; the single piece's refusals it borrows (`lockedText`, SALVAGE_GEMS, SALVAGE_CLASSIC) and
+`shardsText`'s plural are English still (LOOT9, LOCK1 - recorded, AUDIT BATCH C6). The tick is drawn over the Plus
+face's sigil rune (C7). The classic pack has no card and no batch: the Reforge's Salvage page and its "Salvage every
+Magic" (LOOT18) stay its doors. `test/systems/batchsalvage.test.js` (9), `tools/mutants/batchsalvage.json` (25, all
+dead). Audited: `01-Overview/audits/Audit-Passage-Batch-Salvage.md`.
 
 ### LOOT10 - the codex, and the imprint (2026-10-01)
 
@@ -882,8 +927,8 @@ half and a seventh, each at least 1 a blow - the floor is what lifts both on sma
   its on me, mine on it, through formulas.js's struck and strike tails under their own name (`CHAMPIONS_SAID`), the
   seams every pool already shares (the dungeon's, the street's, a building's, a puppet's), so no host stands it - says
   two rows on the line every skin draws (`notify.js` `popupMessage`, DaggerfallUI.PopupMessage, the line "%s just
-  died." is said on; the first producer to walk that door): `Mighty Orc stands as a champion.` and `Its blows land
-  half again as hard.` Once per champion (a rebuild or a load is a new one); never a plain foe, a blow on a peer's copy
+  died." is said on; the first producer to walk that door): `Mighty Orc stands as a champion.` and `Its blows hit
+  50% harder.` Once per champion (a rebuild or a load is a new one); never a plain foe, a blow on a peer's copy
   (another player's screen is theirs) or a peer's blow. The longest row, the Thorned's at 60 characters, measures about
   225 px in FONT0003's own advances (the `grimoire-ui` SDF cut of it, 4 px to an `a`) - inside the classic line's 320,
   which centres a row and never wraps it. On the enhanced skin each row is a toast (ENH-NOTICE3).

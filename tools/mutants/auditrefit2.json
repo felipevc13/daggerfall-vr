@@ -361,24 +361,6 @@
     ]
   },
   {
-    "name": "A2-hold-weighed-twice",
-    "file": "src/scenes/holdDoor.js",
-    "old": "    if (parts) parts.weightInKg = Math.fround(packedHullWeight(rec.hull));\n",
-    "new": "",
-    "tests": [
-      "test/systems/naval/auditrefit2.test.js"
-    ]
-  },
-  {
-    "name": "A2-hold-refused-light",
-    "file": "src/scenes/holdDoor.js",
-    "old": "    if (!opened) onClose?.();\n",
-    "new": "",
-    "tests": [
-      "test/systems/naval/auditrefit2.test.js"
-    ]
-  },
-  {
     "name": "A2-hold-parts-lost",
     "file": "src/scenes/holdDoor.js",
     "old": "      if (at >= 0) { items.splice(at, 1); deps.toPack?.(parts); }\n",

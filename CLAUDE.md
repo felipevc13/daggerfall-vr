@@ -10,6 +10,10 @@ change) and read `bible/01-Overview/Port-Doctrine.md` before touching code.
   departure from it - not a target to match. Older pages that say "1:1" are
   history; Port-Doctrine's Scope section governs new work.
 
+- **ARENA2 is freeware - fetch it, never report it missing** (the owner, 2026-10-18: "Why not install the freeware.
+  Im tired of having to ask you to do this"): `sh tools/fetch-data.sh` puts Daggerfall's own data at
+  `/home/claude/dfdata/arena2` (~150 MB, never in the repo). Run it before any work that reads the map, the game's
+  files or the running game, and set `ARENA2_PATH` to it. "Not checkable here: no ARENA2" is a check not yet run.
 - **Before a push** (FAST-SUITE, `bible/09-Testing/Testing.md` "How the suite
   runs"): `npm run lint`, `npm run types`, the bible's gates (`test/bible/manifest`,
   `citeanchor`, `citedrift`, `mutantdrift`, `audit18_bible_docs`, `ledger` -
@@ -18,7 +22,7 @@ change) and read `bible/01-Overview/Port-Doctrine.md` before touching code.
   most of the suite (a change to a host the source pins read, like
   `worldModes.js`), run the change's own test files instead and leave the rest
   to CI. CI's `verify` runs the whole gate - lint, types, every test file in
-  four shards, the build - on every pull request and before every deploy, and
+  eight shards, the build - on every pull request and before every deploy, and
   a pull request is not done until it is green on its head. A pull request
   that conflicts with its base runs NO workflow: merge the base in before the
   push that is meant to be verified. The whole `npm run check` in series (~15
@@ -48,6 +52,8 @@ change) and read `bible/01-Overview/Port-Doctrine.md` before touching code.
   the shape), never into `bootWorld`, `createWorldModes`, `buildDungeonContext`,
   `bootExterior`, `navalHost`'s `createNavalHost` or `comeSailAway`'s
   `createComeSailAwayRuntime` themselves - and on the relay into a Room method of its own,
-  never into `_message`. `test/scenes/hostceiling.test.js` fails a host that lengthens
-  past its ceiling in code lines; `node tools/hostScope.mjs <host>` maps what a
+  never into `_message`, nor into any other function the test holds to a ceiling.
+  `test/scenes/hostceiling.test.js` fails a host that lengthens
+  past its ceiling in logical lines (statements and entries - splitting a crowded
+  line costs nothing); `node tools/hostScope.mjs <host>` maps what a
   block reads and writes before you move it.

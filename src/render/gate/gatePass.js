@@ -227,6 +227,9 @@ export const BEACON_FS = beaconFs('', ((BEACON_BELOW_M + BEACON_START_M) / BEACO
 /** EG-F: where the light starts along the column, per draw (the gate's (BELOW + START) / HEIGHT, its four places). */
 export const BEACON_FOOT_DECL = 'uniform float uFoot;    // EG-F: per draw\n';
 export const BEACON_DRAW_FS = beaconFs(BEACON_FOOT_DECL, 'uFoot');
+/** SHADER-STALL: the pass's two programs, the membrane's and the beacon's, as its constructor builds them - what a host
+ *  starts ahead of the build (render/glProgram.js startPrograms). */
+export const GATE_PASS_PROGRAMS = /** @type {ReadonlyArray<readonly [string, string]>} */ (Object.freeze([[MEMBRANE_DRAW_VS, MEMBRANE_DRAW_FS], [BEACON_DRAW_VS, BEACON_DRAW_FS]]));
 
 function mat4Multiply(out, a, b) {
   for (let c = 0; c < 4; c++) {
@@ -255,6 +258,7 @@ export function beaconVertices(segments = BEACON_SEGMENTS) {
 
 const NO_FOG_RANGE = new Float32Array([0, 1]);
 const NO_FOCUS = new Float32Array(4);   // AUDIT DEEP R-1: no travel view - w 0, the fog measures from the camera
+const NO_HAZE = new Float32Array(8);   // AUDIT BANTHA1 HAZE-3: uJungleHaze off ([1].x 0)
 const WHITE = new Float32Array([1, 1, 1]);
 const NO_FOG_COLOR = new Float32Array([0, 0, 0]);
 /** The vortex's turn rate at `open` (turns a second). */
@@ -268,9 +272,10 @@ export class GatePassRenderer {
   /** @param {WebGL2RenderingContext} gl @param {Float32Array} profile the arch's opening (gateArchProfile) */
   constructor(gl, profile) {
     this.gl = gl;
-    this.membrane = buildProgram(gl, MEMBRANE_DRAW_VS, MEMBRANE_DRAW_FS, 'gate membrane');   // EG-F: the gate's sources with their per-draw places
-    this.beacon = buildProgram(gl, BEACON_DRAW_VS, BEACON_DRAW_FS, 'gate beacon');
-    const names = ['uVP', 'uOrigin', 'uEye', 'uYaw', 'uRadius', 'uProfile', 'uTime', 'uOpen', 'uFade', 'uSpin', 'uFogColor', 'uColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus',
+    const [membrane, beacon] = GATE_PASS_PROGRAMS;
+    this.membrane = buildProgram(gl, membrane[0], membrane[1], 'gate membrane');   // EG-F: the gate's sources with their per-draw places
+    this.beacon = buildProgram(gl, beacon[0], beacon[1], 'gate beacon');
+    const names = ['uVP', 'uOrigin', 'uEye', 'uYaw', 'uRadius', 'uProfile', 'uTime', 'uOpen', 'uFade', 'uSpin', 'uFogColor', 'uColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus', 'uJungleHaze',
       'uScale', 'uTint', 'uBelow', 'uHeight', 'uFoot'];   // EG-F: the per-draw five
     this.mu = {}; this.bu = {};
     for (const n of names) { this.mu[n] = gl.getUniformLocation(this.membrane, n); this.bu[n] = gl.getUniformLocation(this.beacon, n); }
@@ -299,6 +304,7 @@ export class GatePassRenderer {
     gl.uniform2fv(U.uFogRange, fog?.range ?? NO_FOG_RANGE);
     gl.uniform3fv(U.uCamPos, fog?.camPos ?? eye ?? WHITE);
     if (U.uFocus) gl.uniform4fv(U.uFocus, fog?.focus ?? NO_FOCUS);   // AUDIT DEEP R-1: under the travel view the fog is the traveller's (fogGlsl.js FOCUS_GLSL)
+    if (U.uJungleHaze) gl.uniform4fv(U.uJungleHaze, fog?.haze ?? NO_HAZE);   // BANTHA1 (AUDIT BANTHA1 HAZE-3): the jungle's haze (renderer.setJungleHaze); none handed, off
   }
 
   /**

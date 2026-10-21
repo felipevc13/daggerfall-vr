@@ -38,7 +38,7 @@
   {
     "name": "AUDIT EG V L1-1: a fallen lord's ring left standing",
     "file": "src/net/eliteGates/egLords.js",
-    "old": "  endChallenge(F, L, now, out, false);   // AUDIT EG V (lane1 #1)",
+    "old": "  endChallenge(F, L, now, out, false, true);   // AUDIT EG V (lane1 #1)",
     "new": "  // AUDIT EG V (lane1 #1)",
     "tests": [
       "test/net/eliteGates/egaudit5_b.test.js"

@@ -202,8 +202,8 @@
   {
     "name": "WALLET1-lines-silver-unknown",
     "file": "src/systems/walletItem.js",
-    "old": "      : { key: 'silver', label: 'Silver', figure: null, none: false, note: SILVER_WHY[c.silverWhy] ?? SILVER_WHY.offline };",
-    "new": "      : { key: 'silver', label: 'Silver', figure: num(0), none: false, note: null };",
+    "old": "      : { key: 'silver', label: 'Silver', figure: null, none: false, note: SILVER_WHY[c.silverWhy] ?? SILVER_WHY.offline, weight: null };",
+    "new": "      : { key: 'silver', label: 'Silver', figure: num(0), none: false, note: null, weight: null };",
     "why": "an unknown silver said as none",
     "tests": [
       "test/systems/wallet1.test.js"
@@ -262,8 +262,8 @@
   {
     "name": "WALLET1-realm-blind",
     "file": "src/net/realm/realmTradeLaw.js",
-    "old": "Object.freeze([570, 571, 572, 575, 580, 582]);",
-    "new": "Object.freeze([570, 571, 572, 575, 582]);",
+    "old": "Object.freeze([570, 571, 572, 575, 580, 582, 2000, 2001]);",
+    "new": "Object.freeze([570, 571, 572, 575, 582, 2000, 2001]);",
     "why": "the realm's trade service takes a wallet",
     "tests": [
       "test/systems/wallet1.test.js",

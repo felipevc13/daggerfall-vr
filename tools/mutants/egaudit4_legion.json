@@ -182,8 +182,8 @@
   {
     "name": "EGA4L-sapper-feeds-uncapped",
     "file": "src/net/eliteGates/egBrain.js",
-    "old": "feeds = !!L && (F.mem.fed ?? 0) < SAP_FEEDS_MAX;",
-    "new": "feeds = !!L;",
+    "old": "feeds = !!L && L.hp > 0 && (F.mem.fed ?? 0) < SAP_FEEDS_MAX;",
+    "new": "feeds = !!L && L.hp > 0;",
     "tests": [
       "test/net/eliteGates/egaudit4_legion.test.js"
     ],

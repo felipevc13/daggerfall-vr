@@ -50,7 +50,8 @@ test('U60: the root document is a page about the game, and the game is at /play/
   // cup), which is the strongest shape of "a render of game data is
   // game data" a page about the game can hold.
   // FIX-D: one url() is allowed, and it is not a picture - the digit five's
-  // @font-face data URI (a 520-byte OFL glyph; see below). Every other url()
+  // @font-face data URI (a 520-byte OFL glyph; see below), and since TWO
+  // (2026-10-18) the 2 and Z's beside it. Every other url()
   // is still forbidden. <img\s, not <img: the asks' comment SAYS "<img>"
   // while explaining why the marks are drawn in box-shadow instead of being one.
   // BR2 (2026-09-13) had put ONE raster here - Mac's uploaded logo as the
@@ -205,12 +206,16 @@ test('U60: the build stamp fills every stamp on the page, links the commit, and 
   assert.match(landing, /\.build:empty, \.stat:empty \{ display: none; \}/, 'and an empty stamp or figure is invisible');
 
   // U60c: THE LEDGER STRIP. Two figures beside the sha, COUNTED from the
-  // tree: the suite by the manifest gate's own definition, the port by
+  // tree: the suite's declared tests (top-of-line `test(` calls), the port by
   // tracked lines of JS under src/. Filled in every data-stat element
   // (the rail foot and the page end), grouped digits.
   const tests = countTests(join(root, 'test'));
-  const suite = read('bible/09-Testing/Testing.md').match(/Suite: (\d+) tests across/)?.[1];
-  assert.equal(String(tests), suite, 'the strip counts what Testing.md pins (test/bible/manifest.test.js holds the other half)');
+  // LEGIBLE 1b: Testing.md no longer carries a total to agree with, so the count is held to its own definition,
+  // walked here independently - every *.test.js in every folder under test/
+  const declared = readdirSync(join(root, 'test'), { recursive: true })
+    .filter((path) => path.endsWith('.test.js'))
+    .reduce((sum, path) => sum + (read(`test/${path}`).match(/^test\(/gm) || []).length, 0);
+  assert.equal(tests, declared, 'the strip counts every declared test in every folder under test/');
   const lines = countSrcLines((p) => read(p));
   assert.ok(lines > 100000, `tracked src/ JS is ${lines} lines`);
   const shown = transformLanding(landing, { stats: { tests, lines } }).html;

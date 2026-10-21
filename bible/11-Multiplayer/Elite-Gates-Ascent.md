@@ -67,6 +67,14 @@ fliers' air (`egAirOf`), the legion's and the lords' places and charges, the hav
 the floor within the walk graph's band (0.5 m under to 3.0 m over its top). Where a law 4-8 hall has no stacked floor,
 every answer is the same as before (pinned on their goldens).
 
+A member's own blow on a body (`net/eliteGates/egBodies.js` egHitBody) keeps the storey the same way: a swing reaches a body
+of its own storey alone, however near in plan. A shaft or a spell crosses the open air to a body of another storey, and is
+refused only where the two stand stacked - a floor or a ceiling over the lower one's plan up to the higher one's own floor
+(`net/eliteGates/egWalkGraph.js` egStacked, over egFloorBetween). So Valkynaz Ilthys's banners, on the Council Rotunda's
+balconies 4 m over its court, are shot from the court as the laws before judged them, and never through a balcony's deck
+from under its rim (FIELD BUGS 2026-10-18d BANNER-SHAFT: every kind of blow was held to its storey, and the banners broke
+only from their own balconies).
+
 Floors stacked are at least 4 m apart (a body's height and the ceiling's thickness); a fall onto a floor of the way
 further on is a fall onto ground - the void's cast-back keeps its 30 m - so wherever a fall would skip ahead along the
 route, the law lays a VOID ZONE (a shaft's or a gap's footprint over which a body is cast back as into the void), and

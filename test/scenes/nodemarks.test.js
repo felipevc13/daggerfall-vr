@@ -536,7 +536,7 @@ test('NODE-MARKS the glow\'s draw: nothing to draw touches nothing; one quad a n
 
 test('NODE-MARKS the world host\'s glow pass (createNodeGlowPass), over a fake renderer: the marks lit under the frame\'s own camera and fog (its focus too), kindling node by node; AUDIT: the program built at IDLE once a node is first marked - never on a frame - and nothing lit until it stands; a build that throws costs the glow, never the game, and is never tried again; a pass that RAN is a foreign pass, whatever it drew; under reduced motion its still form; no camera or null marks light nothing (mutants: built on the frame; built every frame; the throw let through; the foreign pass marked only for a draw; the fog not handed; the still form never asked)', () => {
   const marked = [];
-  const renderer = { _proj: new Float32Array(16), _view: new Float32Array(16), _camPos: new Float32Array([0, 1.6, 0]), _fogMode: 2, _fogDensity: 0.01, _fogRange: [0, 1], _focus: new Float32Array([1, 2, 3, 1]), gl: {}, markForeignPass: () => marked.push(1) };
+  const renderer = { _proj: new Float32Array(16), _view: new Float32Array(16), _camPos: new Float32Array([0, 1.6, 0]), _fogMode: 2, _fogDensity: 0.01, _fogRange: [0, 1], _focus: new Float32Array([1, 2, 3, 1]), _haze: new Float32Array(8), gl: {}, markForeignPass: () => marked.push(1) };
   let t = 10, builds = 0, still = false;
   const idled = [];
   const drawn = [];
@@ -558,7 +558,7 @@ test('NODE-MARKS the world host\'s glow pass (createNodeGlowPass), over a fake r
   assert.equal(idled.length, 1, 'asked once');
   assert.equal(drawn[0].proj, renderer._proj);
   assert.equal(drawn[0].eye, renderer._camPos, 'the frame\'s own camera');
-  assert.deepEqual(drawn[0].fog, { mode: 2, density: 0.01, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus }, 'the frame\'s fog and the travel view\'s focus');
+  assert.deepEqual(drawn[0].fog, { mode: 2, density: 0.01, range: renderer._fogRange, camPos: renderer._camPos, focus: renderer._focus, haze: renderer._haze }, 'the frame\'s fog and the travel view\'s focus - and the jungle\'s haze (AUDIT BANTHA1 HAZE-3)');
   assert.equal(drawn[0].seconds, t);
   assert.equal(drawn[0].st, false, 'moving');
   assert.equal(marked.length, 1, 'a foreign pass');
@@ -612,10 +612,10 @@ test('NODE-MARKS the hosts by source: the street\'s compass and the dungeon\'s t
   assert.match(w, /if \(!gatherHost \|\| profBook\?\.state\.open !== true \|\| !feet\) return null;\n\s*const m = _mode\(\);\n\s*return m === 'exterior' \|\| m === 'dungeon' \? gatherHost\.marks\(feet\) : null;/, 'AUDIT: the compass keeps the nodes under the travel view, as PROF2\'s Prospector\'s veins were kept');
   assert.match(w, /nodes: professionMarks\(\),/);
   // PIN MOVED (PROF2b): the far Motherlodes beside the near nodes, the glow still built right after
-  assert.match(w, /const professionMarks = \(feet = enchantFeet\(\)\) => \{\n\s*const near = nodeMarksAt\(feet\), far = motherlodeMarks\(\);\n\s*return nodeCompassPoints\(far\.length \? \[\.\.\.far, \.\.\.\(near \?\? \[\]\)\] : near, trackerAnimals\(\)\);[^\n]*\n\s*\};\n\s*const nodeGlowPass = createNodeGlowPass\(renderer\);/);
-  assert.match(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\); nodeGlowPass\.draw\(travelView\?\.active \? null : nodeMarksAt\(enchantFeet\(\)\)\); \};/, 'the glow alone none under the travel view');
+  assert.match(w, /const professionMarks = \(feet = enchantFeet\(\)\) => \{\n\s*const near = nodeMarksAt\(feet\), far = motherlodeMarks\(\);\n\s*return nodeCompassPoints\(far\.length \? \[\.\.\.far, \.\.\.\(near \?\? \[\]\)\] : near, trackerAnimals\(\)\);[^\n]*\n\s*\};\n\s*const nodeGlintPass = createNodeGlintPass\(renderer\);/);   // PIN MOVED (NODE-OUTLINE): the glow the outline's fallback, for a node with no picture; PIN MOVED (HOST-SPLIT): the outline builds that glow itself; PIN MOVED (NODE-GLINT): the glint's now
+  assert.match(w, /const drawVeiledPeerBodies = \(\) => \{ peerBodies\?\.drawVeiled\(\); drawAuras\(\); nodeGlintPass\.draw\(travelView\?\.active \? null : nodeMarksAt\(enchantFeet\(\)\)\); \};/, 'the glow alone none under the travel view');
   assert.match(w, /partyNear: \(\) => partyOnMaps\(\), professionMarks: \(feet\) => professionMarks\(feet\),/);
-  assert.match(w, /^import \{ mineKind \} from '\.\/mineHost\.js'; import \{ nodeCompassPoints \} from '\.\.\/ui\/nodeMarks\.js'; import \{ createNodeGlowPass \} from '\.\.\/render\/nodeGlow\.js';/m);
+  assert.match(w, /^import \{ mineKind \} from '\.\/mineHost\.js'; import \{ nodeCompassPoints \} from '\.\.\/ui\/nodeMarks\.js'; import \{ createNodeGlintPass \} from '\.\.\/render\/nodeGlint\.js';/m);   // PIN MOVED (NODE-OUTLINE); PIN MOVED (HOST-SPLIT): the outline builds the glow it falls back to; PIN MOVED (NODE-GLINT): the glint does now
   assert.match(src('src/scenes/worldModes.js'), /party: \(\) => host\.partyNear\?\.\(\) \?\? \[\], nodeMarks: \(feet\) => host\.professionMarks\?\.\(feet\) \?\? null,/);
   assert.match(src('src/scenes/dungeonContext.js'), /party: partyCompassPoints\(\{ bodies: opts\.party \?\? null \}\), nodes: playerFeet \? withFireMarks\(opts\.nodeMarks\?\.\(playerFeet\) \?\? null, dungeonFires, playerFeet\) : null,/, 'REST3: the dungeon\'s campfires ride the same field');
   assert.match(src('src/ui/hud/hud.js'), /nodes: nodes \?\? null,/, 'handed to the enhanced skin');

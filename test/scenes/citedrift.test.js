@@ -8,7 +8,7 @@
 //
 //   - `ui/spell/spellMakerWindow.js` declared "RECORDED DEPARTURES" and closed
 //     the first with "Ledger A carries the widget row already
-//     (Port-Ledger.md:933)". Section A carried no widget row at all -
+//     (Port-Ledger.md:946)". Section A carried no widget row at all -
 //     the AUDIT 17m / F7 shape, a claim of approval standing in for one -
 //     and :686 was the stat-colour NIT row by then. The row exists now
 //     (Ledger A, TB1) and the sites cite it BY NAME.
@@ -398,7 +398,7 @@ test('CD2: both status pages state the open-flag count Home.md actually holds', 
   // every figure below is read out of the page and compared with the
   // list Home.md actually holds.
   const WORDS = { six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
-    thirteen: 13, fourteen: 14, seventeen: 17, eighteen: 18, nineteen: 19 };   // WARDEN1: the eighteenth
+    thirteen: 13, fourteen: 14, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20 };   // WARDEN1: the eighteenth; BANTHA1: the twentieth
   const statusText = read(STATUS);
   const prose = [
     [/(\d+) stand after Wave E/, 'the head paragraph\'s "N stand" figure'],
@@ -735,7 +735,7 @@ const SOURCE_CITES = [
     EX, /if \(act === 'Escape' && pauseDoorReady\(\)\) \{ hudCtx\.togglePause\(\); return true; \}/],
   ['bible/01-Overview/audits/Audit-58.md', /`src\/scenes\/exterior\.js:"([^"]+)"(?:\.\."([^"]+)")?` now/, EX, /setDefaultEnchantCtx/],
   ['bible/06-Systems/Systems-Arc.md', /`exterior\.js:"([^"]+)"(?:\.\."([^"]+)")?`, `world\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`/, EX, /playerTicker\.advance\(60\);/],
-  ['bible/09-Testing/Testing.md', /keydown ladder \(exterior\.js:"([^"]+)"(?:\.\."([^"]+)")?\)/,
+  ['bible/09-Testing/Testing-Rows-2026-10-19.md', /keydown ladder \(exterior\.js:"([^"]+)"(?:\.\."([^"]+)")?\)/,
     EX, /^ {4}if \(e\.code === 'Escape'\) backButtonHeld = true;$/],
   ['bible/10-UI/UI-Arc.md', /exterior\.js:"([^"]+)"(?:\.\."([^"]+)")?\. It is the only window/, EX, /createSpellbookWindow\(\{/],
   // AUDIT QS6 F1, a fifth time and at a second door: this row names FIVE hosts
@@ -748,7 +748,7 @@ const SOURCE_CITES = [
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:"([^"]+)"(?:\.\."([^"]+)")?`, `dungeon\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`/, EX, /^ {6}fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?,/],   // CLIMB4: the climb's kick on the lens
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`, `dungeon\.js:"([^"]+)"(?:\.\."([^"]+)")?`/, 'src/scenes/dungeon.js', /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?, largeHudWorldAspect/],
   ['bible/10-UI/Settings-Screen-Spec.md', /`worldModes\.js:"([^"]+)"(?:\.\."([^"]+)")?`, `world\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`, `interior\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`, `exterior\.js/, WM, /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\)( \+ \(host\.climbFeel\?\.fovRad\(\) \?\? 0\))?, largeHudWorldAspect/],
-  ['bible/10-UI/Settings-Screen-Spec.md', /`worldModes\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`, `world\.js:"([^"]+)"(?:\.\."([^"]+)")?`, `interior\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`, `exterior\.js/, WO, /^ {4}const proj = mirrorProjectionX\(perspective\((glassFov\()?fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?(, spyglass\.lens\))?, worldAspect/],   // SPYGLASS (PIN MOVED): the captain's glass narrows that lens while it is up
+  ['bible/10-UI/Settings-Screen-Spec.md', /`worldModes\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`, `world\.js:"([^"]+)"(?:\.\."([^"]+)")?`, `interior\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`, `exterior\.js/, WO, /^ {4}const proj = horizonProj\((glassFov\()?fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?(, spyglass\.lens\))?, worldAspect/],   // SPYGLASS (PIN MOVED): the captain's glass narrows that lens while it is up; PIN MOVED (OW-HORIZON, 2026-10-20): the lens through scenes/travelHorizon.js horizonProj - mat4's mirrored perspective, its planes grown under the travel view
   ['bible/10-UI/Settings-Screen-Spec.md', /`worldModes\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`, `world\.js:(?:"[^"]+"(?:\.\."[^"]+")?|\d+(?:-\d+)?)`, `interior\.js:"([^"]+)"(?:\.\."([^"]+)")?`, `exterior\.js/, 'src/scenes/interior.js', /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\), largeHudWorldAspect/],   // AUDIT RETRO1 A8: the hosts' one denominator here too
   // ROAD-G G7 (review): the entry above reads the exterior number out of
   // that sentence and nothing else, so the sentence's ANCHOR cite - the
@@ -928,7 +928,7 @@ const LEDGER_CITES = [
   ['src/systems/passiveSpecials.js', [/ENCHANTING, WHOLE/]],
   ['test/tooling/faceuvresidue.test.js', [/FaceUVTool's 1,803-UV residual/]],
   ['test/tooling/probehygiene.test.js', [/THREE PROBES THE T2 SWEEP FOUND STALE/]],
-  ['bible/09-Testing/Testing.md', [/THREE PROBES THE T2 SWEEP FOUND STALE/,
+  ['bible/09-Testing/Testing-Rows-2026-10-19.md', [/THREE PROBES THE T2 SWEEP FOUND STALE/,
     /FaceUVTool's 1,803-UV residual/]],
   ['bible/01-Overview/handoffs/Port-Status-2026-09-02.md',
     [/THE KEYBINDING REGISTRY/, /THE KEYBINDING REGISTRY/, /VidFile: a MID-STREAM PALETTE/]],
@@ -1223,9 +1223,9 @@ test('CD8b: the C# members ROAD-G G4 names EXIST, and at the lines it cites', ()
   // QUOTE the line they name, so the quote and the number must agree.
   // MUTANT: any name or number below back to the one it replaced.
   // The walk spans the port, its tests and the bible; the records that
-  // QUOTE the retired name (this pin, Testing.md's row, the audit
+  // QUOTE the retired name (this pin, Testing.md's row - in the closed table since LEGIBLE 1b - the audit
   // records) are the only files allowed to carry it.
-  const quotes = (f) => f === 'test/scenes/citedrift.test.js' || f === 'bible/09-Testing/Testing.md' || /^bible\/01-Overview\/(?:[\w-]+\/)*Audit-\d+\.md$/.test(f);
+  const quotes = (f) => f === 'test/scenes/citedrift.test.js' || f === 'bible/09-Testing/Testing-Rows-2026-10-19.md' || /^bible\/01-Overview\/(?:[\w-]+\/)*Audit-\d+\.md$/.test(f);   // LEGIBLE 1b: Testing.md's row stands in the closed table
   for (const f of [...tracked('src'), ...tracked('test'), ...tracked('bible')].filter((f) => /\.(js|mjs|md)$/.test(f) && !quotes(f))) {
     assert.equal(/IsAlreadyPlaced/.test(read(f)), false,
       `${f} names IsAlreadyPlaced; DFU's guard is IsAlreadyInjected (GameObjectHelper.cs:978)`);

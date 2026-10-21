@@ -345,9 +345,9 @@ test('PROF4 pieces: the woods withdraw as their templates (a log on Twigs\' pict
   const plain = mintPiece({ recipe: 'table-large:teak', quality: 0, seed: 7, maker: 'Ann' }, PROV);
   const base = templateByIndex(224).basePrice;
   assert.deepEqual([plain.group, plain.templateIndex, plain.value, plain.marked, itemLongName(plain)], ['Furniture', 224, Math.round(base * QUALITY_EFFECTS[0].condition), undefined, 'Large Teak Table']);
-  assert.equal(craftedText([plain]), 'You made a Crude Large Teak Table - it waits among your things for a room to stand in');
+  assert.equal(craftedText([plain]), 'You made a Crude Large Teak Table. It waits in your things until you place it in a room');
   const joined = mintPiece({ recipe: 'chair:oak', quality: 1, seed: 7, maker: 'Ann', marked: true }, PROV);
-  assert.deepEqual([joined.marked, itemLongName(joined), craftedText([joined])], [true, 'Ann\'s Oak Chair', 'You made Ann\'s Oak Chair - it waits among your things for a room to stand in']);
+  assert.deepEqual([joined.marked, itemLongName(joined), craftedText([joined])], [true, 'Ann\'s Oak Chair', 'You made Ann\'s Oak Chair. It waits in your things until you place it in a room']);
   const master = mintPiece({ recipe: 'chair:oak', quality: 4, seed: 7, maker: 'Ann', marked: true }, PROV);
   assert.deepEqual([master.marked, itemLongName(master)], [undefined, 'Ann\'s Oak Chair'], 'a Masterwork\'s mark is its own');
   assert.equal(isCraftedFurniture(master), true);
@@ -405,13 +405,14 @@ test('PROF4 pages: the Workbench at a Furniture Store - the saws for the logs he
   press('Furniture');
   // PIN MOVED (CRAFT2): the workbench lists its patterns, the wood chosen in the box - the bed is Oak's alone
   const bed = buttons().find((b) => b.textContent.startsWith('Plain Double Bed'));
-  assert.match(bed.textContent, /wants its inputs/, 'no Linen');
+  assert.match(bed.textContent, /needs materials/, 'no Linen');
   bed.onclick();
   await press('Buy 2 from the furnisher - 4 silver');
   assert.deepEqual(bought, [['cloth:linen', 2]]);
   press('Small Table');   // PIN MOVED (CRAFT2): the pattern - in the wood the last craft here was made of, held
   assert.match(text(), /Small Oak Table - rank 10/);
-  assert.match(text(), /Use a Heartwood for a plank - a step better \(1 stored\)/);
+  assert.match(text(), /Quality chances: Crude 20% \| Standard 60% \| Fine 20%\. They get better the further your rank \(10\) is above the recipe's \(10\)\. Draw the plane true to the grain to raise the result one quality\./);   // PLAIN-ODDS
+  assert.match(text(), /Use a Heartwood for a plank one grade better \(1 stored\)/);
   const box = [...root.querySelectorAll('input')].find((i) => i.type === 'checkbox' && /Heartwood/.test(i.parentNode?.textContent ?? ''));
   box.checked = true; box.onchange();
   assert.match(text(), /wood:heartwood 1 \/ 1/, 'the Heartwood in a plank\'s place');
@@ -436,8 +437,8 @@ test('PROF4 pages: the Workbench at a Furniture Store - the saws for the logs he
   } finally { globalThis.performance.now = realPerf; }
   await tick(); await tick();
   assert.deepEqual(crafted.at(-1), ['table-small:oak', true, true], 'drawn true: a clean pass, the Heartwood asked');
-  assert.equal(planeWord({ clean: true, seconds: 2 }), 'A clean pass - true to the grain.');
-  assert.equal(planeWord({ clean: false, seconds: 0.4 }), 'Too quick - a plane is drawn, not flicked.');
+  assert.equal(planeWord({ clean: true, seconds: 2 }), 'A clean pass, true to the grain.');
+  assert.equal(planeWord({ clean: false, seconds: 0.4 }), 'Too quick. Draw the plane slowly.');
   await press('Quick craft');
   assert.deepEqual(crafted.at(-1).slice(0, 2), ['table-small:oak', false]);
   bench = { kind: 'home', fee: 0 };
@@ -457,7 +458,7 @@ test('PROF4 pages: the Workbench at a Furniture Store - the saws for the logs he
   smith.onclick();
   root.remove(); root = el('div'); document.body.append(root);
   drawProfessionsPage(root, () => {}, kit);
-  assert.doesNotMatch(root.textContent, /comes later|not practised/);
+  assert.doesNotMatch(root.textContent, /comes later|not practiced/);
   const weaponsmith = [...root.querySelectorAll('button')].find((b) => b.textContent.startsWith('Weaponsmith'));
   assert.equal(weaponsmith.disabled, false, 'at rank 50 the smith chooses');
   assert.match(root.textContent, /Steel; the chain/);
@@ -471,10 +472,11 @@ test('PROF4 wiring: a built pixel keeps its forest (the tree flats by World of D
   const w = hostText('src/scenes/world.js');
   // PIN MOVED (ECOTONE1, 2026-10-07): a flat's climate is its own - the pixel's, or the neighbour's a border stood it by
   // (`base` its summer archive, the Tree table's key; `archive` the season's set it is drawn in)
-  assert.match(w, /if \(isTreeRecord\(base, f\.record\)\) pixelTrees\.push\(\{ id: pixelTrees\.length, group: `\$\{archive\}_\$\{f\.record\}`, i, x: f\.x, y: f\.y, z: f\.z, wood: f\.wood \?\? 0, base, archive \}\);/);   // FOREST1 (AUDIT F3): and how wooded its tile is
+  assert.match(w, /const tree = isTreeRecord\(base, f\.record\) \? \{ id: pixelTrees\.length, group: '', i: 0, x: f\.x, y: f\.y, z: f\.z, wood: f\.wood \?\? 0, base, archive \} : null;\n\s+if \(tree\) pixelTrees\.push\(tree\);/);   // PIN MOVED (AUDIT PRECIP HOST-7): its group and place the log's grouping writes (placeTrees)
+  assert.match(w, /if \(t\) \{ t\.group = places\[j\]\[0\]; t\.i = places\[j\]\[1\]; t\.archive = archives\[j\]; \}/);   // FOREST1 (AUDIT F3): and how wooded its tile is
   assert.match(w, /forest: \{ base: climate\.natureArchive, archive: natureArchive, trees: pixelTrees\.filter\(\(t\) => forestGroups\.has\(t\.group\)\), groups: forestGroups \},/);
   // PIN MOVED (ECOTONE1): any of the pixel's nature archives - its own, or a neighbour climate's a border stood here
-  assert.equal((w.match(/if \(natureSet\.has\(archive\)\) forestGroups\.set\(k, \{ batch, centers, size[^}]*\}\);/g) ?? []).length, 3, 'the season\'s batch, the classic one and (LPT1) a low-poly tree\'s far pictures');
+  assert.equal((w.match(/if \(g\.natureSet\.has\(archive\)\) forestGroups\.set\(k, \{ batch, centers, size[^}]*\}\);/g) ?? []).length, 3, 'the season\'s batch, the classic one and (LPT1) a low-poly tree\'s far pictures');
   assert.match(w, /if \(isCraftedFurniture\(it\)\) \(playerEntity\.furnishings \?\?= \[\]\)\.push\(it\);\n\s*else addItem\(\(playerEntity\.items \?\?= \[\]\), it, 'back'\);/);
   // PROF7 moved it: the station a recipe's profession names (craftStation) - the workbench Carpentry's, the loom Outfitting's
   assert.match(w, /const st = craftStation\(recipeById\(recipe\)\?\.profession\);\n\s*const f = st\.here\(\);/);
@@ -484,7 +486,7 @@ test('PROF4 wiring: a built pixel keeps its forest (the tree flats by World of D
   assert.match(w, /planeBand: \(\) => planeBand\(\{ agility: liveStat\(playerEntity, 'agility'\), willpower: liveStat\(playerEntity, 'willpower'\) \}\),/);
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /if \(interiorBuilding\.buildingType === BUILDING_TYPES\.FurnitureStore\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: WORKBENCH_FEE \};/);
-  assert.match(m, /if \(decorOwnerHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'workbench'\)\) return \{ kind: 'home', fee: 0 \};/);
+  assert.match(m, /if \(stationOwnerHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'workbench'\)\) return \{ kind: 'home', fee: 0 \};/);   // PIN MOVED (FB1018D HOME-BENCH, test/scenes/fb1018d_homebench.test.js): a home's stations serve its owner's account
   const r = src('src/render/renderer.js');
   assert.match(r, /uniform vec3 uTip;/);
   assert.match(r, /if \(uTip\.z != 0\.0\) \{/);

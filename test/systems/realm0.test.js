@@ -11,7 +11,7 @@
 //          lend has the rest called in.
 //   P0.4 - the faucets: a shop pays at most half what it asks online, a pile's gold is not the level's, the Sigil
 //          Broker's stock is bound to its buyer, and a party's shared quest pays one gold reward in shares.
-//   P0.5 - the character is saved as it plays online: every two real minutes, and at each change a trade makes to the
+//   P0.5 - the character is saved as it plays online: every ONLINE_CHECKPOINT_MS (five real minutes, CHECKPOINT-5), and at each change a trade makes to the
 //          pack - the giver's loss on disk before the goods leave.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -68,10 +68,13 @@ test('REALM P0.1 by source: the world host drops them beside the Test Room refus
   const drop = w.indexOf('if (refuseOnlinePowerFlags(params).length) publishBootParams(params);');
   assert.ok(drop > 0, 'the drop is at the boot, and it is published');
   assert.ok(drop > w.indexOf("if (testRoomOffline) { params.delete('online'); publishBootParams(params); }"), 'after the Test Room refusal (which may take `online` itself away)');
-  for (const reader of ["const regionName = params.get('region')", "const shotMode = params.has('shot');", "window.__addGold = (n) => addGold(playerEntity, n);"]) {
+  // PIN MOVED (HOST-SPLIT, 2026-10-19: the town probes - __addGold among them - moved verbatim to scenes/townProbes.js;
+  // the host installs them, and that call is its read)
+  for (const reader of ["const regionName = params.get('region')", "const shotMode = params.has('shot');", 'if (shotMode) { modes.installShotProbes(); installTownProbes(); }']) {
     const at = w.indexOf(reader);
     assert.ok(at > drop, `${reader} reads after the drop`);
   }
+  assert.ok(src('src/scenes/townProbes.js').includes('window.__addGold = (n) => addGold(playerEntity, n);'), 'the gold probe stands in the town probes, installed by that call');
   assert.match(w, /if \(shotMode\) \{/, 'the probe seams stand only in ?shot - which an online page no longer has');
 });
 
@@ -88,7 +91,7 @@ test('REALM P0.2: online, every key of a balance mod reads its shipped default -
       if (!room && !own.includes(key)) whole++;
     }
   }
-  assert.equal(whole, 64, 'sixty-four dials the room now owns beside the thirty-four it did');   // IT1: Immersive Travel's sixteen - the fares, the driver's destinations, his region lock, the captain's rules
+  assert.equal(whole, 65, 'sixty-five dials the room now owns beside the thirty-four it did');   // DEX0: Daggerfall Enemy Expansion's troll cheat (Cheat.DisableTrollRespawn) - online, the shipped default: a room's trolls get up. IT1: Immersive Travel's sixteen - the fares, the driver's destinations, his region lock, the captain's rules
   assert.equal(onlineWholeModKey('dynamic-skies', 'Enabled', '?online=1'), false, 'a looks mod is not the room\'s');
   assert.equal(onlineWholeModKey('roleplay-realism', 'variantNpcs', '?online=1'), false, 'who stands behind a counter is looks');
   assert.equal(onlineWholeModKey('oblivion-remaster-leveling', 'Enabled', '?online=1'), false, 'which leveling a character uses stays its own');
@@ -365,8 +368,8 @@ test('REALM P0.4: a party\'s shared quest pays its gold in the party\'s shares, 
   assert.match(src('src/scenes/quest/questBridge.js'), /partySize: \(\) => ctx\.partySize\?\.\(\) \?\? 1,/);
 });
 
-test('REALM P0.5: a checkpoint is written online, spawned, in the seat and out of a duel - every two real minutes', () => {
-  assert.equal(ONLINE_CHECKPOINT_MS, 120_000);
+test('REALM P0.5: a checkpoint is written online, spawned, in the seat and out of a duel - every five real minutes', () => {
+  assert.equal(ONLINE_CHECKPOINT_MS, 300_000, 'PIN MOVED: CHECKPOINT-5 (Scale-Arc.md THE PLAN PAST 1,000, decision 6), was 120_000');
   const ok = { online: true, spawned: true, seatOut: false, duel: false };
   assert.equal(checkpointAllowed(ok), true);
   assert.equal(checkpointAllowed({ ...ok, online: false }), false, 'offline: the player saves');
@@ -375,8 +378,8 @@ test('REALM P0.5: a checkpoint is written online, spawned, in the seat and out o
   assert.equal(checkpointAllowed({ ...ok, duel: true }), false, 'a duel\'s borrowed health is not the character\'s');
   assert.equal(checkpointAllowed(), false);
   assert.equal(checkpointDue(5, -Infinity), true, 'the first online frame');
-  assert.equal(checkpointDue(1_000 + 119_999, 1_000), false);
-  assert.equal(checkpointDue(1_000 + 120_000, 1_000), true);
+  assert.equal(checkpointDue(1_000 + 299_999, 1_000), false);
+  assert.equal(checkpointDue(1_000 + 300_000, 1_000), true);
   assert.equal(checkpointDue(Number.NaN, 0), false);
 });
 

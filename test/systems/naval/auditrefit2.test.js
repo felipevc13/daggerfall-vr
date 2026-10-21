@@ -316,30 +316,28 @@ test('AUDIT 2 a fitting\'s whole box on the plan: its turned corners on her deck
 
 // ── THE HOLD, THE WAY, THE PAD ─────────────────────────────────────────────────────────────────────────────────────
 
-test('AUDIT 2 a packed ship\'s hold: weighed as her timbers alone while it is open, her hold\'s weight put back as it shuts; her parts stored in her own hold come back to the pack; a door that will not open puts her weight back; a Rowboat\'s plunder opens; the hold key passes over a Rowboat with nothing aboard and a ship with no door to her (mutants: the weight, the parts, the refusal, the rowboat, the fallback)', () => {
+test('AUDIT 2 a packed ship\'s hold: her parts stored in her own hold come back to the pack as it shuts, and nothing weighs on them (PARTS-WEIGHT, FIELD BUGS 2026-10-18e: her timbers alone, open, shut or refused); a Rowboat\'s plunder opens; the hold key passes over a Rowboat with nothing aboard and a ship with no door to her (mutants: the parts, the rowboat, the fallback)', () => {
   const pack = [];
   let opened = null, openOk = true;
-  const parts = { templateIndex: 9999, UID: 2, weightInKg: 145 };
+  const parts = { templateIndex: 9999, UID: 2, weightInKg: 120 };
   const items = [{ weightInKg: 25 }];
-  const weigh = (list) => list.reduce((n, it) => n + (it.weightInKg ?? 0), 0);
   const ships = [{ uid: 8, hull: 2 }, { uid: 2, hull: 3 }, { uid: 5, hull: 0 }];   // 8 first: no door to her
   const rowboat = { uid: 5, hull: 0, Cargo: { Items: [] } };
   const door = createHoldDoor({
     csa: () => ({ AllBoats: [rowboat], laidUpHold: (u) => (u === 2 ? items : []), isSailing: () => false, state: {} }),
     aboard: () => rowboat, cabin: () => null, ships: () => ships,
     partsOf: (u) => (u === 2 && !items.includes(parts) ? parts : null), toPack: (it) => pack.push(it),
-    openHold: (loot) => { opened = loot; return openOk; }, nameOf: () => '', weigh, say() {},
+    openHold: (loot) => { opened = loot; return openOk; }, nameOf: () => '', say() {},
   });
   assert.equal(door.openShip(2), true);
-  assert.equal(parts.weightInKg, Math.fround(120), 'her timbers alone while it is open (a Large Galley\'s)');
   items.push(parts);   // her parts stored into her own hold
   opened.onClose();
   assert.deepEqual(pack, [parts], 'back in the pack');
   assert.equal(items.includes(parts), false);
-  assert.equal(parts.weightInKg, Math.fround(120 + 25), 'her hold\'s weight on her again');
+  assert.equal(parts.weightInKg, 120, 'her timbers alone as it shuts (a Large Galley\'s)');
   openOk = false;
   assert.equal(door.openShip(2), false);
-  assert.equal(parts.weightInKg, Math.fround(145), 'a refused door: her weight as it was');
+  assert.equal(parts.weightInKg, 120, 'a refused door: her timbers alone');
   // the Rowboat at hand: nothing aboard - the key goes on to a ship with a door (8 has none: not standing, no parts, no title)
   openOk = true; opened = null;
   door.press();

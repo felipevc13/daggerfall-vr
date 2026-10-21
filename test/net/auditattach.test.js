@@ -25,7 +25,7 @@ import {
   pageGate, PAGE_HZ_MAX, DUEL_HZ_MAX, RENOWN_HZ_MAX, GUILD_ORDER_HZ_MAX, WED_HZ_MAX,
 } from '../../src/net/wire.js';
 import { fakeRoom } from '../fakeRoom.mjs';
-import { withClock, WIDE_POSE, HEAL_SPELL, PLACE_ATTACH_FIELDS, PLACE_METER_FIELDS, widestPlace } from '../placeWidest.mjs';
+import { withClock, WIDE_POSE, HEAL_SPELL, PLACE_ATTACH_FIELDS, PLACE_METER_FIELDS, SEAT_ATTACH_FIELDS, widestPlace } from '../placeWidest.mjs';
 
 
 test('AUDIT ATTACH A1: the WIDEST attachment a place socket carries - the widest room key, an id and an account at ID_RE\'s bound, the name at NAME_MAX, the longest title, every glyph, a mute, a pose at its bounds - with every arm it can send spent once and its funnel full, is what a wake must recompute and nothing else, its field list closed both ways, measured at half the runtime\'s 2 KiB (mutants: a meter written back onto the attachment; the pose write dropped)', () => withClock(async (tick) => {
@@ -45,6 +45,18 @@ test('AUDIT ATTACH A1: the WIDEST attachment a place socket carries - the widest
   // half is to be held again.
   assert.ok(bytes <= 1056, `the widest place attachment is ${bytes} bytes - about half the runtime's 2048 at most, so the next field is measured with room to spare`);
   assert.ok(bytes > 500, `and it is the wide one: ${bytes} bytes`);
+}));
+
+test('AUDIT ATTACH A1 (AUDIT FB1018D L4-4): THE WIDEST DUNGEON INSTANCE SOCKET - its key at its widest, its attachment SEAT-LIVE\'s two stamps beside every field a building\'s carries, and still about half the runtime\'s 2048', () => withClock(async (tick) => {
+  const { me } = await widestPlace(tick, 'dungeon:m4294967295.i0123456789abcdef.0000000a');
+  assert.equal(me.closed, null);
+  const fields = Object.keys(me.att), want = [...PLACE_ATTACH_FIELDS, ...SEAT_ATTACH_FIELDS];
+  assert.deepEqual(want.filter((k) => !fields.includes(k)), [], 'every field a wake needs is written, the seat\'s stamps too');
+  assert.deepEqual(fields.filter((k) => !want.includes(k)), [], 'a field on a dungeon attachment this test never measured');
+  const bytes = JSON.stringify(me.att).length;
+  // SEAT-LIVE's stamps (two thirteen-digit times) and the instance's longer key: 1086 at its widest, past the building's
+  // 1056 - a dungeon instance's ceiling of its own, still about half
+  assert.ok(bytes <= 1100, `the widest dungeon instance attachment is ${bytes} bytes`);
 }));
 
 // Each arm's flood, at one instant: `passes` frames through the bucket, then a strike a frame (`key`), closed past `max`.

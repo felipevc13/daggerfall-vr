@@ -27,6 +27,9 @@ export const PARTY_POSE = { px: 100, py: 200, loc: 'Daggerfall', in: 0, h: 50, h
 // CHAP4c: and a claimed title's `ts` (wire.js badged) - a seat's (SEAT1c) and a chapter's seat's ride the attachment with it,
 // unmeasured until the widest title was a claimed one (PIN MOVED)
 export const PLACE_ATTACH_FIELDS = Object.freeze(['key', 'id', 'name', 'title', 'ts', 'glyphs', 'sub', 'mu', 'lv', 'gi', 'gt', 'gm', 'hn', 'hc', 'hb', 'hg', 'ci', 'gio', 'pose', 'since', 'turn', 'kept', 'worldSeen', 'finalUsed', 'pk']);   // WARDEN1: `pk`, whose parked team the socket last spoke for (24 hex - the town watch tells it of a throw); AUDIT RENOWN1 WIRE-4: `lv`, the Renown the token signed; GUILD1c: the guild it signed (`gi`, `gt`, `gm`) and when it was said (`gio`); LEGACY7: the house it signed (`hn`, `hc`, `hb`, `hg`); AUDIT LEGACY III O1: its realm character (`ci`), which the wed arm stamps
+/** AUDIT FB1018D L4-4: a dungeon room's socket carries SEAT-LIVE's two stamps beside them (net/seatLive.js - when it came
+ *  in, `hi`; when it was last heard, `hd`), which an interior's never writes. */
+export const SEAT_ATTACH_FIELDS = Object.freeze(['hd', 'hi']);
 /** Every meter a place socket's arms spend - the instance's. */
 export const PLACE_METER_FIELDS = Object.freeze([
   'bucket', 'drops', 'wbucket', 'wdrops', 'sbucket', 'sdrops', 'pbucket', 'pdrops', 'tradeBucket', 'tdrops', 'tbytes', 'tinbucket',
@@ -53,9 +56,10 @@ export const placeFrames = (other) => [
   { t: 'wed', data: { to: other, k: 'no', s: 'abcdef', why: 'cancelled' } },   // LEGACY7 part three: the widest wed frame
 ];
 
-/** The widest place socket and the eight senders filling its funnel, in a room of the widest key. */
-export async function widestPlace(tick) {
-  const r = fakeRoom('interior:m4294967295.16777216');   // a map id at ten digits, the building key's 1<<24 sentinel
+/** The widest place socket and the eight senders filling its funnel, in a room of the widest key - a building's, or
+ *  (AUDIT FB1018D L4-4) `key` another's, a dungeon instance's at its widest. */
+export async function widestPlace(tick, key = 'interior:m4294967295.16777216') {
+  const r = fakeRoom(key);   // a map id at ten digits, the building key's 1<<24 sentinel
   const title = TITLES.reduce((x, y) => (y.length > x.length ? y : x));   // CHAP4c: a chapter's seat's now - claimed, so it rides with its widest claim
   const widest = async (ws, n) => {
     const tok = await r.token(long(n), { s: long(n, 's'), n: 'N'.repeat(NAME_MAX), t: title, ...(titleClaimed(title) ? { ts: [0xffffffff, 9999] } : {}), g: [...GLYPHS], mu: Math.floor(Date.now() / 1000) + 3600, lv: 50, gi: `g${'z'.repeat(10)}`, gt: 'WWWW', gm: `m${'9'.repeat(15)}`, hn: 'H'.repeat(HOUSE_NAME_MAX), hc: 'G'.repeat(HOUSE_GIVEN_MAX), hb: 1, hg: HOUSE_GEN_MAX, rc: 1, ci: `r${'f'.repeat(20)}` });   // AUDIT RENOWN1 WIRE-4: every RENOWN1 client's token carries a level; GUILD1c: and a guild, each at its shape's bound; AUDIT LEGACY III O1: and its realm character

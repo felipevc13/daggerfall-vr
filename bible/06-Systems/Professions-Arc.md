@@ -144,6 +144,9 @@ Enchanting - ten professions a character holds, with the five that gather.
 
 - **The crafter's limit** - DECIDED: a character may raise at most **two crafts above Journeyman (50)**. Gathering is
   unlimited. CRAFT3 (41.6): two of the five crafts. No one character makes everything; trade equips an army.
+  CRAFT-LIMIT-SAID (41.10, FIELD BUGS 2026-10-18f): a third craft stops at 26,009 XP, one short of rank 51, and every
+  act of it then pays none - said at every station, on the Professions tab and in the craft's word since. No rank is
+  ever lowered, so the two are the character's for good (OPEN, the owner's: a craft let go).
 - **Online only** - DECIDED: nothing offline earns profession XP.
 
 ### 3.3 Specialisations
@@ -460,6 +463,8 @@ BOULDERS (FIELD BUGS 2026-10-01, Mac: "Fix the rest"; the service's acct47): the
 
 MORE-NODES (2026-10-02, Mac: "increase all profession nodes", asked: "Double"; the service's acct48): the trees, the herb patches and the veins twice what they were, every climate (the table above). The day's sixty a profession (and the account's bound) are unchanged, so what doubles is how close the next node stands, not what a day yields (CAP-OFF, 2026-10-07: the sixty and the account's bound are gone - the nodes and the walk between them are the day's whole bound). A signature region's veins stand in the slots after the climate's (a Mountain's thirteenth, Daggerfall's fifth and sixth in the woods).
 
+JUNGLE-WOODS (2026-10-19, the owner: "The forest region we recently implemented should be a large tree gathering spot. Moreso than other places within daggerfall"; the service's acct161, acct159 then acct160 on its branch, renumbered past QL12 and WB14 at the merges): a map pixel of the Jungle of Bantha - the owner's area, `world/jungle/banthaArea.js` (`03-World/Bantha-Jungle.md`) - stands **48 trees a day** (`net/nodeLaw.js` `JUNGLE_TREE_SLOTS`), four times the richest woods' anywhere else (the Woodlands' and the Rainforest's 12), so the next tree stands about half as far; whatever the pixel's climate (the area holds the Rainforest and, in the Dragontail foothills, the Mountain), none where no wood grows (`treeSlots`). And **every jungle slot stands a tree**: a slot whose wood waits on the witnesses - an unconfirmed Rainforest's Teak and Mahogany, past tier 2 - stands Pine there, where elsewhere it stands nothing (PINE-SHARE left 3 in 5 of an unconfirmed Rainforest's slots empty, so the jungle stood about 5 trees a pixel until three accounts vouched for it); on confirmed ground the jungle's own woods and the rare Ironwood stand as the Rainforest's do. The law is the area's, never the Features row's: the service recomputes every tree from it (the harvest's slot check reads `treeSlots` beside a vein's `veinSlots`), and a room has one jungle - offline with the jungle off, the area's count stands at DFU's palms. The jungle's ~5,400 tree flats a pixel carry them easily (`scenes/treeHost.js` `standTrees`, its rock check now asked once a flat, not once a flat a tree). `world/jungle/banthaArea.js` joins the account deploy's path filter (the law imports it). Pinned by `test/net/junglewoods.test.js` (5) and `tools/mutants/junglewoods.json` (12, all dead).
+
 UNWITNESSED-ORE (FIELD BUGS 2026-10-09e, the Discord's "Mining veins": "I mined about 200-300 veins of iron, but there were not a single vein of silver, gold, platinum or mithril in the mountains ... maybe Mountain area and MountainWoods area are bugged"; the service's acct102): not a bug - the law. A vein on a pixel nobody else had vouched for was held to tier 2, and the Mountain's table holds Iron at 1 and nothing again until Silver at 3: every mountain pixel a lone miner worked stood Iron alone, the Mountain Woods never its Silver, and a lone miner's word confirms nothing (three accounts a week old, the witnessed world above), so the far mountains never came to the rest. A vein on such ground is held where a dungeon's deep vein already is on anyone's word - `UNCONFIRMED_VEIN_TIER`, 3 (`net/nodeLaw.js`, the one cap the wilderness vein, the deep vein and the Court's vein metals read) - so the Mountain stands Silver beside its Iron (73 : 27 by the weights) and the Mountain Woods its Silver beside its three; no other climate's table holds a tier 3, so no other ground moves. Gold, Platinum, Mithril and a region's signature still wait on the witnesses, and a lie about a pixel buys Silver at most - what a dungeon's vein already gives it. The herbs and the trees keep 2. The Mining page says so in the player's words (`ui/professions/profPages.js` MINING_GROUND_LINE). PIN MOVED: PROF2's "an unconfirmed Mountain pixel yields Iron alone" (`test/net/prof2_law.test.js`). Pinned by `test/net/fb1009e_unwitnessedore.test.js`; `tools/mutants/fb1009e_unwitnessedore.json` (4, all dead). ORE-MAP (`01-Overview/bugs/Field-Bugs-2026-10-11d.md`): the held map's bare ground says it for a place - its veins, its dungeons', its kingdom's own ore and whether its ground is witnessed (`ui/oreMapTip.js`).
 
 GATHER-OW (2026-10-02, Mac: "allow them to appear in the overworld without being overwhelming, maybe a glyph marker showing where a group of them are"; asked: "Groups nearby"): on the Overworld each profession's group on a stood pixel - its nodes not yet worked today, as NODE-MARKS would mark them - is one diamond in its compass colour at their middle, its count beside it ("Mining ×6"), the nearest twelve within 3 km (the land streams three pixels out), read again twice a second; the view's filters have a Gathering switch. Not a click of its own: a click there walks to the ground under it. None with the professions shut, nor underground; Hunting's bodies are no group. `scenes/gatherHost.js` overworldGroups, `systems/travel/travelViewFilters.js`, `ui/travel/travelViewHud.js`, `scenes/travelViewMarks.js` travelViewMarks (out of world.js since HOST-SPLIT 1).
@@ -560,6 +565,22 @@ laid out for the phone's touch layer as for the desktop.
 - **The Professions tab** (character sheet): a left column in two groups (Gathering, Crafting) - each row the icon,
   name, rank, rank's name and a thin bar; the right pane for the chosen one - XP to the next rank, the specialisation
   cards (choose one), the unlocks by rank (tiers, recipes), today's harvests, and "Crafts above Journeyman: 1 of 2".
+  **How it is done** (TOOL-SAID, FIELD BUGS 2026-09-30b; CRAFT-HOWTO, FIELD BUGS 2026-10-18d): under the XP line, a
+  paragraph says how the chosen profession is practised. A gatherer says how it gathers (`ui/professions/profPages.js`
+  `GATHER_HOW` for Herbalism, Mining and Logging, Hunting's own line, `FISHING_HOW`, and Mining's ground line under its
+  own). A craft says where its stations stand, that they are worked from the Stores page (Holdings > Stores), what
+  they make of the gathered goods and what earns its XP (`CRAFT_HOW`: Smithing, Building, Outfitting, and Provisioning's
+  cooking after its brew, `ALCHEMY_HOW`; Enchanting's is `ENCHANTING_HOW`). Each paragraph is read in the player's
+  language when the page is drawn. Until CRAFT-HOWTO, Smithing, Building and Outfitting showed their specialisation
+  cards and nothing else, and Provisioning never named Cooking (MoonGeneral, the Discord's #bug-reports: "when it comes
+  to the crafting skills you no explanation there"). THE WORDS ARE THE CODE'S: the shops a craft names are the ones the
+  interior host's station questions answer (`scenes/worldModes.js` forgeHere, jewellerHere, workbenchHere, masonHere,
+  loomHere, alchemyHere, enchantHere), with the home's own station, a joinery's bench (`scenes/world.js` workbenchHere,
+  CARP-YARD) and any lit fire (`COOK_FIRE`). The works are `SMELT_RECIPES`, `SAW_RECIPES`, `CURE_RECIPES` and
+  `MASON_RECIPES`; a saw and a cure pay no XP. The anvil's own refining of raw ore is CRAFT1's chain (41.3). The brew's
+  words say the pack as well as the Stores, since the brew reads both (BAG-CRAFT, `Materials-Bag.md` 14). The
+  Tutorials' Crafting page (`10-UI/Tutorials.md`) is the same map in short. Pinned by
+  `test/ui/professions/fb1018d_crafthowto.test.js`; `tools/mutants/fb1018d_crafthowto.json` (23, all dead).
 - **The Stores tab**: a grid of materials with counts, each count split own / bought on its card; filters (Ores and
   Metals, Wood, Herbs, Food, Hides and Cloth, Stone, Gems, Essences, Spoils of War), a search box, sort by tier, name or count; a material's actions - **Withdraw to
   pack** (a quantity), and at a Notice Board **List** and **Deliver to a writ**. BAG1 (`Materials-Bag.md` 4): what is
@@ -771,8 +792,8 @@ Orange, Mushroom, Egg - Foraging's own, `06-Systems/Foraging.md`) - and every di
 **Fisherman's Supper** - 2 Raw Fish, 1 Egg, 1 Green Leaves: Agility +5 for 2 hours; **Orchard Tart** - 2 Apple, 1 Egg,
 1 Yellow Berries: stamina regained +20% for 4 hours; **Feast of the Hearth** (rank 70) - 4 Raw Meat, 4 Raw Fish, 2
 Apple, 2 Orange, 2 Mushroom, 2 Egg: the whole party (the party's buff frame, PARTY-BUFFS) Strength, Endurance and
-Willpower +5 for a game day. C&C's own cooking at a fire (its Raw Fish and Raw Meat from the pack) is C&C's, untouched,
-and earns no Cooking XP - the service did not see it.
+Willpower +5 for a game day. C&C's own cooking at a fire (its Raw Fish and Raw Meat from the pack, or the Materials
+Bag - BAG-COOK, section 35) is C&C's, untouched, and earns no Cooking XP - the service did not see it.
 
 **Alchemy** - two doors, one book. DFU's own potion maker (pack ingredients) stays 1:1 and earns nothing online,
 because the service never sees it. The profession's door is the **brewing act** at an alchemy station: the
@@ -3080,7 +3101,9 @@ and nothing in the world set a node apart from the ground about it. DECIDED here
   view's focus when one is set, every rate a whole number of cycles over its 60 s clock. Drawn after each mode's
   opaque world through the veiled bodies' hook, as the auras are (the street's pass, the dungeon's `lateWorldDraw`);
   never under the travel view; built at idle once a node is first marked; a glow that will not build costs the glow,
-  never the game (`createNodeGlowPass`, the world host's one door to it).
+  never the game (`createNodeGlowPass`, the world host's one door to it). NODE-OUTLINE (section 46, 2026-10-19) ringed a node with a
+  picture along its own picture instead, and NODE-GLINT (section 47, 2026-10-20) lights it ON that picture now - glints and a
+  sheen, the ring retired; the glow lights a node with none (a body drawn as a 3D character).
 - **Not built, named**: the held map's node marks (section 21's "the held map marks the patches and veins a character
   has worked before" - still as PROF1 and PROF2 left it); no setting turns the glow or the marks off (the professions'
   own switch does).
@@ -3246,7 +3269,9 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
 - **What PROF9 is.** 15's row - Cooking - whole: the fire and its four dishes (9.3), the pan (9.4), the dishes as items and
   what eating them does, the feast at the party's table; the Cooking track and its four specialisations practised. C&C's
   own cooking at a fire - a Raw Fish from the pack turned to Cooked Fish (`scenes/camps.js` openCook) - is the mod's,
-  untouched, and earns nothing (9.3: "the service did not see it").
+  untouched, and earns nothing (9.3: "the service did not see it"). BAG-COOK (FIELD BUGS 2026-10-20c, "raw fish cant be
+  cooked over fires"): since BAG1 a haul's Raw Fish goes into the Materials Bag first, and the list read the pack alone;
+  it reads the pack, then the bag, and the cooked food goes into the pack (`06-Systems/Materials-Bag.md` section 16).
 - **The fire** (9.3: "any campfire, hearth or brazier"). DECIDED: any LIT fire within C&C's own reach of its flame
   (`survival/camp.js` BY_FIRE_REACH, 4 m) - anyone's campfire, a peer's included, and the world's braziers and fire bowls
   (`survival/hearth.js`, HEARTH1's records) - in the street and the wilderness (`scenes/world.js` cookFireHere), a building
@@ -3650,6 +3675,20 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   (no provenance in the pack, never listed) disenchanted - refused (`prof-no-essence`, `pieceListable`); **S7** (LOW) a
   dish's 500 paid twice, north and south - once a dish (`firstCraftKey`, J7's "once per piece and base"); **S8** the
   service's route list. Pinned in eight tests, 19 mutants added, all dead; four re-aimed by content (prof12, seat2b_peace).
+- **DISENCHANT-SAID** (FIELD BUGS 2026-10-19f, a player's private report: crafted greaves and pauldrons could not be
+  disenchanted; the owner, 2026-10-19: "List them greyed with the reason"). The law stands: a piece's points are its DFU
+  template's, one Essence a hundred - the **Greaves 50** and **either Pauldron 40**, so none at any metal, of chain or of
+  leather (and most of DFU's garments, 5 to 80), and the service refuses them (`prof-no-essence`). What was wrong was the
+  silence: the station's list dropped every piece under one Essence and the page explained only a list with nothing on
+  it, so the greaves vanished without a word. The station now **lists them greyed**, `{points} points: under one Arcane
+  Essence (100 points make one)` beside each (l10n `prof.page.enchant.under`, the hundred the law's `ESSENCE_POINTS`), its
+  Disenchant disabled and never asked; the line for nothing to take apart stands while no piece gives Essence. A form with
+  no points at all (a dish, a tool, a Repair Kit, the mason's stone) is no enchanter's piece and stays off the list.
+  HOST-SPLIT: the list is made by the page's module (`profPages.js` disenchantableOf - the pack's crafted pieces that may
+  leave it, its points, its Essence, a Disenchanter's twice, its recipe); `world.js` wires it in one line, and bootWorld
+  came down 8 logical lines (its ceiling 36,233 -> 36,225). Pinned: `test/systems/fb1019f_disenchantsaid.test.js` (3);
+  PIN MOVED `prof12_client.test.js` (AUDIT PROF12 E2's host pin, onto the module and the wiring line);
+  `tools/mutants/fb1019f_disenchantsaid.json` (13, all dead).
 - **Pinned**: `test/systems/prof12_law.test.js` (15), `test/net/prof12_service.test.js` (13, through the real Worker),
   `test/systems/prof12_client.test.js` (16), `test/net/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
   `tools/mutants/prof12.json` (206: 205 dead - AUDIT PROF-541 R2's six among them - and PROF12-spends-no-hash recorded equivalent - B1's ingredient comparison holds everything DFU's hash refused).
@@ -4053,6 +4092,11 @@ A4, `prof12_client` R2-C2, `prof3_client` wiring. Re-aimed by content, each stil
   Loom beside each station - every piece the craft tempers, its step, its input and XP, Temper pressed or the rank said,
   the input short said; Reforge with Essence at the enchanting station - its rank below 50, each line a press from it,
   the Essence short said. The station's fee is a temper's and a reforge's, as a craft's and a disenchant's.
+  TEMPER-CARRIED (FIELD BUGS 2026-10-20c): the two temper sections stood in the station list of a book that carries
+  nothing, and every live book carries since BAG1, whose page (`profPages.js` drawCarryStores) listed neither - the
+  temper was drawn nowhere in the game. The carrying page lists both beside the anvil and the loom
+  (`profPages.js:"    ['temper-loom', (d) => drawTemper(d, rerender, kit, 'loom')],   // FB1020c TEMPER-CARRIED: the tailor's"`).
+  Pinned by `test/ui/fb1020c_tempercarried.test.js`; `tools/mutants/fb1020c_tempercarried.json`.
 - **The four hosts**: `scenes/world.js` wired (the pack's pieces - not worn, no market act kept on them - and the step and
   the line laid on the answer); `worldModes.js` holds the stations the pages read and no piece of its own; `exterior.js`
   and `dungeonContext.js` hold no station - none to wire.
@@ -4160,6 +4204,81 @@ outfitting. I got somehow it once from...Fishing net? Then never after."
   dead). PIN MOVED: `craft1_chain` (the host's craft word, its chain still first) and `prof10_client` (the jeweller's
   XP its own line).
 
+### 41.10 CRAFT-LIMIT-SAID - the crafter's limit said where it acts, and a station's XP the service's own (BUILT 2026-10-18, FIELD BUGS 2026-10-18f)
+
+The Discord, CC/Astro, "Smithing stuck at 50": "I am unsure if its meant to stop here or if I am missing something but
+I have been stuck at level 50 smithing for about 3 days now. it is literally 1xp off of levelling up but everything I
+craft gives me 0xp." The screenshot: the anvil's Silver Dagger at Smithing 50, "60 Smithing XP, and 500 more the first
+time you make this piece at this tier.", and the word "You made a Fine Silver Dagger (+0 Smithing XP)."
+
+- **FOUND - the limit held, and nothing said it.** 3.2's crafter's limit (DECIDED; Mac kept it at CAP-OFF, section 40):
+  a character raises at most two crafts past Journeyman, and every other craft stops at `craftXpCap`'s
+  `xpForRank(51) - 1` - 26,009 XP, rank 50, one XP short of 51: the report's "1xp off". The service credits
+  `MAX(0, MIN(earned, cap - held))` in the act's own INSERT (`craftAtAnvil`; the smelt's, the temper's, the brew's and
+  the disenchant's alike), so at that ceiling every act of the track pays none, its first's 500 too. Reproduced on the
+  real Worker: Smithing at 26,009 behind Building 60 and Provisioning 55, the anvil's box read word for word as the
+  screenshot, and the Worker answered `xp: 0, first: true`; with Provisioning at 50 the same craft paid its 60 and 500.
+  The player's other two crafts are not in the screenshot, but nothing else pays a rank-50 craft none (the Firmament's
+  XP channels floor at -30%, and `scaleXp` of 60 is 42 at worst), and the ceiling's exact XP is the limit's alone.
+- **And the station's line read another law.** `craftXpLine` said `craftXp` alone; the service pays it with the
+  Firmament's percent on it (FIRM1's `scaleXp`, never on the 500), the 500 laid on, under the room the track has left.
+  The line read neither the limit (the report's 0) nor the stars (a Smithing XP star's percent, paid and never said),
+  and a Master's stations promised figures a full track never takes (`PROF_XP_MAX - held` is none).
+- **DECIDED: the limit stands (the owner's) and is said where it acts; a station says what the service credits.**
+  The service decides by the same law; AUDIT FB1018f L5-1 made it one decision: each act's INSERT and its track's write
+  count the other crafts past Journeyman in their own statement (`server-account/src/professions.js` craftCapSql, a
+  D1 batch one transaction) - the ceiling had been `craftXpCap` of a track read before the batch, bound as a literal,
+  so two acts at once could raise a third craft past 50 and freeze all three for good. No wire or account version
+  moved. A craft already held past its ceiling is said at its own rank (L5-2); a third craft below 50 reads its next
+  rank's figure (L5-3); a Master's craft word is the top's, `prof.craft.xpTop` (L5-4).
+  - The law (`src/net/professionLaw.js`): `craftLimit(profession, ranks, xp)` - `{ cap, room, by }`: `craftXpCap`'s
+    ceiling, what the track can still take, and the crafts past Journeyman that hold it, in the tab's order (a
+    gathering track never held, 3.2's "Gathering is unlimited"); `craftLimitOf(tracks, profession)` the same off the
+    service's track views, each rank the service's own (`rankOfXp` of its XP); `creditedXp(earned, room)`, the
+    decision's `MAX(0, MIN(...))`. The book (`src/net/profBook.js`): `limit(profession)`.
+  - The words (`src/ui/craftXpWords.js`): `paidXp` - an act's figure as the service pays it; `capLine` - "No Smithing
+    XP: Building and Provisioning stand above Journeyman, and the crafter's limit holds Smithing at rank 50." ("At most
+    9 Smithing XP: ..." where a little room is left; "No Smithing XP: Smithing is at Master." at the top), said in place
+    of a line the track cannot take, by `craftXpLine` (now with the Firmament's percent on the craft's XP),
+    `dishFirstLine` and `masonWorksFirstLine`; `craftXpText` - "(+0 Smithing XP - Building and Provisioning stand above
+    Journeyman, and the crafter's limit holds Smithing at rank 50)" where the craft left the track no room (it said
+    "(+0 Smithing XP, with the first-time bonus)" for a first the limit ate); `limitRuleLine`.
+  - The stations (`src/ui/professions/profPages.js` `craftPayOf` - the limit off the book's tracks, the Firmament's
+    percent in force, `systems/firmamentLive.js`): the anvil, the workbench, the loom, a Sculptor's carving and the
+    jeweller's bench say `craftXpLine` with it; the mason's works; the fire (its pans' XP unsaid where none is paid -
+    "3 pans." - and the limit's line for its first's); the alchemy station; the enchanting station and the temper (each
+    row its credited figure, "+0", and the limit's line once).
+  - The Professions tab: a held craft's XP line its ceiling - "26,009 / 26,009 XP - the crafter's limit holds it at rank
+    50", where "26,009 / 26,010 XP" read as one XP from a rank it cannot reach - and under "Crafts above Journeyman: 2 of
+    2" what the count does: "A character raises only 2 crafts past Journeyman: yours are Building and Provisioning, so
+    your other crafts stop at rank 50. No craft's rank is ever lowered." Before the second: "...; once 2 of yours pass
+    rank 50, the others stop there."
+- **FACT - nothing unlocks it on that character.** Every write to `prof_tracks` raises a track's XP or holds it (the
+  harvest's, the craft's, the smelt's, the temper's, the brew's, the disenchant's, a writ's, a Motherlode's; a
+  specialisation's change moves no XP; 0088 kept the higher parent); only deleting the character removes its tracks
+  (`server-account/src/realm.js`, PROF-DELETE). So a character's two crafts past 50 are its for good, and the tab now
+  says so before the second is raised. DECIDED (Mac, 2026-10-19: "Stop with the decisions for me"): a craft is not let go back to 50 - 3.2's limit stands, said
+  before the second craft passes it.
+- **The four hosts**: `scenes/world.js`'s craft word hands the book's limit in, in its one call (`craftXpText(rec,
+  r.data, st.xp, profBook.limit(rec?.profession))` - the line edited, none added to bootWorld, which stands at its
+  ceiling); `worldModes.js`, `exterior.js` and `dungeonContext.js` build no station page and no craft word - none to
+  wire. Left as they were: the brew's, the temper's and the disenchant's words in `world.js` ("(+0 Provisioning XP)") -
+  their stations say it first, and those words never claim a first's bonus.
+- **The words in the player's language**: six new keys (`prof.page.craft.xpLimit`, `prof.page.craft.xpTop`,
+  `prof.craft.xpLimit`, `prof.page.xpHeld`, `prof.page.limit.rule`, `prof.page.fire.pansOnly`), drafted in-session in
+  the thirteen whole languages (`tools/l10nInSession.mjs`; each glossary given "crafter's limit"), the twelve drafting
+  languages owing them with the rest.
+- **As built**: `src/net/professionLaw.js`, `src/net/profBook.js`, `src/ui/craftXpWords.js`,
+  `src/ui/professions/profPages.js`, `src/scenes/world.js` (one line), `locales/*`. Pinned:
+  `test/net/fb1018f_craftlimit.test.js` (6) - the report end to end on the real Worker, book and pages (and the limit
+  shown the cause); the line against the Worker at seven rooms; the Firmament's percent on the anvil, the jeweller's
+  and a temper, as the Worker pays it; every station at the limit; the tab before the choice, a gathering track,
+  Master; the law and the host's one call. `tools/mutants/fb1018f_craftlimit.json` (46, all dead). PIN MOVED:
+  `fb1015f_firstcraft` (the host's word; Building 100's boxes - a Master takes none - and the quarter and the 500 at
+  Building 99), `craft1_chain` (the host's word), `prof9_client` (a Master's fire; AUDIT PROF-541 K7's steps at an
+  Expert's 90), `prof12_client` (a Master's enchanting station; AUDIT PROF12 E2's quarter at 90). Re-aimed by
+  content: 13 records of `fb1015f_firstcraft.json` and one of `prof9.json`, all dead.
+
 ## 42. PROF-FOUND - the station shops found as every shop is (BUILT 2026-10-12)
 
 Mac: "Ensure all the professions new stores are flagged on the town map and you can ask NPCs where they are".
@@ -4261,7 +4380,7 @@ already yields Cut Stone (section 23), so the Stonebreaker gave only the unclean
   ground; the service decides it (`server-account/src/professions.js`: `surveyed` = a vein, not confirmed, the
   character's `spec100`), and the client stands the same vein (`scenes/mineHost.js` standMineNodes, and the gathering
   host stands the pixels again when Mining's choice at 100 changes - SEASONAL-EYE's key, widened). The held map's ore
-  card says so in its own words (`ui/oreMapTip.js`: "No vein here waits on witnesses", or only the region's own ore),
+  card says so in its own words (`ui/oreMapTip.js`: "No vein here needs witnesses", or only the region's own ore),
   and the Mining page under its witnesses' line (43.1).
   WHAT IT IS NOT, by intent: never a **signature** (a region's own ore, which waits on the witnesses still - the region
   is the claim a lie is worth most on, and `veinSlots` counts no signature slot on the Surveyor's word); never the
@@ -4637,6 +4756,270 @@ the slice wires a line into (`scenes/world.js`, `scenes/dungeonContext.js`, `net
 `ui/enhanced/enhancedMenu.js`, `systems/uiPrefs.js`) were not judged whole again: their records still apply
 (`test/tooling/mutantdrift.test.js`), and those on the lines the slice moved were re-aimed and judged above.
 Ledger A (PROFESSIONS, GATHER-FEEL II).
+
+## 46. NODE-OUTLINE - a node ringed along its own picture (BUILT 2026-10-19; the ring RETIRED 2026-10-20 by NODE-GLINT, section 47)
+
+NODE-GLINT (section 47) took the ring away and kept the rest - the pictures, the mask and the pass's seams - and its module, test,
+probe and mutants live on under its names (`render/nodeGlint.js`, `test/scenes/nodeglint.test.js`, `tools/nodeGlintProbe.mjs`,
+`tools/mutants/nodeglint.json`). The record below is the ring's, its files named as they stood then (RETIRED).
+
+The owner: **"Overhaul gathering material visuals. Actually outline the sprite itself instead of a faint sparkle like it
+is now."** FACT: NODE-MARKS' glow (section 31) is a card stood before the node - a halo, a shimmer and motes, slight by
+intent - so the eye found a sparkle near a node, never the node's own shape; a tree's glow was a 2.6 x 3.4 m patch about
+its root under a 20 m crown. DECIDED and BUILT (`render/nodeOutline.js`):
+
+- **Its own picture.** The gathering host's marks carry each node's PICTURES (`scenes/gatherHost.js`, `pictures` on a
+  mark): the flats it stood for the node - which batch, which of its flats (`first`, `count` - nodes share a batch by
+  record) and their centres, recorded where the batch is made - a dungeon vein's own batches, and for a tree its kind's
+  own (`GatherKind.picturesOf`; `scenes/treeHost.js`: the forest's flat, and its centre - the very array its pixel's 3D
+  tree set holds, so the Low Poly Trees' or the jungle's 3D tree that stands for it near the eye is found by it). The
+  renderer keeps the flats' basis and the 3D trees' frames it drew (`lptDrawnFrames`, spent in the flats' call,
+  forgotten each beginFrame), so the outline is drawn on the very trees and far pictures the frame stood.
+- **A silhouette, then its ring.** Each frame a node's pictures are drawn again, unmoved, by the billboard program's own
+  vertex stage (`bbVertexShader` - they stand, sway and give way to their 3D tree as the world drew them) into its tile
+  of a depth-only atlas (`OUTLINE_GRID` x `OUTLINE_GRID` tiles of `OUTLINE_TILE` texels, a node a tile - its rectangle
+  on screen snapped to whole pixels and fitted in, a texel a pixel where it fits), cut where the picture is cut. Then
+  over the node's rectangle a fragment outside the silhouette within the ring's width of it (16 taps: 8 directions at
+  the width and half of it) is the ring, in the profession's colour (`ui/nodeMarks.js`, the compass's) at the depth of
+  the silhouette it borders, stood `OUTLINE_RING_BACK` behind it - so a wall before the node hides it, the ground or a
+  tree behind it shows it, and it never draws over the node itself. **Why not shifted copies** (WEAPON-GLOW1's law): the
+  copies of a 3D tree's front cards drew over its own back cards - lines through the canopy (`tools/nodeOutlineProbe.mjs`, RETIRED,
+  2026-10-19: 18% of the ring over the tree); pushing the copies behind the whole tree hid the ring wherever another tree
+  stood close behind, which in the jungle is everywhere.
+- **Its measure.** `OUTLINE_PX` 2.5 pixels at 1080 rows, with the image, never under 1.5 (a retro image's pixels are
+  large); `OUTLINE_ALPHA` 0.95, breathing 12% at a quarter hertz (still under reduced motion); kindled and faded with
+  distance by the glow's own law (`nodeGlows`: 0.6 s, 80 to 120 m), 16 at most (the atlas's tiles - the glow's budget);
+  fogged and hazed by the frame's fog and the jungle's haze where its depth stands.
+- **The glow stays where there is no picture.** A mark with none - Hunting's body drawn as a 3D character - is lit by the
+  glow as before (`createNodeOutlinePass`'s `glow`, the world host's `createNodeGlowPass`); SENSE1's look round keeps
+  the glow too (its finds have no picture). An outline that will not build hands every mark to the glow.
+- **Where.** The world host's hook after each mode's opaque world, as the glow was (the street's, a dungeon's
+  `lateWorldDraw`); never in a building nor under the travel view. One draw a picture into the atlas and one quad a node
+  on screen; the frame's target, its viewport and the world's baseline handed back (blend off, depth LESS and written,
+  faces culled, a scissor where one stood).
+- **Pinned** (RETIRED with the ring): `test/scenes/nodeoutline.test.js` (9); `tools/nodeOutlineProbe.mjs` compiles and links both programs in a
+  real WebGL2 context, draws a herb flat of a two-flat batch and a 3D tree of crossed cards through the pass, and reads
+  the frame back (15 checks: the ring outside every picture and within its width, the neighbour flat unringed, the
+  colours, one even ring at half kindling, a wall hiding it, the baseline back). Mutants (RETIRED): `tools/mutants/nodeoutline.json`
+  (26, all dead). PIN MOVED: NODE-MARKS' and WB9g's hook pins (`nodemarks.test.js`, `invislook.test.js`,
+  `wb9g_insignia.test.js`, `nodemarks.json`, `wb9g.json`) read `nodeOutlinePass`.
+
+## 47. NODE-GLINT - a node catching the light on its own picture (BUILT 2026-10-20)
+
+The owner, of NODE-OUTLINE's ring (section 46), after "a lot of players dont like how its not immersive": **"Lets just
+bring the glint back but better."** FACT: the ring was a 2.5-pixel line in the profession's compass colour at 95%,
+breathing, round every node within 120 m, sixteen at once - a mark painted on the world. NODE-MARKS' glow before it
+(section 31) was a card stood before the node - a halo, a shimmer and six motes, slight by intent - so the eye found a
+sparkle NEAR a node and never its shape; a tree's was a 2.6 x 3.4 m patch at its root under a 20 m crown. A herb's and a
+vein's pictures are their own (the herb's item picture, the ore's washed flat), but a node tree is the forest's own flat
+(`scenes/treeHost.js` treeKind's `flatsOf`: none of its own), so whatever marks a node is the only tell a tree has.
+DECIDED and BUILT (`render/nodeGlint.js` - section 46's module, moved; its pictures, its mask and its seams unchanged):
+
+- **The glow's parts, moved onto the picture.** The halo is gone (it was the patch at the root); the motes are GLINTS
+  on the picture; the shimmer is a SHEEN across it. Drawn over the node's rectangle, one quad a node, ADDED (ONE, ONE) as
+  the glow was - it only ever brightens - at the depth of the picture where it stands, `GLINT_PULL` (0.3 m) toward the
+  eye and never past half its way: a wall before the node hides it, the node never does.
+- **The glints.** `GLINT_COUNT` (6) a node, each living its own short life - `GLINT_RATE` 0.35 a second, each next one
+  `GLINT_RATE_STEP` 0.05 faster (21 to 36 lives a minute, whole over the glow's 60 s clock) - its light sin(pi x life)
+  cubed (`GLINT_FLASH`): born, brightest mid-life, gone dark - each life numbered on the clock's own wrap, so the life
+  at the wrap is the life at zero (AUDIT NODE-GLINT). Each life stands at a spot of the picture chosen afresh, once for
+  the node in the light's vertex stage (AUDIT NODE-GLINT: every fragment found it again): the first of `GLINT_TRIES` (6;
+  3 before the audit) points of the node's own pictures (`GLINT_ANCHORS`, 8 at most: a flat at its base, width and
+  height at its own scale; a 3D tree's crown about its root), taken in the plane the picture stands in - so a spot is a
+  point of the picture and moves with it as the eye moves (AUDIT NODE-GLINT: it was a share of the screen's box, a
+  different point each frame) - on the screen and before the eye: a flat's judged by its own picture at its own texel,
+  at its own depth; a 3D crown's by the silhouette, `GLINT_HOLD_PX` (1.5) round on every side. None, and that life is
+  dark. A white-hot core (`GLINT_CORE_WHITE`, 0.6 of the way to white) in a
+  soft bloom, and four thin rays turned a little (each life its own turn, within 17 degrees), reaching `GLINT_SHARE`
+  (0.35) of the picture's longer side on screen, between `GLINT_PX_MIN` (4) and `GLINT_PX` (14) pixels at 1080 rows, both
+  with the image, never under 1.5 (`glintPx`) - so a far herb, a speck, still glints, and a tree filling the screen
+  glints no larger than a near herb.
+- **The sheen.** A soft band of light rising a little aslant across the picture's own box and lit only where the
+  silhouette is - the picture's own shape catching the light - once every 6.7 s (`GLINT_SHEEN_HZ` 0.15), crossing in the
+  first half of the period (`GLINT_SHEEN_SHARE`) and dark the rest, at `GLINT_GAIN.sheen` (0.14) at most; none within
+  `GLINT_SHEEN_NEAR_M` (6 m), whole from `GLINT_SHEEN_FULL_M` (18 m) (`glintSheen`). (This said "the tree under the
+  axe and the herb under the sickle never flash" - the sheen's fade alone, while the glints flashed on at full: AUDIT
+  NODE-GLINT, and the next bullet.)
+- **The act's node is quiet** (AUDIT NODE-GLINT). The node an act works lights nothing of its own - no glint, no sheen,
+  no glow over a body: the Basket's finds and the Pick-Axe's strike are glints the player watches for (`systems/herbAct.js`,
+  `ui/professions/profActStyle.js` `.prof-glint`, a warm-white four-rayed star), and NODE-GLINT's stars on the very
+  node looked the same. The host marks it `quiet` (`scenes/gatherHost.js` marks), and `nodeGlows` dims a quiet mark
+  over the 0.6 s it kindles in and kindles it again when the act ends.
+- **The light.** A warm daylight (`GLINT_LIGHT`: 1, 0.95, 0.84) carrying `GLINT_TINT` (35%) of the profession's compass
+  colour (`glintTint`, `ui/nodeMarks.js`) - the professions still told apart, none painted in its colour whole.
+- **Kept.** NODE-MARKS' law for who is lit and how much (`nodeGlows`: kindled over 0.6 s, faded from 80 to 120 m, 16 at
+  most - the atlas's tiles); the frame's fog and the jungle's haze where its depth stands, and the sea's murk (AUDIT
+  NODE-GLINT, `dwWaterFogAdd` - the duel wall's law for an added light); the glow for a node with no
+  picture (a body drawn as a 3D character) and for SENSE1's look round; the build at idle, and a glint that will not
+  build handing every mark to the glow. Under reduced motion every glint stands at its first life's place at
+  `GLINT_STILL` (0.6) and no sheen crosses.
+- **Where** (THE FOUR HOSTS RULE), as section 46 left it: `scenes/world.js` wires it (`nodeGlintPass`, in the hook after
+  each mode's opaque world - the street's, and a dungeon's through its `lateWorldDraw`); `scenes/dungeonContext.js` holds
+  no pass of its own (its glow is SENSE1's); `scenes/worldModes.js` lights none in a building (`nodeMarksAt` answers none
+  there); `scenes/exterior.js`, the fixed-city bench, stands no gathering host and no node. Never under the travel view.
+- **Not a setting.** The owner's word was the glint itself; section 31's "no setting turns the glow or the marks off"
+  stands.
+- **Pinned**: `test/scenes/nodeglint.test.js` (11 - section 46's three on the pictures carried); `tools/nodeGlintProbe.mjs`
+  compiles and links both programs in a real WebGL2 context, draws a herb flat of a two-flat batch and a 3D tree of
+  crossed cards through the pass and reads the frames back (21 checks: over 24 moments of the glints' lives the herb and
+  the tree glint; light only added; every lit pixel within a glint's reach of the picture, and every glint's heart within
+  3 px of it; the neighbour flat unlit; near, no sheen; half kindled, half the light; still under reduced motion and
+  moving without it; a wall hiding it; through a long lens at 25 m the herb's sheen crossing it from its foot to its
+  crown, dark between crossings; the baseline back). Mutants: `tools/mutants/nodeglint.json` (52, all dead - section
+  46's 19 on the pictures, the mask and the pass carried and re-aimed, its 6 on the ring retired with it, its 2 on the
+  screen's clamp and the host's wiring made again as NODE-GLINT's). AUDIT NODE-GLINT's counts are its own, below. PIN MOVED: the world host's hook pins (`nodemarks.test.js`,
+  `invislook.test.js`, `wb9g_insignia.test.js`, `nodemarks.json`, `wb9g.json`) read `nodeGlintPass`;
+  `tv4_weather_above.test.js` names `nodeGlint.js` among the fogged passes never drawn under the travel view;
+  `l10n4_hardcoded.test.js` counts its three words under its new name (two since AUDIT NODE-GLINT).
+
+### AUDIT NODE-GLINT (2026-10-20, the owner: "Audit this")
+
+Two lanes: the author's own adversarial re-read, and three independent passes that read the commit cold - the GL and its
+cost, the record with its pins and mutants, and the glint in the world as a player meets it - none touching the tree
+while the others read. FOUND, each fixed and pinned (`test/scenes/nodeglint.test.js`, `tools/nodeGlintProbe.mjs`,
+`tools/mutants/nodeglint.json`):
+
+- **HIGH - the glints mimicked the act's own glint on the node being worked** (the world lane and the record lane). The
+  Basket's finds and the Pick-Axe's strike are glints the player must react to (`systems/herbAct.js`: a press before a
+  find shows spends it; `ui/professions/profReticle.js`: a strike within 2.5 degrees of the glint counts double), drawn
+  as a warm-white four-rayed star (`ui/professions/profActStyle.js` `.prof-glint`, about 23 px) - and NODE-GLINT's stars,
+  warm-white and four-rayed (about 28 px), kept flashing at full on the very node: about 2.8 a second over the herb in
+  the Basket's gaps. Only the sheen faded near; the record said "never flash". FIXED: the node an act works is quiet
+  (`scenes/gatherHost.js` marks' `quiet`; `nodeGlows` dims it over 0.6 s and kindles it again) - its glints, its sheen
+  and a body's glow alike; the record's words corrected where they stand.
+- **HIGH - every node behind the player was a full-screen pass** (the GL lane and the world lane; carried from
+  NODE-OUTLINE's `screenRect`, its cost now four times the ring's a pixel). One corner of a node's box behind the eye
+  made its rectangle the whole screen - a box wholly behind too, and one across the eye's plane off to the side. About 8
+  of a frame's 16 nodes in any wood (the GL lane's sampling at 1920 x 1080: 16.8 M light fragments a frame for herbs,
+  19-23 M for trees); in SwiftShader, 16 nodes behind the eye cost the glint 2,366 ms a frame and the ring 551. FIXED:
+  a box wholly behind the eye is none, one across its plane bounded where its edges cross `GLINT_NEAR_W` (the GL lane's
+  re-measure: 0.01 M fragments for herbs, 0.9 M for trees).
+- **MEDIUM - every fragment searched for every glint's spot** (the GL lane): six glints, up to three hashed tries and a
+  texel each, the same for the whole node, answered again at every pixel of its rectangle (the ring had discarded a
+  silhouette pixel after one fetch). FIXED: the spots are found once, in the light's vertex stage (`texelFetch` there is
+  WebGL2's own), and handed to the fragments flat; a fragment reads one texel and draws six stars.
+- **MEDIUM - glints came and went as the eye moved a pixel or the picture swayed** (the GL lane: on a leafy picture, 9
+  and 12 comings and goings over 20 one-pixel steps; the world lane, the author). A life's spot was a share of the
+  node's box on the screen, chosen again every frame against the moving, pixel-snapped silhouette - a different point
+  of the picture each frame - so a spot near a leaf's edge flipped between tries or went dark mid-flash, a frame at a
+  time as the player walked; under reduced motion the held glints hopped too, and a node sliding off the screen dragged
+  its spots (its box was held to the screen). A margin round the spot alone did not cure it (the probe: 10 over 12
+  steps - any test on the mask's pixels flips as they move under it). FIXED at the root: a spot is a point of one of
+  the node's pictures (`GLINT_ANCHORS` - a flat at its own base, width and height; a 3D tree's crown about its root), in
+  the plane the picture stands in, so it moves with the picture; a flat's judged at its own texel of its own picture
+  (`uFlatTex`), at its own depth - nothing about it changes as the eye moves; a 3D crown's (no one plane) by the
+  silhouette, `GLINT_HOLD_PX` round; six tries a life; the picture's box kept whole past the screen's edge
+  (`GLINT_OVERHANG`). The probe: none over 12 one-pixel steps on a leafy picture, where the same flat judged by the
+  silhouette came and went 4 times (a glint is gone when no light of it stands within 2.5 px of its place - a peak only
+  dimming under the detector's 300 as it slides across a pixel is the same glint).
+- **MEDIUM - a small tree's glints mostly dark** (the world lane). A far tree's batch is sized for its tallest tree (each
+  flat its own `_scales`), and its box at the batch's size stood round a small tree - about a quarter of its lives found
+  it; under reduced motion one small tree in six showed none. FIXED: a flat boxed at its own scale, and none beside the
+  3D tree it has given way to.
+- **MEDIUM - the record's numbers and some of its laws had no pin that could fail** (the record lane, by mutants that
+  survived): 14 constants held by a bound or not at all; every node on one seed, a spot never chosen afresh, the depth
+  its own texel's, the jungle's haze never sent; the rays' room pinned at half; the tree's reach unscaled, the scissor
+  kept, the depth written, the pass's end forgotten. FIXED: the constants pinned by value, each law by a pin or a probe
+  check - the 52 records are 98, all dead (two the audit's own first pins missed, made to fail).
+- **LOW-MEDIUM - every glint jumped once a minute** (every lane). The glints' brightness was whole over the 60 s clock,
+  their life's number was not: at the wrap it fell to nought and every lit glint moved, on every node at once (the GL
+  lane read 206 pixels change across the wrap, none on either side of it). FIXED: a life numbered on the clock's wrap.
+- **LOW - a batch the walk had not placed drew pixel-local** (the world lane): a stood pixel's batch has no origin until
+  the world's walk first reaches it, and its node, behind the player at night, was boxed some 800 m off - a ghost glint.
+  FIXED: the mark carries its pictures' frame (`origin`, its pixel's translation), the batch's own first.
+- **LOW** - `pow` of a sine a hair below nought (NaN on a real GPU; the GL lane, plausible): FIXED, held at nought. The
+  sea's murk never taken (inherited from the glow and the ring): FIXED, `dwWaterFogAdd`. A tile a texel over its
+  rectangle where the float carries the width over: FIXED, whole pixels. A 3D tree's front card hiding its own light (the
+  GL lane, plausible): FIXED, the nearer picture's depth. The pass's own glow never freed (carried from HOST-SPLIT):
+  FIXED. Text that said what is and was not (`render/nodeGlow.js`'s head, Rendering.md's glow line, Bantha-Jungle's
+  trunk, the world host's hook): FIXED. Section 46's addresses rewritten onto files that now say other things (`(9)`,
+  `(15 checks: the ring...)`): FIXED - section 46 is its own words again, RETIRED where it names the ring's files.
+
+NOT CHANGED, named:
+- **The light at night and underground** (the world lane - DESIGN, the owner's). The glint is a fixed warm daylight, so at
+  midnight in a wood or in a black corridor each node near carries the brightest point in view, many times its picture's
+  own light, and every 6.7 s the sheen lifts the whole far silhouette. The glow and the ring were the same. Scaling it by
+  the frame's light with a floor (`renderer.flatLightAt`; TELL2's `glintLit` is the precedent) trades the night's
+  findability for its immersion: put to the owner. ANSWERED - "Follow the light": GLINT-LIGHT, below.
+- **The tint separates Mining and Logging by 0.12, on green alone** (the world lane - DESIGN, LOW): the picture itself
+  tells the kind; the compass carries the colour whole.
+- **A flat's spot stands on its unswayed plane**: in a gale the picture leans under it (a tall crown's top by a few
+  tenths of a metre) and the glint drifts against its leaf - it never jumps. **A 3D crown is no one plane**: its spots
+  stand on the plane through its root, judged by the silhouette, and the crown's leaves slide across them by their
+  parallax as the eye moves round it - far slower than the screen's box did, but a spot there may still come and go;
+  anchoring to the leaf cards themselves (the tree's mesh, the GPU's alone) is named, not built.
+- **The 0.3 m pull lets the light show through a grass blade at a herb's foot**; **the sheen's distance is the camera's**,
+  not the player's (a third-person camera); **the sheen on a tile fitted to fewer texels is blocky at its edge** (at most
+  a pixel at fit 0.44 - the rectangles behind the eye were the worst, and are gone). Each minor.
+- **The probe's tree picture is no `treeKind.picturesOf`'s** (it stands the 3D tree alone: the far flat's handover cut is
+  the billboard program's, pinned by the Low Poly Trees' own tests), and **the probe is not in CI** - the repo's probes
+  are run by hand, as this one was.
+
+CHECKED, SOUND (the lanes, read at the commit): GLSL ES 3.00 on ANGLE, Metal and the mobile translators (the uint hash, the
+loops, `texelFetch` on the depth atlas, `gl_FragDepth` on every path not discarded); the depth convention (standard,
+LESS, the atlas's depth the frame's at the same pixel); the GL handed back; the fog, the haze and the focus; reduced
+motion; a gone node, a stump, a neighbour flat in a shared batch; a school over the water; the four hosts; flashing well
+under 3 Hz over small areas; the shapes the tests feed the pass the producers'.
+
+Counts after the audit: `test/scenes/nodeglint.test.js` 15; `tools/nodeGlintProbe.mjs` 26 checks;
+`tools/mutants/nodeglint.json` 98, all dead; NODE-MARKS' two records the audit moved (`nodemarks.json`) re-aimed, dead;
+`test/world/bantha1_jungle.test.js`'s haze sweep reads the glint's own upload.
+
+### GLINT-LIGHT - the glints follow the light (2026-10-20, the owner: "Follow the light")
+
+The audit's design question, put to the owner: at night and underground, should the glints follow the scene's light? The
+answer, the option as it was put: "Scale glints by the light where the node stands, with a floor so nodes stay findable
+at night. The sheen goes away in the dark."
+
+THE LIGHT is the one the node's own flat takes where it stands - `renderer.flatLightAt` (MAC-I: the billboard program's
+composition - the ambient with the moons' lift, the sun's half, the Masser's half, every lamp at the flats' falloff, the
+indirect light), asked once a node a frame at the node's place, into the pass's one array (`flatLightAt` takes an `out`
+for it now). Its LEVEL is its luma by the 601 weights (`glintLightLevel`, written so a grey light's level is that grey
+exactly), in the display space `flatLightAt` answers in - the frame's own on both lanes, since the Enhanced Lighting
+lane encodes each fragment back to display space itself (`enhancedLighting.js` `elFinish`); the first-person hand's tint
+reads the same answer the same way. A renderer that answers none (a probe, a test's stand-in) lights it as the day.
+- **The glints are as bright as that level** (`uAlpha` is the kindling times it): a clear day's 1, the light whole.
+- **THE FLOOR is the flats' own**, `FLAT_LIGHT_FLOOR` (0.25 - MAC-I's: dark enough to read as unlit, bright enough to
+  keep a silhouette), asked of `flatLightAt` itself. It is also the clock's own night ambient (`EXTERIOR_NIGHT_AMBIENT`),
+  so outdoors at night the glint simply takes the night's light, a quarter of the day's. The floor reaches only under
+  that: a dungeon's 0.12, a room's 0.18, a mine with no lamp near. TELL2's floor (`glintLit`: 0.35 plus 0.8 of the
+  albedo's luma) was weighed and not taken: it is a warning's, which must read before a blow lands, and a node's glint
+  is a find. If night nodes read too faint in play, the floor is the one number to raise, and TELL2's 0.35 is the next
+  precedent.
+- **The sheen goes out in the dark** (`glintSheenLight`, a smoothstep from `GLINT_SHEEN_DARK` 0.4 to `GLINT_SHEEN_LIT`
+  0.55, times the sheen's distance gain). The edges are set from the clock's own light at a node, measured through
+  `flatLightAt` over the world's own terms (`exteriorAmbient`, `sunScale`, the weather's scale, EV5's moons):
+
+  | Light at the node | Level | Sheen |
+  |---|---|---|
+  | a moonless night | 0.25 | none |
+  | a night under both full moons | 0.39 | none |
+  | a storm's noon ("a storming noon reads near-night", `worldClock.js`) | 0.35 | none |
+  | a rainy noon | 0.48 | part |
+  | a clear day's first hour (07:00) | 0.59 | whole |
+  | an overcast noon | 0.66 | whole |
+  | a clear noon | 1 | whole |
+
+  So every night is dark to the sheen, as the owner's "the sheen goes away in the dark" reads at night and underground.
+  A vein beside a lamp in a mine is lit, and its sheen crosses it: the light decides, not the clock.
+- **Not a DFU member**, as the glint is not. The light it follows is DFU's billboard composition (MAC-I's own citations).
+
+NOT CHANGED, named:
+- **The glint's colour stays the warm daylight's** (`GLINT_LIGHT` with its profession's 35%). It is scaled by the
+  light's level, not tinted by its colour: a moonlit or a torchlit glint is the daylight's colour, dimmer. The node's
+  own picture takes the light's colour.
+- **The glow does not follow the light** (a body's, SENSE1's finds - `render/nodeGlow.js`), as the audit named.
+- **The sun's shadow is not in the level**: `flatLightAt` reads no texture, so neither the lane's shadow map nor the
+  clouds' shadow reaches it (the clouds' is MAC-I's own recorded departure, in `flatLightAt`'s comment). A node in a wall's shadow at noon glints as one in the
+  sun, while its picture is shaded.
+- **The lane's eye adaptation is not in the level**: `flatLightAt` is the light before the lane's exposure, as the hand's
+  tint reads it.
+
+Counts after GLINT-LIGHT: `test/scenes/nodeglint.test.js` 18 (the level and the sheen's edges against the clock's own
+hours; `flatLightAt`'s `out`; the draw asking each node's light at its place and the floor); `tools/nodeGlintProbe.mjs`
+30 checks (a clear noon's light whole; at night a quarter, its brightest still clear on the picture; a black mine's held
+at the night's by the floor; far, at night, no sheen at any moment it crossed by day - `renderer.flatLightAt` itself
+over the probe's scene); `tools/mutants/nodeglint.json` 107, all dead.
 
 ## Appendix A - a day of a gatherer
 

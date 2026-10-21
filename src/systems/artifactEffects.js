@@ -162,7 +162,11 @@ const HANDLERS = new Map([
     strikes({ target, item, rolls = Math.random }) {
       // AUDIT WBX F1 (2026-09-26): not the Oblivion Gate's boss - his stand-in's health is a placeholder (1e9; the relay
       // holds his), so the Razor's whole-health blow billed the Razor 1e9 condition (it broke, and enchantment wear took
-      // it from the pack) and a blow the wire refused (past GATE_DMG_WIRE_MAX), lost whole
+      // it from the pack) and a blow the wire refused (past GATE_DMG_WIRE_MAX), lost whole. FIELD BUGS 2026-10-19f
+      // STAND-IN-WHOLE: the wire carries a stand-in's whole now (gateBoss.js STAND_IN_WHOLE) and no Strikes payload bills
+      // wear on him (AUDIT WBX F2, enchantments.js) - and that is why it STAYS: the Razor's kill is paid in its own
+      // condition, the health it removes (MehrunesRazorEffect), and on a body the relay runs nothing would pay it - a
+      // free whole blow every failed save, its number the stand-in's whole on top of the swing's
       if (!target || !item || target.spareGear) return null;
       if (savingThrow(ELEMENTS.Magic, EFFECT_FLAGS.Magic, target, 0, rolls) !== 0) {
         const healthRemoved = target.health ?? 0;
@@ -205,7 +209,7 @@ const HANDLERS = new Map([
       if (st) entity.activeEffects.splice(entity.activeEffects.indexOf(st), 1);
     },
     strikes({ entity, target, damage, nowMinutes, rolls = Math.random }) {
-      if (!entity || !target || damage === 0) return null;
+      if (!entity || !target || damage === 0 || target.warded) return null;   // AUDIT FB1018f L1-2: a ward lands nothing, so it gives nothing (VAMPIRIC-WARD's law)
       if (savingThrow(ELEMENTS.Magic, EFFECT_FLAGS.Magic, target, 0, rolls) === 0) return null;
       const st = maceState(entity, true);
       if ((target.magicka ?? 0) > 0) {

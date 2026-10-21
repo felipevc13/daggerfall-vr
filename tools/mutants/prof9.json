@@ -1254,7 +1254,7 @@
   {
     "name": "AUDIT-PROF12-P1-apothecary-old-words",
     "file": "src/net/fortLaw.js",
-    "old": "`members' jewellery here ${t === 1 ? 'a quality step' : `${t} quality steps`} better, their dishes",
+    "old": "`members' jewelry here ${t === 1 ? 'a quality step' : `${t} quality steps`} better, their dishes",
     "new": "`members' alchemy, cooking and jewelcrafting here ${t === 1 ? 'a quality step' : `${t} quality steps`} better, their dishes",
     "tests": [
       "test/systems/prof12_client.test.js",
@@ -1339,12 +1339,12 @@
   {
     "name": "AUDIT-PROF-541-K7-steps-unsaid",
     "file": "src/ui/professions/profPages.js",
-    "old": "xp: steps > 0 ? cookXp(rank, { steps }) : cookXp(rank),",
-    "new": "xp: cookXp(rank),",
+    "old": "xp: paidXp(steps > 0 ? cookXp(rank, { steps }) : cookXp(rank), { pct: pay.pct }),",
+    "new": "xp: paidXp(cookXp(rank), { pct: pay.pct }),",
     "tests": [
       "test/systems/prof9_client.test.js"
     ],
-    "note": "CRAFT3: re-aimed by content."
+    "note": "CRAFT3: re-aimed by content. PIN MOVED (FIELD BUGS 2026-10-18f CRAFT-LIMIT-SAID): re-aimed by content - the line takes the station's pay (profPages craftPayOf), the craft's XP the Firmament's percent, the 500 whole."
   },
   {
     "name": "AUDIT-PROF-541-K7-steps-unread",

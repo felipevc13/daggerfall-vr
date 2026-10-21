@@ -7,24 +7,24 @@
     "tests": ["test/systems/comeSailAway/fb1005c_holdweight.test.js"]
   },
   {
-    "name": "FB1005C-hold-unweighed",
+    "name": "FB1005C-hold-weighed-again",
     "file": "src/systems/comeSailAway/comeSailAway.js",
-    "old": "    return canHoldAmount(1, f(packedHullWeight(boat.hull) + hold), most, 0) <= 0;",
-    "new": "    return canHoldAmount(1, f(packedHullWeight(boat.hull)), most, 0) <= 0;",
+    "old": "    return canHoldAmount(1, packedHullWeight(boat.hull), most, 0) <= 0;",
+    "new": "    return canHoldAmount(1, packedHullWeight(boat.hull) + (boat?.Cargo?.Items?.length ? deps.cargoWeight(boat.Cargo.Items) : 0), most, 0) <= 0;",
     "tests": ["test/systems/comeSailAway/fb1005c_holdweight.test.js"]
   },
   {
     "name": "FB1005C-hold-edge",
     "file": "src/systems/comeSailAway/comeSailAway.js",
-    "old": "    return canHoldAmount(1, f(packedHullWeight(boat.hull) + hold), most, 0) <= 0;",
-    "new": "    return canHoldAmount(1, f(packedHullWeight(boat.hull) + hold), most, 0) <= 1;",
+    "old": "    return canHoldAmount(1, packedHullWeight(boat.hull), most, 0) <= 0;",
+    "new": "    return canHoldAmount(1, packedHullWeight(boat.hull), most, 0) <= 1;",
     "tests": ["test/systems/comeSailAway/fb1005c_holdweight.test.js"]
   },
   {
     "name": "FB1005C-hold-load-counted",
     "file": "src/systems/comeSailAway/comeSailAway.js",
-    "old": "    return canHoldAmount(1, f(packedHullWeight(boat.hull) + hold), most, 0) <= 0;",
-    "new": "    return canHoldAmount(1, f(packedHullWeight(boat.hull) + hold), most, deps.entity?.carriedWeight?.() ?? 0) <= 0;",
+    "old": "    return canHoldAmount(1, packedHullWeight(boat.hull), most, 0) <= 0;",
+    "new": "    return canHoldAmount(1, packedHullWeight(boat.hull), most, deps.entity?.carriedWeight?.() ?? 0) <= 0;",
     "tests": ["test/systems/comeSailAway/fb1005c_holdweight.test.js"]
   },
   {
@@ -37,7 +37,7 @@
   {
     "name": "FB1005C-hold-refusal-unsaid",
     "file": "src/systems/comeSailAway/comeSailAway.js",
-    "old": "        else if (partsTooHeavy(boat)) deps.midScreenText(HOLD_TOO_HEAVY_TEXT, 1.5);",
+    "old": "        else if (partsTooHeavy(boat)) deps.midScreenText(PARTS_TOO_HEAVY_TEXT, 1.5);",
     "new": "        else if (partsTooHeavy(boat)) void 0;",
     "tests": ["test/systems/comeSailAway/fb1005c_holdweight.test.js"]
   },

@@ -400,7 +400,7 @@
   },
   {
     "name": "CSA-C-hull-variant-swapped",
-    "file": "src/systems/comeSailAway/comeSailAway.js",
+    "file": "src/systems/comeSailAway/comeSailAwayHulls.js",
     "old": "export const hullFromMessage = (message) => Math.trunc(message / 10) % 10;",
     "new": "export const hullFromMessage = (message) => message % 10;",
     "tests": [

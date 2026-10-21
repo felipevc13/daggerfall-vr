@@ -46,7 +46,7 @@ wiring, not the feature. (Not every `*Host.js` module is that
 shape: `navalHost.js`'s `createNavalHost` is itself a single scope of 4,865
 lines - the same knot, one size down. HOST-SPLIT NAVAL (2026-10-15) gave it a
 ceiling of its own, and any function in `src/` or the relay's `server/src/` that
-grows past 2,000 code lines is now held to one too: the suite walks both and
+grows past 2,000 code lines (2,400 logical lines since LEGIBLE 1) is now held to one too: the suite walks both and
 reads every outermost function, whatever its name or shape. AUDIT HOST-SPLIT NAVAL found the first walk
 read only each `*Host.js`'s first `export function create...` - five hosts never
 measured - and a knot outside the folder already standing: Come Sail Away's
@@ -64,15 +64,17 @@ relay the new code goes into a Room method of its own, as the SCALE5 arms did.
 
 `test/scenes/hostceiling.test.js` holds it: each host function - the four hosts, the
 two modules grown into knots of their own (`createNavalHost`,
-`createComeSailAwayRuntime`) and the relay's `_message` - has a ceiling in CODE lines, its length when measured
-plus 250 - a fix's room, not a feature's. Comments and blank lines do not count
-(AUDIT HOST-SPLIT 0: a third of bootWorld is the bible's own explanation, and a
-ceiling on raw lines made deleting it the cheapest room). A change that pushes
+`createComeSailAwayRuntime`) and the relay's `_message` - has a ceiling in LOGICAL lines, its length when measured
+plus 400 - a fix's room, not a feature's. A logical line is a statement, an entry of an object literal or a class, a
+switch case or an expression arrow's implicit return (`tools/hostScope.mjs` `logicalLines`), so comments, blank lines
+and layout do not count (AUDIT HOST-SPLIT 0: a third of bootWorld is the bible's own explanation, and a
+ceiling on raw lines made deleting it the cheapest room; LEGIBLE 1, `Readability-Arc.md`: a ceiling on code lines
+made cramming two statements onto one line the cheapest room, and splitting them for a reader cost it). A change that pushes
 a host over fails with where to put the code instead. A fix
 that truly cannot live elsewhere raises the ceiling with its reason written
 beside it, in the same change, where review sees it. And a ceiling comes down
 with its host: a slice that moves code out lowers it in the same change (the
-suite fails a ceiling left more than 500 lines over its host), so the room a
+suite fails a ceiling left more than 800 logical lines over its host), so the room a
 slice frees never becomes room to grow back into.
 
 THE CEILING GATES A CHANGE, NEVER A DEPLOY. Every open pull request is measured
@@ -133,7 +135,7 @@ One group per slice, one pull request each, behaviour unchanged:
    `world.js` reads the new module instead, in the same change - the pin keeps
    its claim and names where the code now lives. A cite into the moved lines
    names the new file (`npm run cites -- --check`, then `citeanchor`).
-4. **Lower the ceiling** to the host's new length in code lines plus 250.
+4. **Lower the ceiling** to the host's new length in logical lines plus 400.
 `tools/hostMove.mjs` does 2 and the mechanical half of 3 (HOST-SPLIT 1): it
 decides every name by those rules (by value, live, import, refused), writes the
 module and the host's construction, drops the imports the host no longer reads,
@@ -465,3 +467,110 @@ none, used by three (the drop's receipt, the zone's frame, the room's collect) -
 the module's `held`, `frame` and `collectHeard`. `bootWorld` 21,750 -> 21,688 code lines, and its ceiling back to
 21,695, where it stood before FB1015's raise. The pins that read the block by source (`test/systems/fb1014_pvpescrow.test.js`)
 read the module, and the bible's anchors name it (`01-Overview/bugs/Field-Bugs-2026-10-15c.md`).
+
+## PASSAGE's merge - the wiring trimmed to fit (2026-10-19)
+
+Not a slice: a pull request whose own wiring took `bootWorld` over. Merging main into PASSAGE and BATCH-SALVAGE
+(`03-World/Passage.md`) met LEGIBLE 1's logical-line ceiling: main's `bootWorld` stood at 36,198 of its 36,233, and the
+passage's wiring added 66 - 31 over. No raise: the wiring was cut to what only the host can hand. The passage host's
+doors are the world's own functions handed as they are (`navalPortList`, `travelViewRouteTo`, `worldMoveBusy`,
+`csaStandsOn`, `setTransportModeHere` - each declared above the construction, never in its temporal dead zone) and its
+objects (`player`, `townTalk`) rather than a wrapper per field; the purse and the pack are the player entity's own,
+read by `src/scenes/naval/passageHost.js` itself (`court.js`); aboard is composed there from the runtime, her deck and
+the naval host's boat in play; and the voyage the planner is asked for rides the means of a booked ship's helm
+(`tvSeaMeans`' `voyage`) instead of a copy of them. `bootWorld` 36,264 -> 36,230 logical lines, under its ceiling,
+which stays. The pins that read the wiring by source moved with it (`passagehost.test.js`, `passageaudit.test.js`,
+`ows2_crossing.test.js`), the boat in play now held by behaviour, and 21 mutant records re-aimed and dead.
+
+## STAND-IN-WHOLE - the four spell doors out of buildDungeonContext (FIELD BUGS 2026-10-19f)
+
+Not a slice of the order above: a fix (`11-Multiplayer/World-Bosses.md` section 26) whose door stood in `buildDungeonContext`
+four times - `spellOnBoss`, `spellOnCrystal`, `spellOnHost` and `spellOnRival` (and `tellStandIn`, `spellOnStandIn`), each
+counting a spell on a relay body's stand-in with its own copy of the counting sinks and popping its own number. The fix's
+number - what can land - belonged in one place, so the doors left as one rather than being edited four times.
+
+- THE MOVE, by hand and NOT verbatim: `node tools/hostScope.mjs` measured the group (6 members, 78 lines; reads 12 host
+  names - the four bodies' finders, the four land doors, `nextArenaQ`, `hudText`, `opts`, `swayToldAt` - writes only
+  `swayToldAt`, which went with it; used by the cast engine's seams, the enchant door and the api). The four doors are one
+  door in `src/scenes/gate/standInSpell.js` (`createStandInSpell(host)`: `countOnStandIn` the count, `onBody` the court's
+  three, the rival's and his own beside it), the module owning its clock and dice (`now`, `rolls`); the behaviour is the
+  doors' but for the fix's number and the riders' `took`. The context constructs it where his door stood - below every
+  `const` it hands over by value (the land doors, `nextArenaQ`) - and destructures the five names its seams already called;
+  the seams above it call them only inside arrows the built context runs, never during the build's awaits.
+- THE FOUR HOSTS: `dungeonContext.js` wired (the court, the Abyss's Hour, an Elite Breach's halls and a bout all run in a
+  dungeon context); `world.js` and `exterior.js` unchanged - their `bossSpell` mounts call `modes.dungeonCtx.spellOnBoss`,
+  the same api; `worldModes.js` unchanged (it hands the opts through). The serpent's own copy of the door followed with
+  BOSS-DOT, below.
+- THE PINS, by hand (`PIN MOVED`): the source pins that quoted the doors read the module, and two that quoted three
+  copies of one line now drive the one door on the real stand-ins (`fb1018f_turnedblow.test.js`'s numbers by the body
+  they met). The mutant records re-aimed by content; the two whose copies are gone retired with them.
+- `buildDungeonContext` 8,450 -> 8,312 logical lines; its ceiling 8,601 -> 8,463 (the 151 of room it had, not the
+  standard 400 over the new length, which would have raised it - OUTDOOR-LOOT's precedent).
+
+## BOSS-DOT - the serpent's spell door out of bootWorld (FIELD BUGS 2026-10-19f)
+
+BOSS-DOT (`11-Multiplayer/World-Bosses.md` section 27) carries a spell's lasting harm on every body a relay runs, and the
+sea serpent's door - `serpentSpellOn`, the fifth copy of the stand-in's door, in `bootWorld` - was the one host copy left.
+It went into the module rather than growing there: `createSerpentSpell` in `src/scenes/gate/standInSpell.js` (the count,
+the riders, the claim to `serpentHost.handStruck`, its rounds), which `bootWorld` constructs where it stood and asks once
+a frame of the serpent's fight (`serpentSpell.frame(fight)`). `bootWorld` 36,181 -> 36,157 logical lines, its ceiling
+36,219 -> 36,195. `buildDungeonContext` grew by its wiring alone - the rounds' frame destructured and asked in `drawFoes`,
+8,315 -> 8,317, under its 8,463. Pins moved by hand (`serpent4.test.js`, `audit_schools.test.js`).
+
+## OW-DUNGEON-SIZE's move - the dungeons' models out of bootWorld (2026-10-19)
+
+THE OVERWORLD REVISITED (`06-Systems/Travel-View.md`) wires six slices into the streaming host, and `bootWorld` stood at
+36,230 of its 36,233 logical lines. The slice that changes OW-DUNGEONS' grow moved OW-DUNGEONS' own host code out first:
+`tvDungeonModelList`, `tvDungeonModelLoad`, `_tvDngAt`, `drawTvDungeonModels` and `dropTvDungeonModels` - contiguous
+members - to `src/scenes/travelViewDungeonModels.js` (`createTravelViewDungeonModels(host)`) by `tools/hostMove.mjs`:
+23 names by value, four live (`_locIndexGen`, `_tvListsReady`, `season`, `tvDngModels` - written, so a getter and a
+setter), the two the host draws and drops by returned. 86 logical lines freed (36,230 -> 36,144); the six slices'
+wiring took 39 of them back (`bootWorld` 36,183; 36,181 after the merge with main), each slice's behaviour a module of its own
+(`scenes/townWalkHost.js`, `scenes/overworldForecastHost.js`, `systems/travel/regionChase.js`, `systems/travel/townWalk.js`,
+`systems/weather/owForecast.js`). The ceiling stays. The three pins that lifted the moved code read the host whole now
+(`test/hostText.mjs`: `owdungeons`, `fb1009_travelperf`, `ether_ow`), their lifted functions handed `host` for the live
+names; 24 mutant records re-aimed by the tool, every one dead. AUDIT OW-REVISITED (2026-10-20, `01-Overview/audits/Audit-Overworld-Revisited.md`): its fixes grew the region's
+chase hearing past three lines, so it moved out too - `src/scenes/regionChaseHost.js` (`createRegionChaseHearing`), the
+host wiring it in one statement; with the forecast's new inputs and the bands' and raiders' preference for a fresh cell
+word, `bootWorld` 36,205 of its 36,233 (36,209 with main merged in the same day).
+
+AUDIT DEX (2026-10-20, `01-Overview/audits/Audit-DEX.md` D11): DEX5 had put the Troll corpse prefab's reach - the rise,
+the ash mint and its batch bookkeeping, the `cs` hit's composition - into `buildDungeonContext` (+66 logical lines) and
+`createExteriorFoes` (+65), under their ceilings but against this page's rule (the host gains the wiring, not the
+feature). It is `src/scenes/corpsePrefabHost.js` now (`createDungeonCorpsePrefabs(h)`, `createStreetCorpsePrefabs(h)`),
+each host handing it its doors - its pools, its renderer, its spawn, its hit sender - and nothing more
+(`dex5_audit.test.js` holds the hosts to the wiring). C1 added one statement to `bootWorld`'s jump core, where the host's
+own ResetState already stood (PlayerGPS's flag beside the host's): within the room the ceiling left for a fix then.
+At DEX's merge with main (2026-10-20), main's FIELD BUGS 2026-10-19f had brought the ceiling down to its host (36,183),
+and C1's `if (modEvent) resetPlayerGpsState()` - two logical lines - stood `bootWorld` two over. No raise: the rule left
+the host for the module whose rule it is - `world/playerGps.js` resets on the jumps PlayerGPS subscribes to (`RESET_ON`,
+a load and a fast travel) and the jump core hands it every jump's kind, one statement - and the road trouble's foe
+level, a lambda of the host's, left for the enemy table (`characters/enemy/enemyBasics.js` enemyLevelOf), where the
+roads' harness reads it too (its own copy still asked `>= 128` after DEX1 gave the host the bit). `bootWorld` 36,185 ->
+36,183 logical lines, at its ceiling, which stays; the relay re-hashed in place (world233 then, world234 since SD-SEA's merge; enemyBasics.js is in its
+bundle); the C1 pin and its mutants re-aimed, two more for the subscriptions.
+
+## STAR0's move - the exterior town map's door out of bootWorld (2026-10-20)
+
+THE STARFALL (`11-Multiplayer/Starfall.md`) wires a new world event into the streaming host, and `bootWorld` stood at
+its ceiling with no room (36,183 of 36,183 logical lines). Its own wiring comes after a move, OW-DUNGEON-SIZE's way:
+`toggleExteriorAutomap` - the M key's town map outside (DFU's `DaggerfallUI.cs:633-650`), one member that writes nothing
+of the host's - went to `src/scenes/exteriorAutomapToggle.js` (`createExteriorAutomapToggle(host)`) by
+`tools/hostMove.mjs`: fourteen names by value, seven live (`activeQuestIds`, `hudArt`, `partyOnMaps`, `questBridge`,
+`renameMapBuilding`, `topicTree`, `townBoardMarks` - consts made below it, read at their use), the toggle returned.
+67 logical lines freed (36,183 -> 36,116). The ceiling stays; the Starfall's wiring takes its share back (section
+STAR5 of its page). Three pin files read the host whole now (`test/hostText.mjs`: `auditdisc28_quests`, `automap_ext`,
+`town_marks`), two of their quotes in the moved spelling (`host.activeQuestIds`, `host.topicTree`,
+`host.townBoardMarks`); eleven mutant records re-aimed by the tool.
+
+## The Starfall's wiring in bootWorld (STAR4-STAR7, 2026-10-20)
+
+STAR0's 67 lines bought the room; the Starfall spends 54 of them (36,116 -> 36,170 of 36,183). Its host
+(`src/scenes/starfall/starfallHost.js`) and its rewards (`starRewards.js`, made by the host) read the world's bindings by
+name - one adapter object, its settled bindings by value and every live one through a getter (TDZ: `chatNotice` is made
+below the construction) - so the host's scope holds the adapter and one hook at each door it uses: the frame, the
+lights, the draw, the sky, the flash, the senses' candidates, the compass, the held map, the Timers, the grass, the
+hub's event, the cell's words, the spoils' crash door and the realm save's two hooks, and one sound in the set powers'
+voice. The spoils' one lock moved OUT of the host to its pool's own home (`src/scenes/spoilsPool.js` `spoilsLock`), so
+every pool's host takes the same one. At the merge with main (2026-10-20) - main's FIRM-STARS had raised the ceiling to 36,187 for its
+one statement, and DEX's audit had brought `bootWorld` down to its ceiling - the host stands at 36,174 of 36,187.

@@ -40,8 +40,11 @@ import { repairUnmintedConditions, repoolWeaponConditions } from '../conditionRe
 import { restackStones, nameEmbers, PORTAL_GIFT, givePortalGift } from '../gate/gateSpoils.js';   // SS1: Sigil Stones saved before they stacked, folded into one stack; WB12a: and named Deadlands Embers
 import { WALLET_GIFT, giveWalletGift } from '../walletItem.js';   // WALLET1: a character from before the wallet is given one, once
 import { BINDER_GIFT, giveBinderGift, cleanBinders } from '../iliac/iliacItems.js';   // CARDS8: and a Card Binder with the starter deck, once
+import { foldStrayWeirKeys } from '../eliteGates/weirKey.js';   // KEY-FACE: a Weir Key's face anywhere but the pack, folded away
+import { foldStrayFaces } from '../festival/soulCake.js';   // WITCH1: and the Witches' Festival's, the same law
 import '../professions/profTemplates.js';   // PROF2: the ores, ingots and stone a pack may hold, known to every scene a save loads in
 import '../rest/restItems.js';   // REST6: the seven rest supplies (1700-1706), known to every scene a save loads in
+import { repairPartsWeights } from '../comeSailAway/comeSailAwayItems.js';   // PARTS-WEIGHT: a boat's parts weighed as her hull alone
 import { repairRarityNames, repairRarityBases } from '../loot/lootRarity.js';   // DISC29-B: a Magic or Rare Roleplay & Realism: Items piece given back its make's word; RARITY-WEAR: a rolled wand worn as an Amulet
 import { SOCIAL_GROUPS } from '../../formats/factionFile.js';   // AUDIT 24
 import { travelMapSaveData, restoreTravelMapSaveData } from '../travel/travelMapState.js';   // U41: TravelMapSaveData
@@ -752,9 +755,18 @@ export function repairItemLists(repairLists) {
     const n = repairRarityBases(list);
     if (n) console.info(`[save] RARITY-WEAR: ${n} rolled piece(s) on a base nothing can wear moved to one a slot takes`);
   }
+  // HELD-BASE (FIELD BUGS 2026-10-18f) mends the mint alone: AUDIT FB1018f L1-1 - a load that moved a saved piece's base
+  // rewrote the print the realm ledger follows it by (server-account/src/judge.js ledgerPrintOf, templateIndex:material),
+  // and the next checkpoint read an honest piece as forged and held its player. A piece a save kept stays as it was.
   // AUDIT CARDS-6 A6: every card worth its tier's worth (iliacItems.js cleanBinders - a card minted before CARDS9 carried
   // a coin's) in every list, not the pack's alone: one in the wagon, the bag or a house chest kept its coin after a load
   for (const list of repairLists) cleanBinders(list);
+  // PARTS-WEIGHT (FIELD BUGS 2026-10-18e): a boat's parts weigh her timbers alone now - parts her hold had made too heavy
+  // to lift, in a chest or anywhere, given her hull's packed weight (comeSailAwayItems.js repairPartsWeights)
+  for (const list of repairLists) {
+    const n = repairPartsWeights(list);
+    if (n) console.info(`[save] PARTS-WEIGHT: ${n} boat parts item(s) weighed as their hull alone`);
+  }
 }
 
 /** PORTAL1 (AUDIT PORTAL1 U9): how many saves this page has restored - every load, whichever host runs it, passes the one
@@ -859,6 +871,16 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // ITEM-WALK: and every other list the save holds (savedItemLists), by the one runner (repairItemLists)
   const repairLists = savedItemLists(snap, entity);   // BAG1: and the bag's
   repairItemLists(repairLists);
+  // FIELD BUGS 2026-10-19f KEY-FACE: A WEIR KEY'S FACE IS THE PACK'S ALONE (systems/eliteGates/weirKey.js foldStrayWeirKeys) -
+  // one in any other list the save holds (the wagon, a storage piece, a ship's hold, a companion's pack, a body) or set
+  // out in a room (`decorOwn`) was stowed before its row was pack-only, or thrown on a body and never taken up: folded
+  // away here, in the same place and for the same hosts as the repairs above. The pack keeps its own; the account's
+  // balance restacks it.
+  const strayLists = repairLists.filter((l) => l !== entity.items), strayRooms = arrayOf(snap.sceneCache?.scenes).map((s) => s?.decorOwn);
+  const strayKeys = foldStrayWeirKeys(strayLists, strayRooms);
+  if (strayKeys) console.info(`[save] KEY-FACE: ${strayKeys} Weir Key face(s) outside the pack folded away - the account holds the keys`);
+  const strayFaces = foldStrayFaces(strayLists, strayRooms);   // WITCH1: and the festival's Soul Cakes and Hearth Offerings, the same law
+  if (strayFaces) console.info(`[save] KEY-FACE: ${strayFaces} festival face(s) outside the pack folded away - the account holds them`);
   entity.rentedRooms = (snap.rentedRooms ?? []).map((r) => ({ ...r }));   // U39: the rented rooms (pre-U39 saves restore empty)
   // JAN1 (2026-09-18, Janome: CRASH `region 17 is outside the 0 bank accounts`, a softlock at the bank): a pre-B1 save
   // restored an EMPTY table, which is truthy, so worldModes' `??= createBankAccounts` never minted one and every bank

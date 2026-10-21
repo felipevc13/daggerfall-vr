@@ -524,11 +524,16 @@ export function actionLive(action) {
  * the top one, so they share nothing with the world's keys below.
  */
 const g = (title, rows, mod = null) => Object.freeze({ title, mod, rows: Object.freeze(rows.map(([action, label]) => Object.freeze({ action, label }))) });
+/** FB1018D KEY-LOGBOOK (kvassdrit: "Function does not match description in keybinding menu"): THE TWO JOURNAL KEYS NAME
+ *  THE WINDOW EACH SKIN OPENS. On Enhanced Plus both open the Chronicle (ui/chronicleDoor.js, PX24d) - L on its Quests,
+ *  N on its Notes (MAC-K2); on Classic, DFU's logbook as it stands and on its Notebook page. The rows said only a
+ *  classic word, so L read "Quest log" over a window headed Chronicle. */
+const journalKeyLabel = (page, classic) => `Chronicle: ${page} (Enhanced Plus) / ${classic} (Classic)`;
 export const ACTION_GROUPS = Object.freeze([
   g('Movement', [
     ['MoveForwards', 'Move forwards'], ['MoveBackwards', 'Move backwards'], ['MoveLeft', 'Move left'], ['MoveRight', 'Move right'],
     ['TurnLeft', 'Turn left'], ['TurnRight', 'Turn right'], ['LookUp', 'Look up'], ['LookDown', 'Look down'],
-    ['CenterView', 'Centre the view'], ['TogglePerspective', 'First / third person'], ['Jump', 'Jump'], ['Crouch', 'Crouch and sneak'], ['Run', 'Run'], ['AutoRun', 'Auto run'],
+    ['CenterView', 'Center the view'], ['TogglePerspective', 'First / third person'], ['Jump', 'Jump'], ['Crouch', 'Crouch and sneak'], ['Run', 'Run'], ['AutoRun', 'Auto run'],
     ['Sneak', 'Sneak (held, no crouch)'], ['WalkMode', 'Walk mode on / off'], ['FloatUp', 'Float up (levitate, swim)'], ['FloatDown', 'Float down (levitate, swim)'],
   ]),
   g('Combat', [
@@ -549,7 +554,8 @@ export const ACTION_GROUPS = Object.freeze([
   ]),
   g('Windows', [
     ['Escape', 'Pause menu'], ['CharacterSheet', 'Character sheet'], ['Inventory', 'Inventory'], ['Status', 'Status'],
-    ['LogBook', 'Quest log'], ['NoteBook', 'Notebook'], ['AutoMap', 'Map'], ['TravelMap', 'Travel map'],
+    ['LogBook', journalKeyLabel('Quests', 'logbook')], ['NoteBook', journalKeyLabel('Notes', 'notebook')],   // FB1018D KEY-LOGBOOK
+    ['AutoMap', 'Map'], ['TravelMap', 'Travel map'],
     ['QuickDial', 'Quick dial'], ['TravelView', 'Overworld (the travel view)'],
   ]),
   g('Quickslots and hotbar', [
@@ -566,8 +572,8 @@ export const ACTION_GROUPS = Object.freeze([
     ['SocialInteract', 'Interact with player'],
   ]),
   g('Professions', [
-    ['ActChoice', 'At a profession node: the next of its acts on the list'],   // PROF-MENU: the node's list is the plaque's - the key steps its light
-    ['Professions', 'Open your Professions and Stores (online)'],   // CLASSIC-PAGES: the pages on either skin   // PROF1 - Interact starts the act, attack plays the Basket's, Escape ends it; AUDIT 32 R1: PROF7's body (the knife's trace drawn with Interact held)
+    ['ActChoice', 'Next action at a profession node'],   // PROF-MENU: the node's list is the plaque's - the key steps its light
+    ['Professions', 'Open your Professions page (online)'],   // CLASSIC-PAGES: the pages on either skin; AUDIT FB1018D L1-7: it lands on the Professions page (input.js `at: 'professions'`) - the Stores are the Holdings tab's   // PROF1 - Interact starts the act, attack plays the Basket's, Escape ends it; AUDIT 32 R1: PROF7's body (the knife's trace drawn with Interact held)
   ]),
   g('Game', [
     ['QuickSave', 'Quick save'], ['QuickLoad', 'Quick load'], ['PrintScreen', 'Screenshot'], ['DebugOverlay', 'Diagnostics readout'],

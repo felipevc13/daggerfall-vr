@@ -211,7 +211,7 @@ test('WEATHER2b the controller and the hosts: the sky eases on the front\'s own 
     assert.match(s, /cells: fieldCellsHere\(\), cloudBase: /, `${name}: the clouds' cells are the field's (WEATHER3c: the base they stand on beside them)`);
     assert.match(s, /const climateAt = \(px, py\) => maps\.getClimateIndex\(px, py\);/, `${name}: the map's lookup`);
   }
-  assert.match(w, /const fieldXZ = \(\) => \{ const wc = state\.worldCoords\(walkMode \? player\.pos : cam\.pos\); return fieldFromNative\(wc\.x, wc\.z\); \};/, 'world: the player\'s place in the field');
+  assert.match(w, /const fieldXZ = \(\) => \{ const p = walkMode \? player\.pos : cam\.pos, wc = state\.worldCoords\(p\); return \[\.\.\.fieldFromNative\(wc\.x, wc\.z\), altitudeOfWorldY\(p\[1\] - state\.compensation\[1\]\)\]; \};/, 'world: the player\'s place in the field - and its height above the sea (PRECIP1)');
   assert.match(w, /cellOfField\(c, \(x, z\) => \{ const n = nativeFromField\(x, z\); return state\.localFromWorld\(n\[0\], n\[1\]\); \}\)/, 'world: the cells back into the floating host space (WEATHER3g: through the one conversion)');
   assert.match(w, /weatherRespawn\(Math\.floor\(playerTicker\.classicMinutes\), maps\.getClimateIndex\(px\.x, px\.y\), Math\.random, fieldXZ\(\), climateAt\)/, 'world: the respawn samples the destination');
   assert.equal((w.match(/applyClimateWeather\([^;]*fieldXZ\(\), climateAt\);/g) || []).length, 2, 'world: both travel arrivals sample the destination');
@@ -224,5 +224,5 @@ test('WEATHER2b records: the arc page\'s B, the ledger row, the features arc, Ho
   assert.match(rd('bible/01-Overview/Port-Ledger.md'), /^\| \*\*THE WEATHER FIELD \(WEATHER2b, 2026-09-14\)\*\*/m);
   assert.match(rd('bible/10-UI/Features-Arc.md'), /^## WEATHER2b - WEATHER AS PLACES, THE ROW \(2026-09-14\)/m);
   assert.match(rd('bible/01-Overview/Page-Index.md'), /B: the weather field/);   // PIN MOVED (WALLET1's merge of main, 2026-10-05): Home.md's page index moved, byte for byte, to its own page
-  assert.match(rd('bible/09-Testing/Testing.md'), /^\| weather2b_weatherfield\.test\.js \| \d+ \| WEATHER2b/m);
+  assert.match(rd('bible/09-Testing/Testing-Rows-2026-10-19.md'), /^\| weather2b_weatherfield\.test\.js \| \d+ \| WEATHER2b/m);
 });

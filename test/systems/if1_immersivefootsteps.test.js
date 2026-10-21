@@ -100,6 +100,19 @@ test('IF1: the Mods pane entry is the shipped modsettings.json - every key, its 
   for (const f of manifest.Files.filter((f) => /\.cs$/.test(f))) assert.ok(rd(`vendor/immersive-footsteps/Scripts/${f.split('/').pop()}`).length > 10000, `${f} is vendored`);
   assert.match(rd('vendor/immersive-footsteps/Scripts/ImmersiveFootstepsMain.cs'), /License:\s+MIT License/, 'the main script carries the author\'s MIT header (the object script has none; the README says so)');
   const shipped = JSON.parse(rd('vendor/immersive-footsteps/modsettings.json'));
+  // PLAIN-TEXT (2026-10-19): every line the mod wrote in Title Case with "|| Default = True", said plainly for a player (the two logging keys say they do nothing here) - their words, exactly
+  const PLAIN = {
+    'AudioQualitySettings.SoundClipQuality': 'Quality of the footstep sounds',
+    'FootstepSettings.AllowFootstepSounds': 'Your footsteps make a sound',
+    'FootstepSettings.FootstepVolumeMulti': 'Volume of footstep sounds',
+    'FootstepSettings.FootstepFrequency': 'How often footsteps sound. Lower is more often',
+    'ArmorSwaySettings.AllowArmorSwaySounds': 'Your armor makes a sound as you move',
+    'ArmorSwaySettings.ArmorSwayVolumeMulti': 'Volume of armor sounds',
+    'ArmorSwaySettings.ArmorSwayFrequency': 'How often armor sounds play. Lower is more often',
+    'ErrorLoggingAndCompatibilitySettings.AllowModCompatWarnings': 'Warns you when another mod clashes with this one',
+    'ErrorLoggingAndCompatibilitySettings.AllowVerboseErrorLogging': 'Has no effect here: this game keeps no error log.',
+    'ErrorLoggingAndCompatibilitySettings.DoNotSpamExceptionsLogs': 'Has no effect here: this game keeps no error log.',
+  };
   let n = 0;
   const kinds = new Set();
   for (const section of shipped.Sections) {
@@ -115,7 +128,7 @@ test('IF1: the Mods pane entry is the shipped modsettings.json - every key, its 
       else if (kind === 'SliderFloatKey') { assert.ok(isFloatKey(def), `${name} is a float slider`); assert.deepEqual([def.default, def.min, def.max], [k.Value, k.Min, k.Max], name); assert.ok(def.step > 0 && def.step <= (k.Max - k.Min), `${name} has a stepper`); }
       else if (kind === 'MultipleChoiceKey') { assert.ok(isChoiceKey(def), `${name} is a choice`); assert.deepEqual([...def.options], k.Options, name); assert.equal(def.default, k.Value, name); }
       else assert.fail(`${name}: a key kind the mod does not ship (${kind})`);
-      assert.equal(def.description, k.Description, `${name}'s description is the mod's own`);
+      assert.equal(def.description, PLAIN[name] ?? k.Description, `${name}'s description is the mod's own, or its plain rewording`);
     }
   }
   assert.equal(n, 10, 'the four sections carry ten keys');
@@ -630,7 +643,8 @@ test('IF1: the four stride hosts ask ownsStride before the classic play and driv
   }
   // the exterior hosts hand the exterior arm's reads; the inside hosts the water arm's
   for (const src of [world, ext]) {
-    assert.match(src, /inside: false, inDungeon: false,\s*season, climateIndex: [^\n]*, tileMapIndex: _surf\.tileIndex \?\? -1,[^\n]*\n\s*waterWalking: _surf\.water === ON_EXTERIOR_WATER\.WaterWalking,/, 'AUDIT-IF F2: off terrain is -1, never the water tile');
+    // AUDIT PRECIP (PIN MOVED): the world host's season is the snow's under the feet on the snow lane (snowCoverHost.js footSeason)
+    assert.match(src, /inside: false, inDungeon: false,\s*season(?:: snowCover\.footSeason\(player\.pos, season\))?, climateIndex: [^\n]*, tileMapIndex: _surf\.tileIndex \?\? -1,[^\n]*\n\s*waterWalking: _surf\.water === ON_EXTERIOR_WATER\.WaterWalking,/, 'AUDIT-IF F2: off terrain is -1, never the water tile');
     assert.match(src, /swimming: !!player\.isPlayerSwimming, pos: player\.pos,/, 'PlayerEnterExit.IsPlayerSwimming, not the motor flag');
   }
   assert.match(wm, /inside: true, inDungeon: mode === 'dungeon',\s*centreY: player\.pos\[1\] \+ player\.height \/ 2, waterSurfaceY: mode === 'dungeon' \? \(_surf \?\? null\) : null,/);
@@ -658,7 +672,7 @@ test('IF1: the four stride hosts ask ownsStride before the classic play and driv
   assert.ok(existsSync(join(root, 'bible/06-Systems/Immersive-Footsteps.md')));
   assert.match(rd('bible/01-Overview/Active-Arcs.md'), /06-Systems\/Immersive-Footsteps\.md/);
   assert.match(rd('bible/01-Overview/Page-Index.md'), /06-Systems\/Immersive-Footsteps\.md/);   // PIN MOVED (WALLET1's merge of main, 2026-10-05): Home.md's page index moved, byte for byte, to its own page
-  assert.match(rd('bible/09-Testing/Testing.md'), /if1_immersivefootsteps\.test\.js/);
+  assert.match(rd('bible/09-Testing/Testing-Rows-2026-10-19.md'), /if1_immersivefootsteps\.test\.js/);
   const m = /(\d+) modules\s*\n?\s*live under\s*\n?\s*`src\/systems\/`/.exec(rd('bible/06-Systems/Systems.md'));
   assert.equal(Number(m[1]), readdirSync(join(root, 'src/systems'), { recursive: true }).filter((f) => f.endsWith('.js')).length, 'Systems.md counts src/systems/ live - IF1 put immersiveFootsteps.js in that count');
 });

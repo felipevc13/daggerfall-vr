@@ -32,8 +32,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as acorn from 'acorn';
 import { OnlineSession, FOES_MS, FOES_FULL_MS } from '../../src/net/online.js';
-import { isWorldRoom, isCellRoom, actFrameFits, ACT_HZ_MAX, respawnDue, sharedClassicMinutes, validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX, FOES_FRAME_MAX } from '../../src/net/wire.js';
+import { isWorldRoom, isCellRoom, actFrameFits, ACT_HZ_MAX, respawnDue, sharedClassicMinutes, validFoeRecord, FOE_HEALTH_MAX, FOE_LEVEL_MAX, FOES_FRAME_MAX, FOES_STALE_MS } from '../../src/net/wire.js';
 import { quietFoesGate } from '../../src/net/foesQuiet.js';
+import { createSeatClock } from '../../src/net/seatLive.js';   // PIN MOVED: FIELD BUGS 2026-10-18d SEAT-LIVE - onFoes tells the seat clock it heard the seat (world.js `seatClock`), where it stamped `_foesInAt`
 import { ARENA_PUPPET_OWNER } from '../../src/net/arena/arenaLaw.js';
 import { foeSeed, applyWireLook } from '../../src/characters/foeBodies.js';
 import { generateItems, addPileLootExtras, validLootList, LOOT_LIST_MAX, DUNGEON_LOOT_KEYS, LOOT_NEWER_TEXT } from '../../src/systems/loot/loot.js';
@@ -43,7 +44,7 @@ import { addItem, stacksWith, isGoldPieces, addGoldPieces } from '../../src/syst
 import { isEquipped, unequipItem } from '../../src/systems/equip.js';
 import { planTake, applyTransfer } from '../../src/systems/item/itemTransfer.js';
 import { spawnEnemyLoot, wildLootAfter, rollRoomBonus } from '../../src/scenes/hostCombat.js';
-import { raiseEnemyDeath } from '../../src/scenes/corpseMarker.js';
+import { raiseEnemyDeath, corpseTextureOf } from '../../src/scenes/corpseMarker.js';
 import { rollCorpseKit, capFoeLoot } from '../../src/systems/foeLootCap.js';
 import { makeEnemyEntity } from '../../src/characters/enemy/enemyEntity.js';
 import { ENEMY_BASICS } from '../../src/characters/enemy/enemyBasics.js';
@@ -69,6 +70,7 @@ import { egFindStruck, egFindKill } from '../../src/systems/eliteGates/egFind.js
 import { fakeRoom } from '../fakeRoom.mjs';
 import '../../src/systems/card/cardSources.js';   // CARDS9's death handler registers at import, as the hosts load it
 import '../../src/scenes/physicalItemsLayer.js';   // PI1's
+import { isClassEnemyId, enemyEntityType } from '../../src/characters/enemy/enemyBasics.js';   // DEX1: the hosts' class test and entity type (the mount's free names)
 
 installForaging(); installSmithing(); installHealingSupply(); installRestItemLoot(); installSurvivalLoot();   // the hosts' order (scenes/shared.js)
 setPref(LOOT_RARITY_KEY, true);   // the loot ladder - forced on online (OL1)
@@ -184,7 +186,8 @@ function dungeon(id, { authority, level, luck, renown, seed, foraging, partners,
     opts: { selfId: () => id, onActions: (data) => { told.push(JSON.parse(JSON.stringify(data))); return send(data); }, onLootClaimed: () => {}, partyLevels: () => partners, roomHost: () => seat(), onFoeHit: () => assert.fail('the host applies its own blows') },
     _sharedStamp: `st${seed}`, clearSurplus: () => {},
     addItem, stacksWith, isGoldPieces, addGoldPieces, isEquipped, unequipItem, neverPeerHanded, notCarried,   // AUDIT AUTO-HOLD: the give asks it (no realm session here: no filter)
-    _wallNow: () => clock.t, performance: { now: () => clock.t }, respawnDue, validLootList, peerHanded, LOOT_LIST_MAX, LOOT_NEWER_TEXT, ENEMY_BASICS,
+    _wallNow: () => clock.t, performance: { now: () => clock.t }, respawnDue, validLootList, peerHanded, LOOT_LIST_MAX, LOOT_NEWER_TEXT, ENEMY_BASICS, corpseTextureOf,   // AUDIT DEX A1: the corpse mints read it
+    isClassEnemyId, enemyEntityType,
     generateLootItems: generateItems, addPileLootExtras, rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons,
     spawnEnemyLoot, wildLootAfter, grantEliteLoot, rollCorpseKit, raiseEnemyDeath, capFoeLoot, rollRoomBonus, egFindStruck, egFindKill,
     CLAIM_KEEP_MS, CLAIMS_KEPT_MAX, SEARCH_COOLDOWN_MINUTES, SEARCH_LOOT_MAX, sharedClassicMinutes,   // OUTDOOR-LOOT: the claim ledger's and the search find's constants the room block reads
@@ -221,6 +224,7 @@ function dungeon(id, { authority, level, luck, renown, seed, foraging, partners,
     ${declSrc('FOES_FRAME_SLACK')} ${declSrc('FOE_MAX_PER_FRAME')} ${declSrc('_maxLeft')} ${declSrc('foeMaxOf')}
     ${['lootKeyOf', 'lootableBody', 'lootHolder', 'roomLootKey', 'lootRecords', 'publishLoot', 'sayRoomWord', 'applyLoot', 'applyActions'].map(fnSrc).join('\n')}
     ${BLOCK}
+    function grants() { return null; }   // FOE-BOUNDS: applyFoeRecord asks the grants' host - none open here (src/scenes/grantHost.js's own tests judge it)
     ${['_runsFoe', 'damageFoe', 'freeCorpse', 'setFoeDead', 'spawnCorpse', 'applyFoeRecord', 'fitMaxima', 'roomRecord', 'foesFrame', 'applyFoesFrame', 'applySharedRecords', 'applyFoes', 'rollPileItems'].map(fnSrc).join('\n')}
     let _respawnSweptAt = -Infinity;
     const RESPAWN_BURST = 4;
@@ -335,7 +339,7 @@ function player(id, net, o) {
     online.onAct = ${W.assigned('online.onAct')};
     online.onFoes = ${W.assigned('online.onFoes')};
     return { actSend, actFlush, foesStream, pending: () => [..._actPend] };
-  `, { online, _onlineKey: ROOM, modes, isWorldRoom, isCellRoom, actFrameFits, quietFoesGate, FOES_MS, FOES_FULL_MS, console,
+  `, { online, _onlineKey: ROOM, modes, isWorldRoom, isCellRoom, actFrameFits, quietFoesGate, FOES_MS, FOES_FULL_MS, console, seatClock: createSeatClock(FOES_STALE_MS),
     performance: { now: () => clock.t }, exteriorFoes: null, csaPeers: null, csaAboard: null, campToScene: null });
   // what the wire hands this player lands on its own dice, Renown and switches, as on its own machine
   for (const k of ['onAct', 'onFoes']) {

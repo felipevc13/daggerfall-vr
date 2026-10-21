@@ -100,7 +100,8 @@ be a second copy of the game in a Worker.
 
 The cost as designed: when the host leaves, the session ends. WORLD1
 (2026-09-12) shipped the relay's own answer to the seat - it passes to
-the player in the room longest, said in a host frame - and WORLD2
+the player in the room longest (in a dungeon, the longest still heard -
+Online-Arc SEAT-LIVE), said in a host frame - and WORLD2
 (2026-09-12) handed the live simulation of a dungeon's foes over with
 it: the puppets go live from the pose the stream left them in.
 

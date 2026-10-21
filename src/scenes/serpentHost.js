@@ -34,6 +34,7 @@ import { SERPENT_ATTACK_BY_ID, SERPENT_ATTACK_TABLE, ADMIT_R, FAN_R, ENGAGE_R, S
 import { serpentBossById, serpentCountdown, serpentCountdownWords, serpentSwims, SERPENT_BRAIN_V, SERPENT_DIVE_MS } from '../net/serpent/serpentLaw.js';
 import { cellRoomOfWire } from '../net/wire.js';
 import { bodySayer } from '../net/bossBody.js';   // INT15: my hull, said to the cell
+import { wordShare } from '../combat/healthShare.js';   // FIELD BUGS 2026-10-18f RELAY-SHARE: its health's share, the relay's word
 import { shapeMeets, shipHurt, crushHurt, gripHurt, grindHurt, venomBite, venomHurt, shoveOf, shoveLeft, maelPull, globAt, poolOf, poolBites, fleetShare, SHOVE_S } from '../systems/serpent/serpentStrike.js';
 
 /** INT13: the line as the relay's count wrecks her (`bd`). */
@@ -58,7 +59,7 @@ export const SERPENT_NEAR_M = ENGAGE_R;
  *  into the wind at that, where she made 8.9: a ship its blows threw downwind of the fight sails back into it. */
 export const SERPENT_GALE = Object.freeze({ wind: 1.15, turn: 1.5 });
 /** The line the gale's first breath says, once a serpent day. */
-export const GALE_LINE = 'A gale howls about the serpent - your canvas fills on every heading!';
+export const GALE_LINE = 'A gale howls about the serpent. Your canvas fills on every heading!';
 /** The coiled ship's word is said this long after the landing at most - her own machine's moment (the brain hears an
  *  escape for COIL_ESC_MS). */
 export const COIL_WORD_MS = 400;
@@ -316,7 +317,7 @@ export function createSerpentHost(deps) {
     const c = s.coil;
     if (c && c.off > 0 && lastCoil !== `${c.i}:off`) {
       lastCoil = `${c.i}:off`;
-      if (s.broke && s.broke.at === c.off) deps.say?.(`${s.broke.n} breaks the coil! ${boss.name} reels, stunned - strike its head!`, 5);
+      if (s.broke && s.broke.at === c.off) deps.say?.(`${s.broke.n} breaks the coil! ${boss.name} reels, stunned. Strike its head!`, 5);
       else if (s.crushed === c.off) deps.say?.(`The coil crushes ${held?.i === c.i ? 'your ship' : 'a ship'}!`, 4);
     }
     if (s.fell && lastFell !== s.fell.at) {
@@ -472,6 +473,13 @@ export function createSerpentHost(deps) {
       handPending.set(z, (handPending.get(z) ?? 0) + d);
       const c = target.box?.c;
       if (c) deps.fx?.('wake', [c[0], c[1], c[2]], 0.5);   // the sea thrown up off its hide, as a ball's
+    },
+    /** FIELD BUGS 2026-10-18f RELAY-SHARE: ITS HEALTH'S SHARE as the relay says it (the bar's `hp` of its `max`), or null
+     *  with no fight of mine - what its stand-in (scenes/world.js serpentStandIn) answers an "under its health" power
+     *  (combat/healthShare.js). Its coil is its grip, not a foe of its own: a shaft on the coil reads the serpent's share. */
+    healthShare() {
+      const s = deps.link.state();
+      return live && s.day === live.day ? wordShare(s.hp, s.max) : null;
     },
     /** Come Sail Away's `warp` seam: my ship held in its coil - her place and heading this step - or null. */
     hold(boat) {

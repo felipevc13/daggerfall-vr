@@ -22,6 +22,7 @@ import { registerCustomTemplates, setItemFields, mintCondition } from '../item/i
 import { modSetting, modLatchedOn } from '../modSettings.js';
 import { registerModEffectKind, WATER_WALKING_SILENT_KIND } from '../effects.js';
 import { HULL_NAMES, HULL_PRICES, HULL_WEIGHTS, VARIANT_NAMES } from './comeSailAwayHulls.js';   // INT1: the leaf, not the boat's renderer
+import { packedHullWeight, hullFromMessage } from './comeSailAwayHulls.js';   // PARTS-WEIGHT: the load's repair, from the leaf too
 
 /** ItemBoatParts.templateIndex and ItemBoatDeed.templateIndex. */
 export const BOAT_PARTS_TEMPLATE = 1320;
@@ -97,6 +98,24 @@ export function mintParts(hull, variant, uid) {
   parts.weightInKg = HULL_WEIGHTS[hull];
   parts.name = boatItemName(parts.name, hull, variant);
   return parts;
+}
+
+/**
+ * PARTS-WEIGHT (FIELD BUGS 2026-10-18e, the port's own): THE LOAD'S REPAIR OF A BOAT'S PARTS - each given its hull's
+ * packed weight (comeSailAwayHulls.js packedHullWeight), in place. Before PARTS-WEIGHT her hold rode her
+ * parts (PackBoat's sum, and the hold door's), so parts a stow had grown sat in chests no take could lift them from - a
+ * Large Galley's past an emptied pack. Her hold is kept under her number all along (PackedCargoes), so nothing is lost.
+ * A hull the table has no row for is left. Answers how many it made right; a second run makes none.
+ * @param {any[]} list
+ */
+export function repairPartsWeights(list) {
+  let n = 0;
+  for (const item of Array.isArray(list) ? list : []) {
+    if (item?.templateIndex !== BOAT_PARTS_TEMPLATE) continue;
+    const kg = packedHullWeight(hullFromMessage(item.message | 0));
+    if (Number.isFinite(kg) && item.weightInKg !== kg) { item.weightInKg = kg; n++; }
+  }
+  return n;
 }
 
 /**

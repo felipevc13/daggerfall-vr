@@ -84,7 +84,8 @@ tick (0.069 m), because DFU's ApplyGravity sets the fall speed rather than addin
 this.velY > 0)`). The jump reaches the plain jump's 0.47 m, the spell takes the descent from the apex at its 2.1 m/s, and
 the landing bills no fall. It is still ground-gated (the 0.1 s bunny-hop clock), so Jump in the air does nothing and the
 spell is no stair. A ledge walked off is unchanged. The parkour leap and the techniques' leaps stay refused under the
-spell (`_pkMayLeap`).
+spell (`_pkMayLeap`). [SUPERSEDED BY LEAP-SLOW (Field-Bugs-2026-10-18d): the techniques' leaps go from the ground
+under the spell; the parkour leap stays refused.]
 
 "Always fall into these corners" is DFU's frozen air momentum (`airControl = false`): the speed the body left the ground
 with is replayed through the fall, and the spell makes every drop of more than a metre five times longer. Into a 3 m pit

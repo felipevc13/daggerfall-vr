@@ -136,10 +136,10 @@ CHANGED:
   the one at whose helm I stand, the one whose deck I stand on (the sea fight's `boatInPlay`, else the deck's own
   bucket), the one whose cabin I am in (`modes.sailingCabin`); any ship of mine BY HER NUMBER (`openShip`) - afloat
   here or anywhere (her boat's hold), laid up (Come Sail Away's PackedCargoes under her number - `laidUpHold`, the very
-  list her placing takes back aboard), or packed in the pack (the same list - and her parts carry her hold's weight, as
-  PackBoat sums it, so they are weighed again as the window shuts: `packedHullWeight` and the hold's own kg - AUDIT 2:
-  and weighed as her timbers alone while it is open, so what is taken out of her is not counted twice; her parts stored
-  in her own hold come back to the pack as it shuts). A Rowboat carries no hold of her own - the mod gives her no cargo
+  list her placing takes back aboard), or packed in the pack (the same list - her parts weigh her timbers alone, so
+  nothing stowed or taken here weighs on them: PARTS-WEIGHT, `01-Overview/bugs/Field-Bugs-2026-10-18e.md`, retired the
+  weighing as the window shut, which grew parts past what the bearer could lift; AUDIT 2: her parts stored in her own
+  hold come back to the pack as it shuts). A Rowboat carries no hold of her own - the mod gives her no cargo
   box (`HULL_HOLDS`) - and is said so; AUDIT 2: unless the sea has put something aboard her (Come Sail Away gives every
   boat her Cargo, and a cask rowed through or a strand's salvage fills it), when hers opens as any hold does. The key
   passes over a Rowboat with nothing aboard, and over a ship with no door to her (not standing, her parts not in the
@@ -179,12 +179,20 @@ CHANGED (DECLARED, Port-Ledger section A):
 - **Leave Ship ashore** (`warmAshesShips.js LeaveShip.update`, the arm off region 31): the ship blocks back to `_base`
   (the IL resets them only at sea), the host's `raidAshore(quest)` withdraws the raid, and the quest ends as its own
   `end quest` ends one (`questBreak`, `endQuest` - the machine tombstones it after its two ticks of grace). Message 1014
-  ("The attackers have been fought off") is the quest's own, said before. At sea nothing changes.
+  ("The attackers have been fought off") is the quest's own, said before. At sea the sea fight's gate answers (NAV-D) -
+  and RAID-WON (2026-10-19, `01-Overview/bugs/Field-Bugs-2026-10-19.md`): a raid the sea fight WON ends the same way,
+  through the naval host's win (`navalHost.js wonRaid` -> world.js endRaid's `won` -> `raidAshore.js won`): its living
+  foes withdrawn, its `_ally_` among them, and its quest ended with `end quest`'s two ticks of grace (`endQuest`; AUDIT
+  FB1019 D3: no break from outside a tick - the pirate attack's victory gong rides that grace), its uid the sea fight's
+  until it ends (D1). It ran on, five Warriors on the deck counted as enemies near. Her ship gone from the sea under the
+  fight, its crew goes home and her boarders fight on (`raidAshore.js crew`, D2).
 - **The withdraw** (`scenes/raidAshore.js createRaidAshore`, built once by the world host before the quest bridge):
   every LIVING foe the quest stood (`questFoesOf`, the quest resource behaviour's UID - world.js endRaid's law) out of
   every pool it can stand in now - the street's (`exteriorFoes`) and, below deck, the room's (`modes.interiorPool()`) -
   the dead left lying to be looted. Its grace ticks can still place a wave a CreateFoe had in flight, so the quest's end
-  (world.js `onQuestEnded`) sweeps again, for a raid ended ashore only, once.
+  (world.js `onQuestEnded`) sweeps again, for a raid ended ashore or won at sea, once; and a raid's wave that lands past
+  both sweeps (its art or an online grant awaited) is withdrawn as it lands - on the deck, the open ground's ring and
+  below deck (`raidAshore.js late`, a raid's foe alone; AUDIT FB1019 D1, D5).
 - **One raid at a time on the fast travel too** (`onPreFastTravel`): the IL arms its ambush whatever runs, so a voyage by
   ship while a raid's quest ran started a second over the first. It answers 'busy' now, as `raidAtSea` and the sea
   fight's boarders already did (`raidRefusal`), the blocks left as the running raid set them.

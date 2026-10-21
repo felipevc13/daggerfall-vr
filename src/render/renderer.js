@@ -7,7 +7,7 @@
 //   - Indexed color means hard pixels: NEAREST filtering.
 //   - Alpha 0 texels are palette-index cutouts; the shader discards them.
 
-import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // EE5 / VC4: the cloud shadow's reader - VC6c's one home, shared with the air pass's shafts
+import { CLOUD_SHADOW_GLSL, cloudFarOf } from './cloudShadow.js';   // EE5 / VC4: the cloud shadow's reader - VC6c's one home, shared with the air pass's shafts; OW-HORIZON: and the ground past its square
 import { BAYER_GLSL, DISSOLVE_GLSL } from './orderedDither.js';   // SHIP-FADE: the mesh shader's dissolve over the port's one bayer4
 import { LPT_FS_HEAD, LPT_FS_KEEP, LPT_FS_TEXEL } from './lowPolyTreesGlsl.js';   // LPT1: a low-poly tree's fragment half, both lanes' billboard shaders
 import { FOG_GLSL } from './fogGlsl.js';
@@ -17,7 +17,7 @@ import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the water column's sha
 // at module scope, and a block a shader interpolates has to be in hand by
 // then. The imports hoist and the leaves have no imports of their own, so
 // this is already guaranteed - the lines stand where they read as the rule.
-import { buildProgram } from './glProgram.js';   // AUDIT 68 S17-gl-program-dup: the one compile and link
+import { buildProgram, startPrograms, parallelCompile } from './glProgram.js';   // AUDIT 68 S17-gl-program-dup: the one compile and link; SHADER-STALL: and a start that never waits
 import { realWindowsGlsl, RW_MAIN_DERIVS, RW_MAIN_CUTOUT, RW_MAIN_GLASS, RW_MAIN_ROOM, GLASS_NONE, GLASS_EXTERIOR, GLASS_INTERIOR, winModeFor, roomLightFor, sphereNdcRect, cropProjection, viewTargetSize, viewSkyFrom, viewRays, VIEW_BG_VS, VIEW_BG_FS, VIEW_PANES_MAX, VIEW_PANE_UNIT, VIEW_PANE_VS, VIEW_PANE_FS } from './realWindows.js';   // RW1: the real windows - the rooms, the glass, the view out
 import { MESH_ALPHA_GLSL, samplerParams, samplerKey } from './meshAlpha.js';   // POI-2: a translucent mesh draw, and a texture's own wrap and filter
 import { frameTarget, setFrameTarget } from './renderTarget.js';   // RW1: the view out's pass hands the frame target back as it found it (EL4's restore)
@@ -1014,6 +1014,7 @@ uniform vec3 uCamPos;
 out vec4 outColor;
 ${FOG_GLSL}
 ${ecotoneGlsl()}
+${snowCoverGlsl()}
 ${WATER_BED_GLSL}
 // DFU's HLSL float2x2 initializers are row-major; GLSL mat2 is
 // column-major, so these are the TRANSPOSES of the shader source
@@ -1054,7 +1055,10 @@ void main() {
   vec2 gx = ROT[t] * dFdx(unwrapped);
   vec2 gy = ROT[t] * dFdy(unwrapped);
   vec3 tex = textureGrad(uTileArr, vec3(tuv, float(layer)), gx, gy).rgb;
-  tex = ecotone(tex, vLocalXZ, vec3(tuv, float(layer)), gx, gy);   // ECOTONE1: a border's ground, its neighbours' share
+  vec4 ew = ecoWeights(vLocalXZ);   // ECOTONE1: the border's shares, once (AUDIT PRECIP GROUND-6: the snow crosses it by the same)
+  tex = ecotone(tex, ew, vec3(tuv, float(layer)), gx, gy);   // ECOTONE1: a border's ground, its neighbours' share
+  float snowC = snowCover(vLocalXZ, vWorldPos.y, normalize(vNormal), gx, gy);   // PRECIP4: the snow the ground keeps (the bed below reads it too)
+  tex = snowGround(tex, ew, snowC, vec3(tuv, float(layer)), gx, gy);
   ${waterBedMix()}
   vec3 n = normalize(vNormal);
   float diff = max(dot(n, uLightDir), 0.0);
@@ -1353,7 +1357,10 @@ export const CHAR_PIXEL = 9;
 /** GRASS-PORTAL (FIELD BUGS 2026-10-12b): WHETHER A BILLBOARD BATCH IS DRAWN IN drawBillboards' BLENDED PHASE - concealed
  *  (a portal's vortex, a veiled foe) or spectral, and drawn (never cast-only). Blended, it writes no depth: whatever a
  *  later pass draws behind it paints over it. The phase's own test, and the one a host asks to hold such a batch back. */
-export const billboardBlended = (b) => !!b && !b.castOnly && !!(b.conceal || isSpectralArchive(b.archive));
+/** DEX2: a billboard that wears the ghost shader - a classic ghost's archive, or a batch its host marked (`ghost`: a
+ *  Spectral row's mobile, characters/enemy/foeLook.js - SetupDemoEnemy.cs:132-136, by the behaviour). */
+export const ghostShaded = (b) => isSpectralArchive(b.archive) || b.ghost === true;
+export const billboardBlended = (b) => !!b && !b.castOnly && !!(b.conceal || ghostShaded(b));
 /** GRASS-PORTAL: the blended batches taken out of `batches` (in place, the rest kept in order) into `out` - emptied
  *  first, so a frame that never reached its late draw leaves nothing for the next - to be drawn in a drawBillboards of
  *  their own, after the passes that would otherwise paint over them (the grass). */
@@ -1486,7 +1493,7 @@ const BED_MASK = packWaterMask(WATER_DRAW_MASK_TABLE);
 export const BB_SURFACE_UNIT = 6;
 /** @type {Readonly<Record<string, WebGLUniformLocation | null>>} */
 const NO_COLUMN_LOCS = Object.freeze({});
-const NO_LPT_LOCS = Object.freeze({ uMesh: null, uMeshScale: null, uMeshColor: null, uMeshAlpha: null, uLptCut: null, uLptBand: null, uLptSun: null });   // LPT1: a set bound before the trees declares none
+const NO_LPT_LOCS = Object.freeze({ uMesh: null, uMeshScale: null, uMeshColor: null, uMeshAlpha: null, uLptCut: null, uLptBand: null, uLptSun: null, uSunLift: null });   // LPT1: a set bound before the trees declares none
 /** LPT1 (AUDIT LPT A2): the sun scale at which a 3D tree's faces take the sun's light whole - below it they cross to the
  *  far picture's own light, which is all they take at night. */
 export const LPT_SUN_FULL = 0.25;
@@ -1546,6 +1553,7 @@ import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's q
 import { SKIN_PAL_ROW, SKIN_PALETTE_UNIT } from './skinPalette.js';   // MWNPC1: the GPU skin's palette shape
 import { lightIdsOf, lightList, packLight } from './lightId.js';   // LIGHT-ID: each light's identity, lifted off its list for the shadow pass (and the flash packed through the seam)
 import { ecotoneGlsl, ECO_UNITS } from './ecotoneGlsl.js';   // ECOTONE1: the ground's share of its neighbours - the chunk, and the units their tile sets bind on
+import { snowCoverGlsl, TWIN_LAYERS, SNOW_LINES_UNIT } from './snowCoverGlsl.js';   // PRECIP4: the snow the ground keeps - the chunk, a twin set's summer half, the frame's lines' unit
 import { SNOW_VS, snowTerrainFs, SNOW_UNITS, SNOW_LAYER, snowSurfaceRise } from './snowfallGlsl.js';   // SNOWFALL1: the mod's snow surface, lit as the ground is
 import { GLOW_SPRITE_VS, GLOW_SPRITE_FS, GLOW_FIELD_VS, GLOW_FIELD_FS, GLOW_FIELDS_MAX, GLOW_REACH_MAX, glowFieldReach, GLOW_MESH_FS, GLOW_CLOCK_PERIOD, GLOW_CHARGE_PULL, GLOW_DRAWS_MAX, GLOW_DEPTH_FLOOR, glowUnit, glowMeshVs, glowRingDraws } from './weaponGlowGlsl.js';   // WEAPON-GLOW1: a weapon's element, drawn
 const SNOW_UNIT_LIST = Object.entries(SNOW_UNITS);   // AUDIT ENVIRONS P1: the five pictures' units, listed once
@@ -1772,6 +1780,12 @@ export class Renderer {
     this._tEcoTex = [null, null, null];
     /** @type {boolean|null} */
     this._tEcoOn = null;
+    /** PRECIP4: whether the installed terrain program's snow switch is on (drawTerrain's `snow`) @type {boolean|null} */
+    this._tSnowOn = null;
+    /** AUDIT PRECIP GROUND-1: the bound arrays' winter offsets as last uploaded (own, eco 1-3) */
+    this._tSnowArr = [-1, -1, -1, -1];
+    /** AUDIT PRECIP GROUND-7: the frame's snow - the window's lines texture and its frame (setSnowFrame) */
+    this._snowFrame = null; this._snowTex = null; this._snowTexSide = 0; this._snowGen = -1;
     this._forgetTextureShadows();   // AUDIT-AIR1: nothing is bound yet, so nothing may be claimed
     // EV2: the sub-mesh texture cache's generation. drawMesh used to
     // mint a `${archive}_${record}` string per sub-mesh per frame -
@@ -1853,6 +1867,15 @@ export class Renderer {
     // (world/deepWater/deepWaterLook.js distanceFogUniforms). A FRAME's, as the cloud
     // deck is: beginFrame clears it and the exterior host sets it after.
     this._dwFog = new Float32Array(20);
+    // BANTHA1: the jungle's haze - render/hazeGlsl.js uJungleHaze, two vec4s (world/jungle/jungleHaze.js hazeUniforms). A
+    // FRAME's, as the travel view's focus is: setJungleHaze arms it, and a beginFrame no setJungleHaze armed clears it - so an
+    // interior, a dungeon or a panel never inherits the jungle's air
+    this._haze = new Float32Array(8);
+    this._hazeArmed = false;
+    /** AUDIT BANTHA1 HAZE-2: which GL programs hold the haze ON (`_uploadFog`) - a program's, never a location table's */
+    this._hazeOn = new WeakMap();
+    /** LPT1 / BANTHA1: the frame's 3D trees, a door's frame a slot - 0 Low Poly Trees', 1 the jungle's (setLowPolyTrees) */
+    this._lptSlots = [null, null];
     this._seaHaze = new Float32Array(2);   // FAR-SEA1: the hold and the sea's height (setSeaHaze)
     this._dwColumn = null;   // DW-F: the water column's frame for the flats (setWaterColumn), a frame's like the fog
     this._snowRise = 0;      // SNOW-TELL: the snow's height over the ground this frame (drawSnow; beginFrame clears it)
@@ -1913,6 +1936,13 @@ export class Renderer {
 
     this._csStamp = 0; this._csUploaded = {}; this._csRect = new Float32Array(4);
     this.tileArrays = new Map(); // archive -> TEXTURE_2D_ARRAY
+    /** PRECIP4: each tile array's [width, height, layers] (WebGL2 cannot ask a texture)
+     *  @type {Map<any, number[]>} */
+    this._tileDims = new Map();
+    /** AUDIT PRECIP GROUND-1: each tile array TEXTURE's layer count - a twin's (2 x TWIN_LAYERS) says its winter half is
+     *  there, so a draw's winter offsets are the bound arrays' own, never a record kept beside them
+     *  @type {WeakMap<WebGLTexture, number>} */
+    this._arrLayers = new WeakMap();
     /** EE5: the cloud deck the ground shadows under, handed over by the
      *  host from the SKY's own state. Null = no shadows, which is the
      *  classic skin and every interior. */
@@ -1942,6 +1972,7 @@ export class Renderer {
       camPos: gl.getUniformLocation(this.waterProgram, 'uCamPos'),
       focus: gl.getUniformLocation(this.waterProgram, 'uFocus'),   // TV1
       dwFog: gl.getUniformLocation(this.waterProgram, 'uDwFog'),   // DW-C
+      haze: gl.getUniformLocation(this.waterProgram, 'uJungleHaze'),   // BANTHA1
     };
     this.waterUProj = gl.getUniformLocation(this.waterProgram, 'uProj');
     this.waterUView = gl.getUniformLocation(this.waterProgram, 'uView');
@@ -1963,6 +1994,9 @@ export class Renderer {
     }
     this._flatWind = new Float32Array(4);   // WIND3: rate x, z, clock, gust - zero until an exterior host sets it, and zero is still
     this._windfall = new Float32Array(8);   // WINDFALL1: the mod's law (render/windfallSway.js windfallUniforms) - zero is WIND3's
+    this._bbRight = new Float32Array([1, 0, 0]);   // NODE-OUTLINE: the last flats' call's basis (render/nodeGlint.js draws a node's flat again on it)
+    this._bbUp = new Float32Array([0, 1, 0]);
+    this._lptDrawn = [null, null];   // NODE-OUTLINE: the 3D trees' frames this frame drew, each slot's (spent in the flats' call - lptDrawnFrames)
     this._windfallSway = this._windfall.subarray(0, 4);   // its two vec4s, viewed once (EVERY ALLOCATION HAS AN OWNER: none a call)
     this._windfallAxis = this._windfall.subarray(4, 8);
     this._proj = null;
@@ -2355,6 +2389,7 @@ export class Renderer {
       camPos: gl.getUniformLocation(program, 'uCamPos'),
       focus: gl.getUniformLocation(program, 'uFocus'),   // TV1: the travel view's focus (render/fogGlsl.js FOCUS_GLSL)
       dwFog: gl.getUniformLocation(program, 'uDwFog'),   // DW-C: the sea's distance fog - null where a program never calls it
+      haze: gl.getUniformLocation(program, 'uJungleHaze'),   // BANTHA1: the jungle's haze (render/hazeGlsl.js)
     };
   }
 
@@ -2442,15 +2477,15 @@ export class Renderer {
     this.tUView = gl.getUniformLocation(this.terrainProgram, 'uView');
     this.tUModel = gl.getUniformLocation(this.terrainProgram, 'uModel');
     // EE5 / VC4: the cloud shadow map's uniforms, one pair per program that lights by the sun
-    this._csLoc.terrain = [gl.getUniformLocation(this.terrainProgram, 'uCloudShadowMap'), gl.getUniformLocation(this.terrainProgram, 'uCloudShadowRect')];
-    this._csLoc.mesh = [gl.getUniformLocation(this.program, 'uCloudShadowMap'), gl.getUniformLocation(this.program, 'uCloudShadowRect')];
-    this._csLoc.char = [gl.getUniformLocation(this.charProgram, 'uCloudShadowMap'), gl.getUniformLocation(this.charProgram, 'uCloudShadowRect')];
-    this._csLoc.bb = [gl.getUniformLocation(this.bbProgram, 'uCloudShadowMap'), gl.getUniformLocation(this.bbProgram, 'uCloudShadowRect')];
+    this._csLoc.terrain = [gl.getUniformLocation(this.terrainProgram, 'uCloudShadowMap'), gl.getUniformLocation(this.terrainProgram, 'uCloudShadowRect'), gl.getUniformLocation(this.terrainProgram, 'uCloudShadowFar')];
+    this._csLoc.mesh = [gl.getUniformLocation(this.program, 'uCloudShadowMap'), gl.getUniformLocation(this.program, 'uCloudShadowRect'), gl.getUniformLocation(this.program, 'uCloudShadowFar')];
+    this._csLoc.char = [gl.getUniformLocation(this.charProgram, 'uCloudShadowMap'), gl.getUniformLocation(this.charProgram, 'uCloudShadowRect'), gl.getUniformLocation(this.charProgram, 'uCloudShadowFar')];
+    this._csLoc.bb = [gl.getUniformLocation(this.bbProgram, 'uCloudShadowMap'), gl.getUniformLocation(this.bbProgram, 'uCloudShadowRect'), gl.getUniformLocation(this.bbProgram, 'uCloudShadowFar')];
     // MAC-BUG W6: the decal pass is the set's, so its program, its table and its cloud-shadow pair are re-looked-up with the rest
     this.decalProgram = set.decal;
     this._decal = this._decalLocs(set.decal);
     this._decalLights = set.decalLights ?? CLASSIC_MAX_LIGHTS;   // BLOOD1 AUDIT 3: the installed decal program's own cap
-    this._csLoc.decal = [gl.getUniformLocation(set.decal, 'uCloudShadowMap'), gl.getUniformLocation(set.decal, 'uCloudShadowRect')];
+    this._csLoc.decal = [gl.getUniformLocation(set.decal, 'uCloudShadowMap'), gl.getUniformLocation(set.decal, 'uCloudShadowRect'), gl.getUniformLocation(set.decal, 'uCloudShadowFar')];
     this.tUTileArr = gl.getUniformLocation(this.terrainProgram, 'uTileArr');
     this.tUTilemap = gl.getUniformLocation(this.terrainProgram, 'uTilemap');
     this.tUTileSize = gl.getUniformLocation(this.terrainProgram, 'uTileSize');
@@ -2465,6 +2500,10 @@ export class Renderer {
       origin: gl.getUniformLocation(this.terrainProgram, 'uEcoOrigin'),
     };
     this._tEcoOn = null;
+    // PRECIP4 (render/snowCoverGlsl.js): the pixel's snowline at its corners, the switch and its winter layers, its
+    // neighbours' winter layers and its first world tile - the installed terrain program's own
+    this.tSnow = Object.fromEntries(['Lines', 'Set', 'Win', 'Arr'].map((n) => [n, gl.getUniformLocation(this.terrainProgram, `uSnow${n}`)]));
+    this._tSnowOn = null; this._tSnowArr = [-1, -1, -1, -1];
     this.tULightDir = gl.getUniformLocation(this.terrainProgram, 'uLightDir');
     this.tUAmbient = gl.getUniformLocation(this.terrainProgram, 'uAmbient');
     this.tUSunScale = gl.getUniformLocation(this.terrainProgram, 'uSunScale');
@@ -2511,7 +2550,7 @@ export class Renderer {
     this.bbUWindfallAxis = gl.getUniformLocation(this.bbProgram, 'uWindfallAxis');   // WINDFALL1
     this.bbUTip = gl.getUniformLocation(this.bbProgram, 'uTip');   // PROF4: a felled tree's fall
     // LPT1: a low-poly tree's mesh mode and the far pictures' handover (BB_VS)
-    this.bbLpt = Object.fromEntries(['uMesh', 'uMeshScale', 'uMeshColor', 'uMeshAlpha', 'uLptCut', 'uLptBand', 'uLptSun'].map((n) => [n, gl.getUniformLocation(this.bbProgram, n)]));
+    this.bbLpt = Object.fromEntries(['uMesh', 'uMeshScale', 'uMeshColor', 'uMeshAlpha', 'uLptCut', 'uLptBand', 'uLptSun', 'uSunLift'].map((n) => [n, gl.getUniformLocation(this.bbProgram, n)]));   // AUDIT BANTHA1 TREE-2: uSunLift, the lane's (null on the classic set)
     // DW-F: COLUMN_GLSL's (both lanes' flats declare it)
     this.bbColumn = Object.fromEntries(['uColumnOn', 'uSurfaceTex', 'uDwCamFwd', 'uSeaY', 'uTopColor', 'uTopVision', 'uSurfaceScroll', 'uPixelOrigin'].map((n) => [n, gl.getUniformLocation(this.bbProgram, n)]));
     // EL1: the lane's own uniforms, per program (null on the classic set, which never declares them)
@@ -3260,6 +3299,7 @@ export class Renderer {
     this._tTileSize = null;
     (this._tEcoTex ??= [null, null, null]).fill(null);   // ECOTONE1: the neighbours' sets on units 3-5
     this._tEcoOn = null;   // ECOTONE1: and the border switch, a frame's like the tile size
+    this._tSnowOn = null; this._tSnowArr = [-1, -1, -1, -1];   // PRECIP4: and the snow's
     // LA-COST1 (2026-09-27): THE FOUR FRAME BLOCKS ARE A TEXTURE SHADOW TOO. Each binds the lane's images - the three
     // shadow arrays, the eye, the previous depth, the grid - on units 8 to 14 and then trusts them until the stamp
     // moves; a foreign pass binds its own there (the far ring its 1x1 on unit 11 when the air is off - LA-AUDIT C3: not
@@ -3321,9 +3361,12 @@ export class Renderer {
   /** PERF-COMPILE1 (2026-10-10, stutter): the renderer's OTHER on-demand programs, warmed at idle the same way
    *  (warmPrograms) - kept apart from warmSteps, whose list its pins count: the foes' telegraph pass (built at the
    *  first wind-up a fight shows), the real windows' background (built at the first building with glass) and the weapon
-   *  glow's two (WEAPON-GLOW1, built at the first glowing weapon in a hand). */
+   *  glow's two (WEAPON-GLOW1, built at the first glowing weapon in a hand). AUDIT SHADER-STALL: first, where the driver
+   *  compiles beside the frames, the passes play meets STARTED (render/playPrograms.js - off the boot's graph) and the
+   *  snow's surface program with them, so each is done before it is first wanted; nothing where it cannot. */
   lazyWarmSteps() {
     return [
+      () => { if (parallelCompile(this.gl)) { void import('./playPrograms.js').then((m) => m.startPlayPrograms(this.gl)).catch(() => {}); this.startTerrainSnow(); } },
       () => { this._loadFoeTelegraph(); },
       () => { this._rwBg ??= this._rwBgProgram(); },
       () => this._ensureWeaponGlowMeshProgram(),   // AUDIT WEAPON-GLOW MW-6: the glow's two, before the first glowing weapon
@@ -4045,9 +4088,10 @@ export class Renderer {
     // keep the deck: they are characters in the world.
     const sp = this._proj, sv = this._view, sf = this._fogMode;
     const sw = this._dwFog[0];   // DW-C: the sea's fog is borrowed off with the rest - the sprite fogs where it composites
+    const sh = this._haze[4];   // BANTHA1: and the jungle's haze
     const sd = lensLocal ? this._cloudShadow : null;
     if (sd) { this._cloudShadow = null; this._csStamp++; }
-    this._proj = proj; this._view = view; this._fogMode = 0; this._dwFog[0] = 0;
+    this._proj = proj; this._view = view; this._fogMode = 0; this._dwFog[0] = 0; this._haze[4] = 0;
     this._spriteDepth++;   // AUDIT-EL F2
     // LA-COST1: the character block this draw uploads is the SPRITE's - its camera, no fog, its light (MAC-P's
     // viewmodel, PX23's studio, both set before this), the contact and the grid off - so the block the world's
@@ -4082,7 +4126,7 @@ export class Renderer {
       this._restoreWorldViewport();
       const cc = this._clearColor;
       gl.clearColor(cc[0], cc[1], cc[2], cc[3]);
-      this._proj = sp; this._view = sv; this._fogMode = sf; this._dwFog[0] = sw;
+      this._proj = sp; this._view = sv; this._fogMode = sf; this._dwFog[0] = sw; this._haze[4] = sh;
       this._spriteDepth--;   // AUDIT-EL F2
       this._cFrameStamp = -1;   // LA-COST1: the sprite's block is no world rig's
       if (sd) { this._cloudShadow = sd; this._csStamp++; }
@@ -4172,8 +4216,8 @@ export class Renderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, cs.fbo);
     gl.enable(gl.SCISSOR_TEST);
     const sp = this._proj, sv = this._view, sf = this._fogMode;
-    const sw = this._dwFog[0];
-    this._fogMode = 0; this._dwFog[0] = 0;
+    const sw = this._dwFog[0], sh = this._haze[4];   // BANTHA1: the haze borrowed off with the fogs
+    this._fogMode = 0; this._dwFog[0] = 0; this._haze[4] = 0;
     this._spriteDepth++;
     try {
       for (let i = from; i < to; i++) {
@@ -4192,7 +4236,7 @@ export class Renderer {
       gl.disable(gl.SCISSOR_TEST);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this._frameTarget());
       this._restoreWorldViewport();
-      this._proj = sp; this._view = sv; this._fogMode = sf; this._dwFog[0] = sw;
+      this._proj = sp; this._view = sv; this._fogMode = sf; this._dwFog[0] = sw; this._haze[4] = sh;
       this._spriteDepth--;
       this._cFrameStamp = -1;
     }
@@ -4472,6 +4516,7 @@ void main() {
         camPos: gl.getUniformLocation(P, 'uCamPos'),
         focus: gl.getUniformLocation(P, 'uFocus'),   // TV1
         dwFog: gl.getUniformLocation(P, 'uDwFog'),   // DW-C
+        haze: gl.getUniformLocation(P, 'uJungleHaze'),   // BANTHA1
         conceal: gl.getUniformLocation(P, 'uConceal'),   // INVIS-LOOK
         span: gl.getUniformLocation(P, 'uSpan'),   // INVIS-LOOK
         origin: gl.getUniformLocation(P, 'uOrigin'),   // MWNPC2: the tile
@@ -4574,7 +4619,7 @@ void main() {
     // and more, so the frame or two its module takes to arrive is never a blow unseen
     if (!this._foeTelegraph) { this._loadFoeTelegraph(); return 0; }
     this._close2D();
-    const n = this._foeTelegraph.draw(list, this._proj, this._view, { mode: this._fogMode, density: this._fogDensity, range: this._fogRange, camPos: this._camPos, focus: this._focus }, { snowRise: this._snowRise });   // AUDIT TACT D9: the frame's fog (and the travel view's focus); SNOW-TELL: over the frame's snow
+    const n = this._foeTelegraph.draw(list, this._proj, this._view, { mode: this._fogMode, density: this._fogDensity, range: this._fogRange, camPos: this._camPos, focus: this._focus, haze: this._haze }, { snowRise: this._snowRise });   // AUDIT TACT D9: the frame's fog (and the travel view's focus); SNOW-TELL: over the frame's snow
     this.markForeignPass();   // the pass bound its own program and VAO
     return n;
   }
@@ -5260,6 +5305,17 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
    *  the billboard shader discards on it - so one GL texture cannot carry
    *  both treatments and the -1 (mesh) and 0 (flat) uploads must key
    *  apart. The '#ui' variant is the same argument for the mip chain. */
+  /** GATE-MIX (2026-10-20, the owner: "the game hitches"): whether the PLAIN picture under (archive, record) - the key
+   *  uploadTexture makes when no option is asked - already stands, a real one and not a stand-in's placeholder; and when
+   *  it does, it is held for the place asking exactly as an uploadTexture hit holds it (PLACE-LRU). A caller asks this
+   *  before decoding a picture uploadTexture would only turn away (scenes/dataPipeline.js uploadRecordFrame: a hit's
+   *  splash decoded its frames again on every hit). */
+  heldTexture(archive, record) {
+    const key = `${archive}_${record}`;
+    if (!this.textures.has(key) || this._placeholders?.has(key)) return false;
+    this._uploadSink?.(false, key);
+    return true;
+  }
   uploadTexture(archive, record, color32, opts = {}) {
     // (see textureParams below - the decision is pure and pinned there)
     // AUDIT 19 F10: the SAMPLING MODE is part of the key. The cache is
@@ -5271,6 +5327,10 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const key = `${archive}_${record}${opts.smooth ? '#smooth' : ''}${opts.opaque ? '#opaque' : ''}${opts.mips === false ? (opts.variant ?? '#ui') : ''}${opts.alpha ? '#alpha' : ''}${opts.clamp && !opts.smooth ? '#clamp' : ''}${opts.sampler && !opts.smooth ? samplerKey(opts.sampler) : ''}`;   // POI-2: a sampler asked for keys apart too (render/meshAlpha.js samplerKey)   // INCIDENT 2026-09-04: DFU caches materials per alphaIndex; REVIEW 2026-09-05: the un-mipped UI variant of a world archive (item icons) keys apart too; AUDIT 61: `variant: ''` keeps the plain batch key for world art uploaded without a chain (a mod atlas built mipChain:false - SIB1)
     this._uploadSink?.(false, key);   // FIELD BUGS 2026-10-04d PLACE-LRU: a hit is asked for too - the place asking holds it
     if (opts.cutout) this._markCutout(this.textures.get(key));   // RW1: a cutout ask cuts the picture the key already holds, too
+    // AUDIT DEX B5: a picture on its way (systems/textureReplacement.js pendingPicture - a readOnly picture let go once on
+    // the GPU, its GPU copy since evicted): nothing uploaded and nothing kept at the key, so the draw that wanted it asks
+    // again; its decode asked only when the key is empty - a hit costs no decode
+    if (color32?.pending) { if (!this.textures.has(key)) color32.pending(); return this.textures.get(key) ?? null; }
     if (this.textures.has(key)) {
       // WD3 (AUDIT WD3 T3): a stand-in's clear placeholder (no picture at the time - a fetch that failed, a gate shut) is
       // never the key's for good: a real picture asked under it later takes its place
@@ -5387,6 +5447,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const tex = this.tileArrays.get(archive);
     if (tex === undefined) return false;
     this.tileArrays.delete(archive);
+    this._tileDims.delete(archive);   // PRECIP4
     if (tex) this.gl.deleteTexture(tex);
     this._tArrayTex = null;   // the bound-array shadow (PERF-TEX2) let go with it: the next terrain draw binds its own
     (this._tEcoTex ??= [null, null, null]).fill(null);   // ECOTONE1: and the neighbours' shadows, which may have held it
@@ -5575,11 +5636,14 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // VC6c: `_deckOwed` keeps it one moment longer, for an image the air pass still owes this frame (airPass.setCloudShadow); `_beginLane` drops it the instant that resolve is done.
     if (this._cloudShadow) { this._deckOwed = this._cloudShadow; this._cloudShadow = null; this._csStamp++; }
     this._dwFog[0] = 0;   // DW-C: the sea's distance fog is a frame's too - no interior, dungeon or panel inherits it
+    if (!this._hazeArmed && this._haze[4] !== 0) this._haze[4] = 0;   // BANTHA1: and the jungle's haze, unless set since the last beginFrame (setJungleHaze)
+    this._hazeArmed = false;
     this._seaHaze[0] = 0;   // FAR-SEA1: and so is the far ring's haze on the sea - set by the host on a frame it draws the ring
     this._underWater = undefined;   // WATER-NEXT 2: a new copy
     if (!this._focusArmed && this._focus[3] !== 0) this._focus.fill(0);   // AUDIT TV B1: the travel view's focus too, unless set since the last beginFrame (setFocus)
     this._focusArmed = false;
     this._dwColumn = null;   // DW-F: and the water column's share over the flats
+    this._lptDrawn?.fill(null);   // NODE-OUTLINE: and the 3D trees a frame drew
     // EV6: the shadows reset with the counters - whatever ran between
     // frames (UI passes, another context's work) is not trusted. The
     // cloud-shadow upload stamps are the same kind of claim (RS-3) and
@@ -5746,6 +5810,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       fogRange: [this._fogRange[0], this._fogRange[1]],
       fogColor: this._fogColor,
       dwFog: Float32Array.from(this._dwFog),   // DW-C
+      haze: Float32Array.from(this._haze),   // BANTHA1: the jungle's haze - the panel's own beginFrame clears it
       seaHaze: Float32Array.from(this._seaHaze),   // AUDIT FAR-SEA1 H1: the panel's own beginFrame clears it, and the open sea draws after a decorator's preview
       ambient: this._ambient,
       // AUDIT-AMAP H5: setLighting's fourth argument defaults to null and
@@ -5839,6 +5904,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     this.setAutomapWater(s.automapWaterLevel, s.automapWaterColor);
     this.setFog(FOG_MODE_NAMES[s.fogMode] ?? 'off', s.fogDensity, s.fogRange[0], s.fogRange[1], s.fogColor);
     this._dwFog.set(s.dwFog);   // DW-C
+    this._haze.set(s.haze);   // BANTHA1
     this._seaHaze.set(s.seaHaze);   // AUDIT FAR-SEA1 H1
     this.setLighting(s.ambient, s.sunScale, s.sunColor);
     this.setAmbientTrilight(s.ambientTri);   // AUDIT-AMAP H5
@@ -5912,6 +5978,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       moonColor: new Float32Array(3), fogColor: new Float32Array(3), emission: new Float32Array(3), pointColor: new Float32Array(3),
       points: new Float32Array(4 * 64), colors: new Float32Array(3 * 64), n: 0, hasColors: false, tri: null,
       sunScale: 0, moonScale: 0, fogMode: 0, fogDensity: 0, fogStart: 0, fogEnd: 0, taken: false,
+      haze: new Float32Array(8),   // AUDIT BANTHA1 HAZE-6: the street's jungle haze, kept with its fog
     });
     const c3 = (dst, src) => { if (src) { dst[0] = src[0]; dst[1] = src[1]; dst[2] = src[2]; } };
     c3(k.ambient, this._ambient); c3(k.sunColor, this._sunColor); c3(k.lightDir, this._lightDir);
@@ -5919,6 +5986,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     k.tri = this._ambientTri;   // replaced on every set, never written in place (setAmbientTrilight copies)
     k.fogMode = this._fogMode; k.fogDensity = this._fogDensity; k.fogStart = this._fogRange[0]; k.fogEnd = this._fogRange[1];
     c3(k.fogColor, this._fogColor); c3(k.emission, this._windowEmission); c3(k.pointColor, this._pointColor);
+    k.haze.set(this._haze);
     const p = this._pointLights, n = Math.min(p?.length ?? 0, k.points.length);
     if (n) k.points.set(p.subarray ? p.subarray(0, n) : p.slice(0, n));
     k.n = n;
@@ -6073,6 +6141,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
         this.setLighting(new Float32Array(k.ambient), k.sunScale, new Float32Array(k.sunColor), k.tri);
         this.setMoonlight(k.moonScale ? { scale: k.moonScale, dir: k.moonDir, color: k.moonColor } : null);
         this.setFog(FOG_MODE_NAMES[k.fogMode] ?? 'off', k.fogDensity, k.fogStart, k.fogEnd, new Float32Array(k.fogColor));
+        this.setJungleHaze(k.haze[4] ? k.haze : null);   // AUDIT BANTHA1 HAZE-6: the street seen out of a window in Bantha stands in its haze - armed for the view's own frame, which the room's next clears
         this.setWindowEmission(new Float32Array(k.emission));
         this.setPointLights(k.points.slice(0, k.n), new Float32Array(k.pointColor), k.hasColors ? k.colors.slice(0, (k.n / 4) * 3) : null);
       }
@@ -6411,6 +6480,9 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
   }
   /** TV1: the point the sun's cascades stand about - the focus while set, the camera otherwise. */
   _shadowEye() { return this._focus[3] > 0.5 ? this._focus.subarray(0, 3) : this._camPos; }
+  /** OW-HORIZON: the frame's focus as the shaders take it (w 1 while set) - the far ring measures its haze from it, as the
+   *  world's fog is measured (render/farRing.js uHazeFrom). */
+  get focus() { return this._focus; }
 
   /** RW1 (AUDIT): the fog's colour alone, its law as it stands - the view out's street re-lit by the clock. */
   setFogColor(color) { if (color) { this._fogColor = color; this._frameStamp++; } }
@@ -6443,6 +6515,19 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     if (loc) { this._use(this.program); this.gl.uniform4fv(loc, this._dwFog); }
   }
 
+  /** BANTHA1 (bible/03-World/Bantha-Jungle.md): THE JUNGLE'S HAZE for this frame - the eight floats of
+   *  render/hazeGlsl.js uJungleHaze (world/jungle/jungleHaze.js hazeUniforms), or null for none (not the air pass's haze -
+   *  setHaze). Set before or after beginFrame (the exterior host sets it beside the fog, before): it arms the frame's
+   *  haze, which the next beginFrame no setJungleHaze armed clears; the mesh program takes it at once (setWaterFog's seam), the others at their
+   *  next frame block (the stamp moves). */
+  setJungleHaze(u) {
+    if (!u && this._haze[4] === 0) return;   // off and staying off: nothing moves
+    if (u) { this._haze.set(u); this._hazeArmed = true; } else this._haze[4] = 0;
+    this._frameStamp++;   // LA-COST1
+    const loc = this._solidFog?.haze;
+    if (loc) { this._use(this.program); this.gl.uniform4fv(loc, this._haze); if (this.program !== null && typeof this.program === 'object') this._hazeOn.set(this.program, this._haze[4] !== 0); }
+  }
+
   /** FAR-SEA1: the far ring's haze on the sea, for this frame's water - `hold` (render/farRing.js RING_HAZE_HOLD) and
    *  the sea's height in the scene; null for none (the world's fog alone, every water). After beginFrame, which clears
    *  it: the host sets it on a frame it draws the ring. AUDIT FAR-SEA1 P3: no rim - it never reaches the streamed sea
@@ -6469,6 +6554,12 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     gl.uniform3fv(prog.camPos, this._camPos);
     if (prog.focus) gl.uniform4fv(prog.focus, this._focus);   // TV1: w 0 (no travel view) reads as the camera in the shader
     if (prog.dwFog) gl.uniform4fv(prog.dwFog, this._dwFog);   // DW-C: the sea's distance fog (off is [0].x = 0)
+    // BANTHA1: the jungle's haze while it is on, and once as it goes off (off is [1].x = 0, as a linked program's uniforms
+    // start) - no frame outside the jungle pays a call. AUDIT BANTHA1 HAZE-2: what a program holds is the GL PROGRAM's -
+    // keyed by it (the bound one: every caller has just used it), never by a location table, which a set's re-install
+    // (FAR-CLIP1's variant, a panel, RW1's view out) makes anew while the program keeps the haze it was last sent
+    const bound = this._lastProgram, keyed = bound !== null && typeof bound === 'object';   // a test's stub GL may hand back no object
+    if (prog.haze && (this._haze[4] !== 0 || (keyed && this._hazeOn.get(bound)))) { gl.uniform4fv(prog.haze, this._haze); if (keyed) this._hazeOn.set(bound, this._haze[4] !== 0); }
     if (prog.clipY) gl.uniform1f(prog.clipY, this._clipY);   // A1: only the mesh shader carries the slice
     if (prog.amMode) gl.uniform1f(prog.amMode, this._automapMode);   // A2: and the automap presentation
     if (prog.amWaterLevel) gl.uniform1f(prog.amWaterLevel, this._automapWaterLevel);   // c2/S6: with its water tint
@@ -6694,17 +6785,17 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
    *
    * @param {number[]|null} pos scene-space point; the camera by default,
    *        which is where a first-person sprite is
-   * @returns {number[]} [r, g, b], each at or above FLAT_LIGHT_FLOOR
+   * @param {number} [floor] the least each channel answers
+   * @param {number[]} [out] where to write it (GLINT-LIGHT: a pass asking it a node a frame makes none of its own)
+   * @returns {number[]} [r, g, b], each at or above `floor`
    */
-  flatLightAt(pos = null, floor = FLAT_LIGHT_FLOOR) {
-    if (!this._clockLit) return [1, 1, 1];
+  flatLightAt(pos = null, floor = FLAT_LIGHT_FLOOR, out = [0, 0, 0]) {
+    if (!this._clockLit) { out[0] = 1; out[1] = 1; out[2] = 1; return out; }
     const p = pos ?? this._camPos;
     const am = this._ambient, mc = this._moonColor, sc = this._sunColor;
-    const out = [
-      am[0] + mc[0] * this._moonScale * 0.5 + sc[0] * this._sunScale * 0.5,
-      am[1] + mc[1] * this._moonScale * 0.5 + sc[1] * this._sunScale * 0.5,
-      am[2] + mc[2] * this._moonScale * 0.5 + sc[2] * this._sunScale * 0.5,
-    ];
+    out[0] = am[0] + mc[0] * this._moonScale * 0.5 + sc[0] * this._sunScale * 0.5;
+    out[1] = am[1] + mc[1] * this._moonScale * 0.5 + sc[1] * this._sunScale * 0.5;
+    out[2] = am[2] + mc[2] * this._moonScale * 0.5 + sc[2] * this._sunScale * 0.5;
     const count = this._pointLights.length >> 2;
     if (count > 0) {
       const colors = this._pointColorData(count, true);   // EL1: the classic-space read, as the water takes
@@ -6968,7 +7059,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // DW-F: `dwColumn`, the host's - one flat standing in a carved sea's column (the water column's share).
     // LPT1: `_scales`, each flat's own share of the size (a move keeps them); `lptProto`, the host's - the 3D tree a far
     // picture gives way to near the eye; `farH`, the host's - the height MAC1's far-ring rule reads (the classic flat's,
-    // which a far picture stands for).
+    // which a far picture stands for); `sunLift`, the host's - the share of its height its sun is read at (AUDIT BANTHA1
+    // TREE-2: a jungle tree's crown).
     // DISC29-E: the shadow record's `_shAnim` (a flat animating in place, which the lo tier keeps) - a boolean, born
     // undefined as `_shMovedAt` (AUDIT PRE-MERGE 0929 E1: `_shPlacedAt`, the stillness it was once judged by, is gone).
     // IDLER-STICKY: `_shIdler`, a flat whose look changed where it stands - a mover for good (shadowPass.js), born undefined.
@@ -6977,9 +7069,9 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     return {
       vao, indexCount: count * 6, archive, record, size, buffers, origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
       _arena: arena, _q0: q0, _ibOff: q0 * BB_QUAD_INDEX_BYTES,
-      _scales: scales ?? null, lptProto: undefined, farH: undefined,
+      _scales: scales ?? null, lptProto: undefined, farH: undefined, sunLift: undefined,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
-      _box: undefined, sway: undefined, windfall: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, glint: undefined, dissolve: undefined, crack: undefined, tint: undefined, dye: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
+      _box: undefined, sway: undefined, windfall: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, glint: undefined, dissolve: undefined, crack: undefined, tint: undefined, dye: undefined, noShadow: undefined, ghost: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       castOnly: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
       _shGen: undefined, _shAx: NaN, _shAy: NaN, _shAz: NaN, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
@@ -7369,8 +7461,42 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     if (!this._retroMips) gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LEVEL, 0);   // RETRO1: loaded under retro mode without mip maps (_applyRetroMips)
     this.tileArrays.set(archive, tex);
+    this._tileDims.set(archive, [w, h, layers.length]);   // PRECIP4
+    this._arrLayers.set(tex, layers.length);   // AUDIT PRECIP GROUND-1: a twin's winter half is the texture's own fact
     return tex;
   }
+
+  /**
+   * AUDIT PRECIP GROUND-7: THE FRAME'S SNOW - the snow lane's lattice of snowlines about the player, handed to the terrain
+   * program once a frame (scenes/snowCoverHost.js frame(); render/snowCoverGlsl.js): `lines` (Float32Array, side x side x 4:
+   * h10, h50, h90 a point, rows south), `side`, `origin` the window's first point's world tile ([x, z], the ecotone's
+   * frame), `spacing` the lattice's in tiles, `altitude` the world height's offset to metres above the sea, `gen` the
+   * lines' generation (uploaded when it moves). Null: no snow this frame (off the lane, the classic skin).
+   */
+  setSnowFrame(f) {
+    this._snowFrame = f ?? null;
+    this._frameStamp++;   // LA-COST1: the terrain's frame block binds the lines and sends their window - a frame handed after it sends them again
+    if (!f) return;
+    const gl = this.gl;
+    if (!this._snowTex || this._snowTexSide !== f.side) {
+      if (this._snowTex) gl.deleteTexture(this._snowTex);
+      this._snowTex = gl.createTexture();
+      this._snowTexSide = f.side;
+      this._snowGen = -1;
+      this._activeTexture(gl.TEXTURE0 + SNOW_LINES_UNIT);
+      gl.bindTexture(gl.TEXTURE_2D, this._snowTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, f.side, f.side, 0, gl.RGBA, gl.FLOAT, null);
+    }
+    if (this._snowGen !== f.gen) {
+      this._activeTexture(gl.TEXTURE0 + SNOW_LINES_UNIT);
+      gl.bindTexture(gl.TEXTURE_2D, this._snowTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, f.side, f.side, gl.RGBA, gl.FLOAT, f.lines);
+      this._snowGen = f.gen;
+    }
+  }
+
 
   /** GRAIN AUDIT 1: the anisotropy extension, asked for ONCE - a driver
    *  without it is remembered as `false`, not re-asked per archive. */
@@ -7420,6 +7546,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
   /** EE5: the deck the terrain shadows under - {cover, soft, wind, time,
    *  amount} - or null. Numbers only; it binds nothing. */
   setCloudShadow(d) { d = d ?? null; if (d !== this._cloudShadow) { this._cloudShadow = d; this._csStamp++; } }   // VC4: the stamp moves only when the deck does (the hosts hand the same object per pixel)
+  /** OW-HORIZON: the deck the frame's ground takes (null for none) - the far ring takes the same map and far law. */
+  get cloudShadow() { return this._cloudShadow; }
 
   /** WIND3: the wind the flats lean with, for this frame - [rate x, rate
    *  z, seconds, gust] (systems/wind/windDrive.js's windV and gust), or null
@@ -7442,13 +7570,14 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const loc = this._csLoc?.[key];   // a bare prototype (the crash-report tests) has no programs
     if (!loc || this._csUploaded[key] === this._csStamp) return;
     this._csUploaded[key] = this._csStamp;
-    const gl = this.gl, cs = this._cloudShadow, [mapLoc, rectLoc] = loc;
+    const gl = this.gl, cs = this._cloudShadow, [mapLoc, rectLoc, farLoc] = loc;
     this._activeTexture(gl.TEXTURE0 + CLOUD_SHADOW_UNIT);   // AUDIT 65 RS-3: reserved, above every foreign pass's slots
     gl.bindTexture(gl.TEXTURE_2D, cs?.map ?? this._blackTex);
     gl.uniform1i(mapLoc, CLOUD_SHADOW_UNIT);
     const r = cs?.map ? cs.rect : null;
     this._csRect[0] = r ? r[0] : 0; this._csRect[1] = r ? r[1] : 0; this._csRect[2] = r ? r[2] : 0; this._csRect[3] = r ? r[3] : 0;
     gl.uniform4fv(rectLoc, this._csRect);
+    if (farLoc) gl.uniform2f(farLoc, cloudFarOf(cs), 1);   // OW-HORIZON: the ground past the square - told
     this._activeTexture(gl.TEXTURE0);
   }
 
@@ -7469,6 +7598,9 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
   /** SNOWFALL1 (AUDIT ENVIRONS I5): the installed set's snow program, built when the snow's surface is made (scenes/
    *  snowfallHost.js) - not inside the first frame that draws snow; a fault here is the snow's own, which then stands nowhere. */
   prepareTerrainSnow() { this._ensureTerrainSnow(); }
+  /** SHADER-STALL (render/glProgram.js startPrograms): the set's snow program STARTED, never waited on - answers whether
+   *  the driver is done, so the host asks `prepareTerrainSnow` then, and its build reads a link already made. */
+  startTerrainSnow(set = this._worldSet) { return set.terrainSnow ? () => true : startPrograms(this.gl, [[SNOW_VS, snowTerrainFs(set.terrainFs)]]); }
 
   /** SNOWFALL1: the set's SNOW program - the mod's vertex law (SNOW_VS) over the set's own ground fragment program with
    *  its tile decode swapped for the mod's snow (snowTerrainFs) - and its tables, built the first time a snow surface is
@@ -7480,9 +7612,10 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     const loc = Object.fromEntries(['uProj', 'uView', 'uModel', 'uLightDir', 'uAmbient', 'uSunScale', 'uSunColor', 'uMoonDir', 'uMoonScale', 'uMoonColor',
       'uPointCount', 'uPointLights', 'uPointColors', 'uIndirect', 'uIndirectColor', 'uSnowDepths', 'uSnowLimits', 'uSnowDynMap', 'uSnowDynTexel',
       'uSnowStatMap', 'uSnowFarMap', 'uSnowFlags', 'uSnowRadius', 'uSnowInner', 'uSnowOuter', 'uSnowBoundaryFade', 'uSnowDarkening',
-      'uSnowDynamic', 'uSnowStatic', 'uSnowContext', 'uSnowFar', 'uSnowAlbedo'].map((n) => [n, gl.getUniformLocation(program, n)]));
+      'uSnowDynamic', 'uSnowStatic', 'uSnowContext', 'uSnowFar', 'uSnowAlbedo',
+      'uSnowLines', 'uSnowSet', 'uSnowWin', 'uEcoOrigin', 'uSnowAnchor'].map((n) => [n, gl.getUniformLocation(program, n)]));   // AUDIT PRECIP GROUND-9: and the ground's own snow
     const el = this._worldSet === set && this._elLocsOf ? this._elLocsOf(program) : null;
-    return (set.terrainSnow = { program, loc, el, fog: this._fogLocs(program), cs: [gl.getUniformLocation(program, 'uCloudShadowMap'), gl.getUniformLocation(program, 'uCloudShadowRect')], frame: -1, units: false });
+    return (set.terrainSnow = { program, loc, el, fog: this._fogLocs(program), cs: [gl.getUniformLocation(program, 'uCloudShadowMap'), gl.getUniformLocation(program, 'uCloudShadowRect'), gl.getUniformLocation(program, 'uCloudShadowFar')], frame: -1, units: false });
   }
 
   /**
@@ -7506,6 +7639,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       S.units = true;
       gl.uniform1i(L.uSnowDynamic, SNOW_UNITS.dynamic); gl.uniform1i(L.uSnowStatic, SNOW_UNITS.static); gl.uniform1i(L.uSnowContext, SNOW_UNITS.context);
       gl.uniform1i(L.uSnowFar, SNOW_UNITS.far); gl.uniform1i(L.uSnowAlbedo, SNOW_UNITS.albedo);
+      gl.uniform1i(L.uSnowLines, SNOW_LINES_UNIT);   // AUDIT PRECIP GROUND-9
     }
     if (S.frame !== this._frameStamp) {   // the frame's block, as the ground's (drawTerrain's PERF3 block)
       S.frame = this._frameStamp;
@@ -7526,6 +7660,18 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       gl.uniform4fv(L.uIndirect, this._indirect);
       gl.uniform3fv(L.uIndirectColor, this._c3(this._indirectColor));
       if (S.el) { this._el.snow = S.el; this._uploadEl('snow'); }
+      // AUDIT PRECIP GROUND-9: the frame's snowlines (setSnowFrame) - the mod's snow laid where the ground wears snow, at
+      // the window's first world tile and the scene point it stands at; none (uSnowSet.y 0) off the snow lane: the whole ground
+      const sf = this._snowFrame;
+      if (sf && this._snowTex) {
+        this._activeTexture(gl.TEXTURE0 + SNOW_LINES_UNIT);
+        gl.bindTexture(gl.TEXTURE_2D, this._snowTex);
+        this._activeTexture(gl.TEXTURE0);
+        gl.uniform3i(L.uSnowWin, sf.origin[0], sf.origin[1], sf.side);
+        gl.uniform3i(L.uEcoOrigin, sf.origin[0], sf.origin[1], 0);
+        gl.uniform2f(L.uSnowAnchor, sf.anchor[0], sf.anchor[1]);
+        gl.uniform4f(L.uSnowSet, sf.altitude, 1, sf.spacing, 0);
+      } else gl.uniform4f(L.uSnowSet, 0, 0, 0, 0);
     }
     this._csLoc.snow = S.cs;
     this._uploadCloudShadow('snow');
@@ -7641,8 +7787,13 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
    *  unused slot), `side` the W/E/S/N and `corner` the SW/SE/NW/NE slots
    *  (Int32Array 4 each; 0 the pixel's own set), `origin` its first world tile
    *  (Int32Array 3, the last 1). Null (every caller but the streaming world's
-   *  border pixels) draws the pixel's own set alone. */
-  drawTerrain(surface, modelMatrix, arrayTex, tilemapTex, tileSize, clip = false, eco = null) {
+   *  border pixels) draws the pixel's own set alone. PRECIP4: `snow` - on the
+   *  snow lane the pixel's first world tile (Int32Array 2, the ecotone's
+   *  frame: scenes/snowCoverHost.js drawOf), its snow read off the frame's
+   *  lines (setSnowFrame - AUDIT PRECIP GROUND-7) and its arrays' winter halves
+   *  off the arrays (GROUND-1). Null draws no snow - DFU's season on the
+   *  ground, the set as it is. */
+  drawTerrain(surface, modelMatrix, arrayTex, tilemapTex, tileSize, clip = false, eco = null, snow = null) {
     this._close2D();   // PERF-2D: the baseline back, before anything that needs it
     const gl = this.gl;
     if (!!clip !== this._terrainClip) this._terrainVariant(!!clip);   // FAR-CLIP1
@@ -7691,6 +7842,14 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       gl.uniform1i(this.tUTileArr, 0);
       gl.uniform1i(this.tUTilemap, 2);
       for (let k = 0; k < ECO_UNITS.length; k++) gl.uniform1i(this.tEco.arr[k], ECO_UNITS[k]);   // ECOTONE1
+      // AUDIT PRECIP GROUND-7: the frame's snow - its lines on their unit, its frame; the switch itself a draw's (below)
+      const sf = this._snowFrame;
+      gl.uniform1i(this.tSnow.Lines, SNOW_LINES_UNIT);
+      if (sf && this._snowTex) {
+        this._activeTexture(gl.TEXTURE0 + SNOW_LINES_UNIT);
+        gl.bindTexture(gl.TEXTURE_2D, this._snowTex);
+        gl.uniform3i(this.tSnow.Win, sf.origin[0], sf.origin[1], sf.side);
+      }
     }
     // PERF-TEX2: the TILEMAP is this pixel's own and always binds; the
     // tile ARRAY is the world's single atlas, the same object for every
@@ -7705,6 +7864,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     gl.bindTexture(gl.TEXTURE_2D, tilemapTex);
     // ECOTONE1: a border pixel's neighbours - their sets on units 3-5 (shadowed: a frame's border pixels share them) and
     // the three uniforms that say which wears which; any other pixel sets the one switch off, once while it stays off
+    const snowOn = !!(snow && this._snowFrame && this._snowTex);   // PRECIP4: this draw's snow, on a frame that has it
     if (eco) {
       const shadow = (this._tEcoTex ??= [null, null, null]);
       for (let k = 0; k < ECO_UNITS.length; k++) {
@@ -7719,9 +7879,27 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       gl.uniform4iv(this.tEco.corner, eco.corner);
       gl.uniform3iv(this.tEco.origin, eco.origin);
       this._tEcoOn = true;
+    } else if (snowOn) {
+      gl.uniform3i(this.tEco.origin, snow[0], snow[1], 0);   // AUDIT PRECIP GROUND-7: a lane draw's first world tile, the one origin the ecotone and the snow share
+      this._tEcoOn = null;
     } else if (this._tEcoOn !== false) {
       gl.uniform3i(this.tEco.origin, 0, 0, 0);
       this._tEcoOn = false;
+    }
+    // PRECIP4: the pixel's snow (render/snowCoverGlsl.js) - the frame's lines and this draw's switch; AUDIT PRECIP
+    // GROUND-1: each bound array's winter half read off the array itself (a twin is 2 x TWIN_LAYERS), shadowed
+    if (snowOn) {
+      const arr = this._tSnowArr, layer = (t) => (t && this._arrLayers.get(t) === 2 * TWIN_LAYERS ? TWIN_LAYERS : 0);
+      const a0 = layer(arrayTex), a1 = eco ? layer(eco.tex[0]) : 0, a2 = eco ? layer(eco.tex[1]) : 0, a3 = eco ? layer(eco.tex[2]) : 0;
+      if (arr[0] !== a0 || arr[1] !== a1 || arr[2] !== a2 || arr[3] !== a3) { gl.uniform4i(this.tSnow.Arr, a0, a1, a2, a3); arr[0] = a0; arr[1] = a1; arr[2] = a2; arr[3] = a3; }
+      if (this._tSnowOn !== true || this._tSnowAlt !== this._snowFrame.altitude) {
+        const sf = this._snowFrame;
+        gl.uniform4f(this.tSnow.Set, sf.altitude, 1, sf.spacing, 0);
+        this._tSnowOn = true; this._tSnowAlt = sf.altitude;
+      }
+    } else if (this._tSnowOn !== false) {
+      gl.uniform4f(this.tSnow.Set, 0, 0, 0, 0);
+      this._tSnowOn = false;
     }
     this._activeTexture(gl.TEXTURE0);
     this.stats.texBinds++;
@@ -7789,10 +7967,15 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       swell: u('uSwell'), absorb: u('uAbsorb'), open: u('uOpen'), openColor: u('uOpenColor'),   // WATER-NEXT 2
       sceneOn: u('uSceneOn'), scene: u('uScene'), sceneDepth: u('uSceneDepth'), sceneSize: u('uSceneSize'),
       rippleOn: u('uRippleOn'), ripple: u('uRipple'), rippleRect: u('uRippleRect'),   // WATER-NEXT 4
-      fog: { fogColor: u('uFogColor'), fogMode: u('uFogMode'), fogDensity: u('uFogDensity'), fogRange: u('uFogRange'), camPos: u('uCamPos'), focus: u('uFocus'), dwFog: u('uDwFog') },   // DW-C: and the sea's; TV1: the focus
+      fog: { fogColor: u('uFogColor'), fogMode: u('uFogMode'), fogDensity: u('uFogDensity'), fogRange: u('uFogRange'), camPos: u('uCamPos'), focus: u('uFocus'), dwFog: u('uDwFog'), haze: u('uJungleHaze') },   // DW-C: and the sea's; TV1: the focus; BANTHA1: the jungle's haze
       seaHaze: u('uSeaHaze'),   // FAR-SEA1: the far ring's haze on the sea
       // VC4 recorded that the deck's shadow reached neither the grass nor the water; WATER1 closes the water half
-      cloud: [u('uCloudShadowMap'), u('uCloudShadowRect')],
+      cloud: [u('uCloudShadowMap'), u('uCloudShadowRect'), u('uCloudShadowFar')],   // OW-HORIZON: and the far law past its square
+      // AUDIT PRECIP GROUND-5: the ground's snow, for a puddle's mask under it (render/snowCoverGlsl.js snowCoreGlsl)
+      snow: { lines: u('uSnowLines'), set: u('uSnowSet'), win: u('uSnowWin'), arr: u('uSnowArr'), origin: u('uEcoOrigin') },
+      // the program's own snow state, shadowed (PERF-EXT13: a frame without snow costs the water no call): its lines'
+      // unit sent, its switch (GL's own 0 - off - until sent), the altitude it holds, the winter half it reads
+      snowUnit: false, snowOn: false, snowAlt: NaN, snowArr: -1,
       maskUploaded: false,
     };
   }
@@ -7904,10 +8087,18 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     if (count > 0) gl.uniform3fv(L.pointColors, this._pointColorData(count, true));
     gl.uniform4fv(L.indirect, this._indirect);
     gl.uniform3fv(L.indirectColor, this._indirectColor);
+    // AUDIT PRECIP GROUND-5: the frame's snow lines (setSnowFrame) on their unit; each row says whether it reads them
+    if (this._snowFrame && this._snowTex) {
+      if (!L.snowUnit) { gl.uniform1i(L.snow.lines, SNOW_LINES_UNIT); L.snowUnit = true; }   // a sampler's unit is the program's: sent once
+      this._activeTexture(gl.TEXTURE0 + SNOW_LINES_UNIT);
+      gl.bindTexture(gl.TEXTURE_2D, this._snowTex);
+      gl.uniform3i(L.snow.win, this._snowFrame.origin[0], this._snowFrame.origin[1], this._snowFrame.side);
+    }
   }
 
-  /** WATER-NEXT 2: the draw state every water sheet takes, and the rows - [surface, modelMatrix, arrayTex, tilemapTex]
-   *  (the open sea's rows carry no textures). */
+  /** WATER-NEXT 2: the draw state every water sheet takes, and the rows - [surface, modelMatrix, arrayTex, tilemapTex,
+   *  snow] (the open sea's rows carry no textures; `snow` a pixel's first world tile on the snow lane - its puddles
+   *  under the snow wear its winter art's: AUDIT PRECIP GROUND-5). */
   _drawWaterRows(L, rows, n) {
     this._close2D();   // PERF-2D: every draw hands the baseline back first (a no-op after the callers' own)
     const gl = this.gl;
@@ -7936,8 +8127,18 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     gl.depthFunc(gl.LEQUAL);
     let bound = null;
     for (let i = 0; i < n; i++) {
-      const row = rows[i], surface = row[0], arrayTex = row[2], tilemapTex = row[3];
+      const row = rows[i], surface = row[0], arrayTex = row[2], tilemapTex = row[3], snow = row[4] && this._snowFrame && this._snowTex ? row[4] : null;
       gl.uniformMatrix4fv(L.model, false, row[1]);
+      // the row's snow: its first world tile its own; the switch, the altitude and its array's winter half shadowed
+      if (snow) {
+        const sf = this._snowFrame, half = arrayTex && this._arrLayers.get(arrayTex) === 2 * TWIN_LAYERS ? TWIN_LAYERS : 0;
+        gl.uniform3i(L.snow.origin, snow[0], snow[1], 0);
+        if (L.snowArr !== half) { gl.uniform4i(L.snow.arr, half, 0, 0, 0); L.snowArr = half; }
+        if (!L.snowOn || L.snowAlt !== sf.altitude) { gl.uniform4f(L.snow.set, sf.altitude, 1, sf.spacing, 0); L.snowOn = true; L.snowAlt = sf.altitude; }
+      } else if (L.snowOn) {
+        gl.uniform4f(L.snow.set, 0, 0, 0, 0);
+        L.snowOn = false;
+      }
       if (i === 0 || arrayTex !== bound) {
         this._activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D_ARRAY, arrayTex);
@@ -8014,27 +8215,47 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
    * buffers (render/lowPolyTreesRender.js); `runs` one handle's instances each - `drawStart` and `drawCount` its visible
    * ones in the instance buffer, its root `scale`, its `size` (w, h) and `sway`, and its submeshes' `subs` ({ offset in
    * bytes, count, tex, alpha - uMeshAlpha, color - uMeshColor, cull - 2 front faces alone }).
+   * BANTHA1: `slot` - whose trees they are: 0 Low Poly Trees' (systems/lowPolyTreesAssets.js), 1 the jungle's
+   * (systems/jungleTreesAssets.js). Each slot is its own door's frame - its buffers, its runs, its handover - and every
+   * slot's trees are drawn, each far picture giving way to its own slot's.
    * @param {{eye:number[], radius:number, band:number, gpu:any, runs:any[], cut:Set<any>}|null} frame
+   * @param {number} [slot]
    */
-  setLowPolyTrees(frame) { this._lpt = frame && frame.gpu ? frame : null; }
+  setLowPolyTrees(frame, slot = 0) { (this._lptSlots ??= [null, null])[slot] = frame && frame.gpu ? frame : null; }   // ??=: a test's bare prototype has no constructor run
 
-  /** LPT1: the handover's uniform - on (the eye and the radius) or off. */
-  _uploadLptCut(on) {
-    const f = this._lpt, gl = this.gl;
+  /** NODE-OUTLINE (render/nodeGlint.js): the 3D trees' frames this frame DREW, each slot's or null - the slots are spent
+   *  in the flats' call, so a pass after it (a node's glint, drawn on the very trees and far pictures the frame stood)
+   *  reads them here; a beginFrame forgets them. */
+  lptDrawnFrames() { return this._lptDrawn ?? []; }
+
+  /** BANTHA1: the slot's frame that draws the 3D trees a far picture's handle stands for this frame, or null - the
+   *  picture keeps whole. */
+  _lptFrameOf(proto) {
+    const slots = this._lptSlots;
+    if (!slots || !proto) return null;
+    for (let i = 0; i < slots.length; i++) if (slots[i]?.cut.has(proto)) return slots[i];
+    return null;
+  }
+
+  /** LPT1: the handover's uniform - on (a slot's frame: its eye and its radius) or off (null). */
+  _uploadLptCut(f) {
+    const gl = this.gl;
     const L = this.bbLpt ?? NO_LPT_LOCS;   // a set bound before LPT1 (a test's stub) declares none
-    if (on && f) gl.uniform4f(L.uLptCut, f.eye[0], f.eye[1], f.eye[2], f.radius);
+    if (f) gl.uniform4f(L.uLptCut, f.eye[0], f.eye[1], f.eye[2], f.radius);
     else gl.uniform4f(L.uLptCut, 0, 0, 0, 0);
-    if (on && f) gl.uniform1f(L.uLptBand, f.band);
+    if (f) gl.uniform1f(L.uLptBand, f.band);
   }
 
   /** LPT1: the trees' instanced draws - one a prototype's submesh, its visible instances - and the program left in flat
    *  mode. A submesh brings its material: its atlas, its colour, its cut, and its faces (a front-only material culls
    *  its back faces as the world's meshes do - AUDIT LPT A6). */
-  _drawLowPolyTrees() {
+  _drawLowPolyTrees(f) {
     this._close2D();   // PERF-2D: a draw closes the 2D run first (drawBillboards has; this says so of itself)
-    const gl = this.gl, f = this._lpt, L = this.bbLpt ?? NO_LPT_LOCS;
+    const gl = this.gl, L = this.bbLpt ?? NO_LPT_LOCS;
     gl.uniform1f(L.uMesh, 1);
-    this._uploadLptCut(1);
+    this._uploadLptCut(f);   // BANTHA1: this slot's eye, radius and band
+    const sl = f.sunLift ?? 0;   // AUDIT BANTHA1 TREE-2: and where its trees read their sun - the jungle's at their crowns, as their far pictures
+    if (sl !== this._bbSunLiftOn) { if (L.uSunLift) gl.uniform1f(L.uSunLift, sl); this._bbSunLiftOn = sl; }
     const ld = this._lightDir;   // the sun's direction, toward it (the mesh path's uLightDir); its share by its scale (AUDIT LPT A2)
     const sun = this._clockLit ? Math.min(1, Math.max(0, (this._sunScale ?? 0) / LPT_SUN_FULL)) : 0;
     gl.uniform4f(L.uLptSun, ld?.[0] ?? 0, ld?.[1] ?? 1, ld?.[2] ?? 0, sun);
@@ -8151,6 +8372,11 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // and the wind, which the host sets for its flats' call and not with the frame
     gl.uniform3fv(this.bbURight, camRight);
     gl.uniform3fv(this.bbUUp, camUp);
+    // NODE-OUTLINE: kept for the nodes' glint (render/nodeGlint.js) - the three components the vec3 uniforms read, as
+    // they read them: a caller's longer array (a seam test hands a matrix) is no basis to copy whole
+    const bbR = (this._bbRight ??= new Float32Array(3)), bbU = (this._bbUp ??= new Float32Array(3));
+    bbR[0] = camRight[0]; bbR[1] = camRight[1]; bbR[2] = camRight[2];
+    bbU[0] = camUp[0]; bbU[1] = camUp[1]; bbU[2] = camUp[2];
     if (this.bbUFlatWind) gl.uniform4fv(this.bbUFlatWind, this._flatWind ?? ZERO_FLAT_WIND);   // WIND3: one upload a call; uSway is the batch's
     if (this.bbUWindfallAxis) { gl.uniform4fv(this.bbUWindfallSway, this._windfallSway); gl.uniform4fv(this.bbUWindfallAxis, this._windfallAxis); }   // WINDFALL1: the mod's law, one upload a call
     const wfLaw = windfallLawOn(this._windfall);   // WINDFALL1: a batch's share is its mask under the mod's law
@@ -8225,7 +8451,9 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       // LPT1: every flat a flat, and none giving way, until a far picture's batch or the trees say otherwise
       gl.uniform1f((this.bbLpt ?? NO_LPT_LOCS).uMesh, 0);   // LPT1: flat mode, the handover off (a test's stub set declares neither)
       gl.uniform4f((this.bbLpt ?? NO_LPT_LOCS).uLptCut, 0, 0, 0, 0);
-      this._bbLptCutOn = 0;
+      this._bbLptCutOn = null;   // BANTHA1: the slot's frame whose handover is uploaded (null: none)
+      if (this.bbLpt?.uSunLift) gl.uniform1f(this.bbLpt.uSunLift, 0);   // AUDIT BANTHA1 TREE-2: every flat's sun at its root until a jungle batch says otherwise (the lane's alone)
+      this._bbSunLiftOn = 0;
       if (this._dwColumn && bc.uColumnOn) {
         const dw = this._dwColumn, v = this._view;
         this._dwCamFwd[0] = -v[2]; this._dwCamFwd[1] = -v[6]; this._dwCamFwd[2] = -v[10];   // the camera's forward: minus the view's third row
@@ -8323,7 +8551,9 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       if (ck || this._bbCrackOn) { gl.uniform2f(this.bbUCrack, ck ? ck[0] : 0, ck ? ck[1] : 0); this._bbCrackOn = !!ck; }
       const tn = b.tint;   // ARENA5: a batch's wash ([r, g, b]); every other batch white - sent when a washed batch comes or goes
       if (tn || this._bbTintOn) { gl.uniform3f(this.bbUBatchTint, tn ? tn[0] : 1, tn ? tn[1] : 1, tn ? tn[2] : 1); gl.uniform1f(this.bbUBatchDye, tn ? b.dye ?? 0 : 0); this._bbTintOn = !!tn; }   // VEIN-HUE: its dye with it
-      const lc = b.lptProto && this._lpt?.cut.has(b.lptProto) ? 1 : 0;   // LPT1: a far picture gives way to its 3D tree near the eye - sent when that changes between batches
+      const sl = b.sunLift ?? 0;   // AUDIT BANTHA1 TREE-2: a jungle far picture's sun at its crown
+      if (sl !== this._bbSunLiftOn) { if (this.bbLpt?.uSunLift) gl.uniform1f(this.bbLpt.uSunLift, sl); this._bbSunLiftOn = sl; }
+      const lc = b.lptProto ? this._lptFrameOf(b.lptProto) : null;   // LPT1: a far picture gives way to its 3D tree near the eye - sent when that changes between batches; BANTHA1: its own slot's
       if (lc !== this._bbLptCutOn) { this._uploadLptCut(lc); this._bbLptCutOn = lc; }
       this._bindVao(b.vao);
       gl.drawElements(gl.TRIANGLES, b.indexCount, gl.UNSIGNED_INT, b._ibOff | 0);   // PERF-ARENA: a still batch's range of its arena's indices
@@ -8342,7 +8572,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // one this pass never saw, and so never keyed.
     for (const b of batches) {
       if (b.castOnly) continue;   // MWNPC5b: a foe stood in its Morrowind body - its billboard draws nothing (recorded above, the shadow pass passes it over - MWNPC16: the body casts)
-      if (isSpectralArchive(b.archive) || b.conceal) continue;
+      if (ghostShaded(b) || b.conceal) continue;
       if (bbCull && !this._bbVisible(b)) { this.stats.bbCulled++; continue; }   // PERF-CROWD2
       billboardKey(b);
       opaque.push(b);
@@ -8353,7 +8583,10 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // LPT1: THE LOW-POLY TREES, on this program with this frame's light - and the lasts forgotten, since they bind their
     // own atlases and send their own size and origin. Drawn ONCE: the frame's set is spent here, so a later call this
     // frame (a spell, the gibs) or a scene the host leaves for (an interior) draws none and gives no picture way
-    if (this._lpt?.runs.length) {
+    const slots = this._lptSlots;
+    let treesNow = false;
+    if (slots) for (let i = 0; i < slots.length; i++) if (slots[i]?.runs.length) treesNow = true;
+    if (treesNow) {
       // AUDIT LPT A1: the trees take none of the last flat's own state - a struck peer sorted last flashed every tree
       if (lastFlash !== 0) { gl.uniform1f(this.bbUHitFlash, 0); lastFlash = 0; }
       if (lastGlow !== 0) { gl.uniform1f(this.bbUEliteGlow, 0); lastGlow = 0; }
@@ -8362,11 +8595,13 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       if (this._bbCrackOn) { gl.uniform2f(this.bbUCrack, 0, 0); this._bbCrackOn = false; }   // VEIN-CRACKS: the trees take no vein's seams
       if (this._bbTintOn) { gl.uniform3f(this.bbUBatchTint, 1, 1, 1); gl.uniform1f(this.bbUBatchDye, 0); this._bbTintOn = false; }
       if (this._bbColumnOn) { gl.uniform1f(bc.uColumnOn, 0); this._bbColumnOn = 0; }
-      this._drawLowPolyTrees();
+      for (let i = 0; i < slots.length; i++) if (slots[i]?.runs.length) this._drawLowPolyTrees(slots[i]);   // BANTHA1: every slot's trees
+      const drawn = this._lptDrawn ??= [null, null];
+      for (let i = 0; i < slots.length; i++) drawn[i] = slots[i]?.runs.length ? slots[i] : null;   // NODE-OUTLINE: what this frame drew, for the nodes' glint
       lastKey = null; lastW = NaN; lastH = NaN; lastOx = NaN; lastOy = NaN; lastOz = NaN; lastSway = null;
-      this._bbLptCutOn = -1;
+      this._bbLptCutOn = undefined;   // whatever the next batch's slot, it is sent
     }
-    this._lpt = null;
+    if (slots) slots.fill(null);
     // The BLENDED phase: the spectral batches and (ECV1) the concealed
     // ones together, depth-writes off, drawn BACK TO FRONT by their
     // origin's distance from the camera so a translucent foe behind
@@ -8389,7 +8624,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       gl.depthMask(false);
       for (const b of blended) {
         const c = b.conceal;
-        gl.uniform1i(this.bbUSpectral, isSpectralArchive(b.archive) ? 1 : 0);
+        gl.uniform1i(this.bbUSpectral, ghostShaded(b) ? 1 : 0);
         gl.uniform4f(this.bbUConceal, c ? c.mode : 0, c ? c.alpha : 0, c ? c.t : 0, c ? c.phase : 0);
         drawOne(b);
       }

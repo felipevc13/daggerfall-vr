@@ -230,8 +230,9 @@ createComeSailAwayRuntime each keep their whole state in one
 function's scope, and world.js grew from 8,897 lines to 36,374 in a month. New
 behaviour goes into a module the host wires (`fishHost.js` is the shape) - and
 on the relay into a Room method of its own, not into `_message` - never into the
-host's own function. `test/scenes/hostceiling.test.js` holds each to a ceiling in code
-lines (comments are no weight; a fix's 250 lines of room), on a pull request
+host's own function. `test/scenes/hostceiling.test.js` holds each to a ceiling in logical
+lines (statements and entries, so layout and comments are no weight - LEGIBLE 1,
+`01-Overview/Readability-Arc.md`; a fix's 400 of room), on a pull request
 and on a contributor's machine, never on a deploy; a slice that moves code out
 lowers it in the same change. The method and the map are
 `01-Overview/Host-Split.md`.
@@ -299,6 +300,7 @@ alone, flagged at its new site inside calculateAttackDamage.
 - `src/scenes/exterior.js` - TP2 INTERIM - THE ONE ARM THIS HOST CANNOT TAKE: a jump to an anchor on ANOTHER map pixel. Teleport.cs:145-163 respawns at the anchor's world position, which is StreamingWorld's job (scenes/world.js's `_teleportToPixel`, the door `teleportPrompt -> teleportTo` opens); `?exterior` loads ONE fixed city and runs no streamer, so there is no arrival to build - and it says so instead of eating the cast, the way the standalone dungeon says so about its two windows.
 - `src/scenes/horseCartPool.js` - FLAGGED: a peer's word does not say how many horses they own - their parked pair is drawn whole, and their second horse is not drawn at their parked wagon while they ride the first (bible/06-Systems/Wagons.md WAGONS3).
 - `src/scenes/horseCartPool.js` - FLAGGED: the horses are billboards, so a trace's collar and a rein's bit are measured points on the picture, not on a body - from some angles a trace meets the picture beside the horse's chest (bible/06-Systems/Wagons.md WAGONS3).
+- `src/scenes/jungleHost.js` - scenes/exterior.js (the fixed city), scenes/worldModes.js (interiors), scenes/dungeonContext.js (dungeons) - FLAGGED: none stands the wilderness the jungle grows in
 - `src/scenes/merchantYardsHost.js` - scenes/exterior.js - FLAGGED: the single-town bench stands no yard; the streaming host is where its towns are played.
 - `src/scenes/poiHost.js` - scenes/exterior.js - FLAGGED: the fixed-city bench (`?exterior`, `?region&loc`) has no feed; a POI stands in the streamed world.
 - `src/scenes/portHost.js` - scenes/exterior.js - FLAGGED: the single-town bench stands no port; the streaming host is where its towns are played.

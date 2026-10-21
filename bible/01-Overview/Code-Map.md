@@ -101,6 +101,7 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 | Enhanced skin | `ui/enhanced/` |
 | Eye Of The Beholder | `player/eyeOfTheBeholder/` |
 | Factions | `systems/faction/` |
+| Festival (the Witches' Festival, a live event) | `systems/festival/` - and loose: `net/festivalLaw.js`, `scenes/witchesHost.js`, `world/witchesDecor.js`, `world/festivalArt.js`, `ui/wyrdDoor.js`, `ui/wyrdWindow.js`, `ui/profileIcons.js` |
 | Firmament | `net/firmament/` |
 | First-person weapon | `combat/weapon/` |
 | Foraging | `systems/foraging/` |
@@ -154,6 +155,7 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 | Ships (models) | `world/ships/` |
 | Sieges | `net/siege/` |
 | Sigil Sets | `systems/sigil/` |
+| Starfall (the Witches' Festival's fallen stars) | `systems/starfall/`, `net/starfall/`, `world/starfall/`, `render/starfall/`, `scenes/starfall/`, `ui/starfall/` |
 | Spells | `systems/spell/`, `ui/spell/` |
 | Studio art (the artists' folder) | `systems/studioArt/` |
 | Survival | `systems/survival/` |
@@ -190,6 +192,7 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 
 | Folder | What lives there |
 |---|---|
+| `src/characters/bodyMotion/` | The Morrowind body's own motion in third person (`04-Characters/Body-Motion.md`): the body measured, the gait, the carry, the blows, the solve, one per rig. |
 | `src/characters/enemy/` | Enemies: entity, motor, attacks, casting, sounds. |
 | `src/characters/mobile/` | DFU's mobile units: types, persons, factions. |
 | `src/characters/ownModels/` | The port's own 3D models: heads, armour, clothing, weapons. |
@@ -236,6 +239,7 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 | `src/net/safety/` | The chat's safety: the relay's stamp on a line, its feed to the reviewer, a report's law and the code of conduct (`11-Multiplayer/Chat-Safety-Arc.md`) - online - the law both ends run. |
 | `src/net/serpent/` | The sea serpent, the sea's world boss (`11-Multiplayer/Sea-Serpent.md`) - online - the law both ends run. |
 | `src/net/siege/` | Sieges of a seat - online - the law both ends run. |
+| `src/net/starfall/` | The Starfall, the Witches' Festival's fallen stars (`11-Multiplayer/Starfall.md`) - online - the law both ends run: the night and its stars, the defense's ledger, the receipt. |
 | `src/net/superDungeon/` | The Abyss Dungeon, the super dungeons (`11-Multiplayer/Super-Dungeons-Look.md`) - online - the law both ends run. |
 | `src/net/wild/` | The Wrothgarian open zone (`11-Multiplayer/Wild-Zone.md`) - online - the law both ends run. |
 
@@ -258,6 +262,7 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 |---|---|
 | `src/render/eliteGates/` | The Elite Breach (`11-Multiplayer/Elite-Gates.md`, `Elite-Gates-Look.md`, `Elite-Gates-Ascent.md`) - its passes: the sky, the mist, the motes, the lines, the lamps and the stairs. |
 | `src/render/gate/` | The Oblivion Gate, the world boss on the shared clock (`11-Multiplayer/World-Bosses.md`) - its passes. |
+| `src/render/starfall/` | The Starfall (`11-Multiplayer/Starfall.md`) - its sky: the omen, the fall, the landing and the beacon. |
 | `src/render/superDungeon/` | The Abyss Dungeon, the super dungeons (`11-Multiplayer/Super-Dungeons-Look.md`) - its passes. |
 
 #### `src/scenes/`
@@ -273,6 +278,7 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 | `src/scenes/livingWorld/` | The living world in the hosts (`06-Systems/Living-World-II.md`): indoors, the roads, the watch, the deep's remains. |
 | `src/scenes/naval/` | Ships and the sea in the hosts: the naval host, the crew, the flames. |
 | `src/scenes/quest/` | Quests - the hosts' wiring. |
+| `src/scenes/starfall/` | The Starfall (`11-Multiplayer/Starfall.md`) - the hosts' wiring: the stars on a screen, their defense on the camp law, and a held star's rewards. |
 | `src/scenes/superDungeon/` | The Abyss Dungeon, the super dungeons (`11-Multiplayer/Super-Dungeons-Look.md`) - the hosts' wiring. |
 | `src/scenes/wagon/` | Wagons in the hosts (`06-Systems/Wagons.md`): the riders and the warden. |
 
@@ -290,7 +296,9 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 | `src/systems/dungeon/` | A dungeon's state: its respawn, tier, echo and sense. |
 | `src/systems/dynamicSkies/` | The Dynamic Skies mod - the law. |
 | `src/systems/eliteGates/` | The Elite Breach's law on this screen (`11-Multiplayer/Elite-Gates.md`, `Elite-Gates-Look.md`, `Elite-Gates-Ascent.md`): the Weir Key and its find, the Spire's kit and Vestiges, the lords' arms, the spoils, the score and its mix and echo. |
+| `src/systems/enemyExpansion/` | Daggerfall Enemy Expansion (Kamer & Kab), the mod's own (`04-Characters/Enemy-Expansion.md`): its CSV reading, its tables and art index as generated text, the tables read as BestiaryMod reads them, its pictures on the texture door, its encounter tables as it picks them, its equipment as its copy of RRI's class arm reads a class (`dexEquipment.js`), and its install - the fifty enemies on DFU's custom-enemy doors. |
 | `src/systems/faction/` | The factions' relations, reputation and standing - the law. |
+| `src/systems/festival/` | The Witches' Festival on this screen (`06-Systems/Witches-Festival.md`): the Soul Cakes and the Hearth Offering, the finds, the Wyrd Sister's sales, the wearing, the offerings' moves and every word. |
 | `src/systems/foraging/` | The Foraging mod - the law. |
 | `src/systems/gambit/` | The King's Gambit (`11-Multiplayer/Kings-Gambit.md`) - the law. |
 | `src/systems/gate/` | The Oblivion Gate's law (`11-Multiplayer/World-Bosses.md`): the site, the omen, the score and the spoils. |
@@ -308,6 +316,7 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 | `src/systems/party/` | A party: travelling, resting and walking together - the law. |
 | `src/systems/professions/` | The professions' law (`06-Systems/Professions-Arc.md`): their items, templates and sounds. |
 | `src/systems/quest/` | The quest machine: the parser, its tables, actions and conditions. |
+| `src/systems/questlines/` | The questlines over the quest machine (`06-Systems/Questlines-Arc.md`): the objective sheets and branch patches by family, the actions, the rewards, the acts feed and the elite foe's act (`qlEliteFoe.js`, which the dungeon host hands its place - AUDIT QUESTLINES ACTS-8), the questlines, their runner and the guilds' ladders - the law. |
 | `src/systems/region/` | A region's conditions, hubs and power - the law. |
 | `src/systems/rest/` | Resting: the rest window, its supplies and its warning - the law. |
 | `src/systems/revenant/` | The Revenant: the feud, its companions (their kit, their errands abroad, their stars), its art, personality, voice, trophy and fate. |
@@ -319,8 +328,9 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 | `src/systems/sigil/` | Sigil Sets (`11-Multiplayer/Sigil-Sets.md`) - the law. |
 | `src/systems/song/` | Music: the songs, their player and manager - the law. |
 | `src/systems/spell/` | Spells: effects, the spell maker, power and the impact's sound. |
+| `src/systems/starfall/` | The Starfall (`11-Multiplayer/Starfall.md`) - the law: the covens and the night's coven, the night's stars over the gate's scan, the Witches' Night; the coven's waves, masters and circles, the star's law on a player's screen, every word it says and its sounds; Starfall Glass and a held star's spoils. |
 | `src/systems/studioArt/` | The studio (`07-Rendering/Studio-Art.md`): the game's artists' own pictures (`public/art/studio/`) on the texture door, and the slots they paint. |
-| `src/systems/superDungeon/` | The Abyss Dungeon's law (`11-Multiplayer/Super-Dungeons-Look.md`): the site, the omen, the score, the spoils and the rift's sound. |
+| `src/systems/superDungeon/` | The Abyss Dungeon's law (`11-Multiplayer/Super-Dungeons-Look.md`): the site, the omen, the score, the spoils, the rift's sound and the slots kept on the device. |
 | `src/systems/survival/` | Survival: needs, camping, food, rest, exposure. |
 | `src/systems/talk/` | Talking to people: topics, sessions, macros - the law. |
 | `src/systems/town/` | A town's population, seats and watch. |
@@ -366,9 +376,11 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 | `src/ui/poi/` | Points of interest: the editor's panels - its windows. |
 | `src/ui/professions/` | The professions on screen: the HUD, the reticle, the pages and their styles. |
 | `src/ui/quest/` | Quests - its windows. |
+| `src/ui/questlines/` | The Quests tab's questline parts: objectives, rewards waiting, a questline's and a ladder's page (`06-Systems/Questlines-Arc.md` section 6). |
 | `src/ui/revenant/` | The Revenant on screen: its card, its page and its fate. |
 | `src/ui/settings/` | The settings window's law, its map of rows and its copy. |
 | `src/ui/spell/` | Spells on screen: the icons, the icon picker and the spell maker's window. |
+| `src/ui/starfall/` | The Starfall on screen: a fallen star's tracker, the master's bar and the star's colours. |
 | `src/ui/superDungeon/` | The Abyss Dungeon on screen: the title card, the Remnant's bar, the marks and the map mark. |
 | `src/ui/touch/` | The touch layer: buttons, gestures, look - its windows. |
 | `src/ui/town/` | A town on screen: its sheet, its quarters, its marks and the door to its map. |
@@ -388,9 +400,11 @@ wiring in `src/scenes/`. A feature with one or two modules in a layer keeps them
 | `src/world/eliteGates/` | The Elite Breach in the world (`11-Multiplayer/Elite-Gates.md`, `Elite-Gates-Look.md`, `Elite-Gates-Ascent.md`): the halls, the ground, the ruin, the vista and the underside, the platforms, the rooms, the kit and its art, the air and the lamps - its models and assembly. |
 | `src/world/gate/` | The Oblivion Gate in the world: the arena, the art, the boss, the model, the clearance and the spew. |
 | `src/world/interior/` | Interiors: layout, lights, glass - its models and assembly. |
+| `src/world/jungle/` | Bantha's jungle (`03-World/Bantha-Jungle.md`): where it is (the owner's area, `banthaArea.js`, and its field), the owner's trees and their measures, and its haze's law. |
 | `src/world/merchantYards/` | A town's Stable and Wagon Yard (`03-World/Merchant-Yards.md`) - its models and assembly. |
 | `src/world/road/` | Roads: the network, its painter, verges and clearance - its models and assembly. |
 | `src/world/ships/` | The port's own ships: the galleon, the carrack, the large boat - its models and assembly. |
+| `src/world/starfall/` | The Starfall in the world: the star's art, its crater and stone, and Starfall Glass's picture. |
 | `src/world/superDungeon/` | The Abyss Dungeon in the world: the halls, the steps, the rift, the realm and its sky, the Remnant, and their art. |
 | `src/world/tamriel/` | The continent's ground: geography, frame, raster - its models and assembly. |
 | `src/world/terrain/` | Terrain generation, its worker and sampler - its models and assembly. |
@@ -409,14 +423,14 @@ folders are not a layer of `src/`:
 |---|---|
 | `test/server/` | The relay's and the account Worker's own tests (`server/`, `server-account/`, their migrations). |
 | `test/tooling/` | The tools, the scripts, the desktop shell and CI's workflows: the move tool (`tidy1_movetool.test.js`; the tree it left, `tidy1_codemap.test.js`), the shards, the release, the installers. |
-| `test/bible/` | The bible's own laws: `manifest.test.js` (the table in Testing.md), `audit18_bible_docs.test.js` (the docs' cites, counts and index), and the D1-NEAR record's pins. The other gates CLAUDE.md names run from the folder of what they read: `test/tooling/` (citeanchor, mutantdrift), `test/scenes/` (citedrift), `test/systems/` (ledger). |
+| `test/bible/` | The bible's own laws: `manifest.test.js` (unique test names, and Testing.md's closed file table, LEGIBLE 1b), `audit18_bible_docs.test.js` (the docs' cites, counts and index), and the D1-NEAR record's pins. The other gates CLAUDE.md names run from the folder of what they read: `test/tooling/` (citeanchor, mutantdrift), `test/scenes/` (citedrift), `test/systems/` (ledger). |
 | `test/tree/` | Laws over the whole tree: every module loads, no temporal dead zone, the shaders evaluate. |
 | `test/fixtures/` | Data the tests read. Not tests. |
 
 The shared helpers stay at the root - `test/*.mjs` (`importGraph.mjs`, `fakeRoom.mjs`, `bibleIndex.mjs`, ...) and
 `test/modsOff.js` - one import away from every folder. A file's NAME is unique across the tree
-(`test/bible/manifest.test.js` holds it): Testing.md's rows find a test by its name, so a row does not move with
-its test; `tools/testTimes.json` and the bible's paths spell its folder, and the move tool rewrites them.
+(`test/bible/manifest.test.js` holds it): the bible names a test by its file name alone, so a mention does not move
+with its test; `tools/testTimes.json` and the bible's paths spell its folder, and the move tool rewrites them.
 
 **A new test** goes in the folder of what it tests, by the same rule as a new module (below): its layer, then its
 feature's folder if the layer has one. Every list of tests - `npm test`, a CI shard, `test:changed`, the manifest, the

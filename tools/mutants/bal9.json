@@ -200,7 +200,7 @@
   {
     "name": "BAL9c-the-law-unmoved",
     "file": "src/systems/item/itemLaw.js",
-    "old": "export const ITEM_LAW_VERSION = 7;",
+    "old": "export const ITEM_LAW_VERSION = 8;",
     "new": "export const ITEM_LAW_VERSION = 2;",
     "tests": [
       "test/systems/tech1_roster.test.js",
@@ -210,10 +210,11 @@
   {
     "name": "BAL9c-the-service-behind-the-law",
     "file": "server-account/src/service.js",
-    "old": "export const ACCOUNT_VERSION = 'acct156';",
+    "old": "export const ACCOUNT_VERSION = 'acct165';",
     "new": "export const ACCOUNT_VERSION = 'acct120';",
     "tests": [
       "test/systems/tech1_roster.test.js"
-    ]
+    ],
+    "note": "LEAN-READS (PIN MOVED): acct164 (acct159, acct160, acct161, acct162 then acct163 on its branch, renumbered past QL12, WB14, JUNGLE-WOODS, NAME-WORDS and PURSE-MEND at the merges). PURSE-MEND and COMPANION-DROP (PIN MOVED): acct163 (acct162 on its branch, renumbered past NAME-WORDS at the merge). JUNGLE-WOODS (PIN MOVED): acct161 (acct159 then acct160 on its branch, renumbered past QL12 and WB14 at the merges). QL12 (PIN MOVED): acct159."
   }
 ]

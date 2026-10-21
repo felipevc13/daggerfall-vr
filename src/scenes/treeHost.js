@@ -35,7 +35,9 @@ import { materialLabel } from '../systems/professions/profItems.js';
 import { liveStat } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { TERRAIN_SIZE } from '../world/terrain/terrainSampler.js';
+import { JUNGLE_MEASURES, FOOT_TOP } from '../world/jungle/jungleModels.js';   // AUDIT BANTHA1 TREE-3: a jungle tree's mark
 import { insideRocks, TREE_RECORDS, isTreeRecord, FOREST } from '../world/terrain/terrainNature.js';   // NODE-CLEAR: the rock check's one home; FOREST1: and the Tree records', and what the woods are
+import { noteAct } from '../systems/questlines/qlActs.js';   // QL11: the features' acts, heard by the running quests
 
 /** World of Daggerfall's Tree records (FOREST1: their home is world/terrain/terrainNature.js, where the forests read them). */
 export { TREE_RECORDS, isTreeRecord };
@@ -53,6 +55,22 @@ export const LOGS_TAKE_M = 1.5;
 export const TRUNK_LIFT = 1.2;
 /** NODE-MARKS: a tree's glow about its root (m) - up its trunk, not its crown. */
 export const TREE_MARK = Object.freeze({ w: 2.6, h: 3.4 });
+/** AUDIT BANTHA1 TREE-3: A JUNGLE TREE'S MARK stands outside what the tree draws about its root - its trunk at its scale,
+ *  and where its crown hangs to the ground (the banyan's roots, the flame tree's curtains) its foot - and this much more
+ *  (m): the mark's 0.6 m (render/nodeGlow.js NODE_GLOW_PULL) stood it inside a jungle trunk, 90-100% of it hidden. */
+export const JUNGLE_MARK_CLEAR = 0.6;
+const _jungleMarks = new Map();
+/** A jungle tree's mark (made once a species and scale). @param {{ jungle: number, js: number }} flat */
+export function jungleTreeMark(flat) {
+  const key = flat.jungle * 1000 + Math.round(flat.js * 100);
+  let m = _jungleMarks.get(key);
+  if (!m) {
+    const t = JUNGLE_MEASURES[flat.jungle], hung = t.crownFrom <= FOOT_TOP;
+    m = Object.freeze({ w: TREE_MARK.w, h: TREE_MARK.h, pull: (hung ? t.foot : t.trunk) * flat.js + JUNGLE_MARK_CLEAR });
+    _jungleMarks.set(key, m);
+  }
+  return m;
+}
 /** The Wood-Axe in the hand (FORAGE0 14.1): DFU's own War Axe, its chop StrikeDownRight's frames. */
 export const AXE_HAND = Object.freeze({ group: 'Weapons', templateIndex: 128, material: 0 });
 const CHOP_FRAMES = 5;
@@ -76,13 +94,15 @@ export function standTrees({ px, py, day, climate, confirmed = false, forest = n
   const all = forest?.trees ?? [];
   if (!WOOD_TABLES[climate] || !all.length) return out;
   const woods = all.filter((f) => (f.wood ?? 0) >= FOREST.woods);   // FOREST1 (F3)
-  const flats = woods.length ? woods : all;
+  // NODE-CLEAR (AUDIT 2026-10-01 part four): never a tree inside a rock piece, where no look reaches it - asked once a
+  // flat, not once a flat a tree (JUNGLE-WOODS: the jungle's 48 trees a day over its ~5,400 tree flats)
+  const flats = (woods.length ? woods : all).filter((f) => !insideRocks(rocks, f.x, f.z));
   const claimed = new Set();
   for (const t of trees({ x: px, y: py, day, climate, confirmed })) {
     const lx = t.u * TERRAIN_SIZE, lz = t.v * TERRAIN_SIZE;
     let best = null, bestD = Infinity;
     for (const f of flats) {
-      if (claimed.has(f.id) || insideRocks(rocks, f.x, f.z)) continue;   // NODE-CLEAR (AUDIT 2026-10-01 part four): never a tree inside a rock piece, where no look reaches it
+      if (claimed.has(f.id)) continue;
       const d = (f.x - lx) ** 2 + (f.z - lz) ** 2;
       if (d < bestD) { bestD = d; best = f; }
     }
@@ -155,6 +175,8 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
   /** AUDIT 30 A11: the pixels torn down - a fall's logs whose texture came after its pixel went are never laid (an
    *  entry's batch list outlives it, so it could not say so). */
   const torn = new WeakSet();
+  /** NODE-OUTLINE: each tree's pictures, made once a batch it stands in (none made a frame) */
+  const pictured = new WeakMap();
   const drop = (entry, b) => {
     const i = entry.batches.indexOf(b);
     if (i >= 0) entry.batches.splice(i, 1);
@@ -188,7 +210,17 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
     },
     gone: (n) => goneIn(book, n.key, 'logs'),
     goneSound: 'fall',   // GATHER-FEEL: the tree heard coming down, its ground struck as the picture lies flat (FALL_S)
-    mark: (n) => (goneIn(book, n.key, 'logs') ? null : TREE_MARK),   // NODE-MARKS: a standing tree; a felled one's stump none
+    mark: (n) => (goneIn(book, n.key, 'logs') ? null : n.flat?.jungle != null ? jungleTreeMark(n.flat) : TREE_MARK),   // NODE-MARKS: a standing tree; a felled one's stump none; AUDIT BANTHA1 TREE-3: a jungle tree's outside its trunk
+    /** NODE-OUTLINE (render/nodeGlint.js): a standing tree's picture is its forest's own flat - and near the eye the 3D
+     *  tree that stands for it, found by the flat's centre (the very array its pixel's tree set holds). */
+    picturesOf(n, entry) {
+      const g = entry?.forest?.groups?.get(n.flat?.group);
+      const c = g?.centers?.[n.flat.i];
+      if (!g?.batch || !c) return null;
+      let p = pictured.get(n);
+      if (!p || p[0].batch !== g.batch || p[0].center !== c) pictured.set(n, (p = [{ batch: g.batch, first: n.flat.i, count: 1, centers: [c], center: c, entry }]));
+      return p;
+    },
     tools: Object.freeze([FT.WoodAxe]),   // TOOL-USE: the Wood-Axe's Use at a tree is E there
     where: () => actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS),   // SETTLE-SAID
     /** PROF-MENU: the menu's title - the tree its wood is. */
@@ -281,6 +313,8 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
       for (let i = logsLying.length - 1; i >= 0; i--) if (logsLying[i].entry === entry) logsLying.splice(i, 1);
     },
     cleanNote: () => ' (every chop a Clean Cut)',
+    /** QL11: a tree's logs the service answered (the host's one answer to a harvest: the act's own, or a kept one's). */
+    answered() { noteAct('wood-chopped'); },   // QL11: wood chopped
     title: () => 'Woodcutter',
   };
 }

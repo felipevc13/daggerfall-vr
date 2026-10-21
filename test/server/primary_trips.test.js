@@ -70,7 +70,7 @@ test('PRIMARY-TRIPS YARDS-REPLICA: a town\'s yards are read on a session of thei
     await yardsKept(ctx, 1291, T0);
     await yardsKept(ctx, 1291, T0 + 1);   // kept: no read
     assert.deepEqual(db._sessions.map((s) => s.constraint), ['first-unconstrained'], 'the first read any instance\'s, the kept answer no read at all');
-    assert.match(db._sessions[0].statements.join('\n'), /FROM home_decor WHERE map_id = \? AND yard = 1/);
+    assert.match(db._sessions[0].statements.join('\n'), /LEFT JOIN home_yards_ver v ON v\.map_id = q\.m LEFT JOIN home_yards y/);   // PIN MOVED (YARD-SNAP; AUDIT LEAN-READS 2 B3: the version a row of its own): the town's version and built row - a town with no yard has none, and no rows are read
     await yardsKept(ctx, 1291, T0 + 60);   // past YARDS_KEPT_S
     const mark = db._sessions[1]?.constraint;
     assert.ok(mark && mark !== 'first-unconstrained' && mark !== 'first-primary', `the next read from the last one's bookmark (${mark})`);
@@ -94,7 +94,8 @@ test('PRIMARY-TRIPS SAVE-BATCH: a checkpoint reads its record\'s row, the ledger
   assert.equal(cold.trips.length, 3, `the lookup, the reads, the write (${cold.trips.map((t) => t.batch ? `BATCH(${t.batch.length})` : t.sql.slice(0, 40)).join(' | ')})`);
   const reads = cold.trips[1].batch ?? [];
   assert.equal(reads.length, 4);
-  assert.ok(has(cold.trips[1], /FROM realm_characters WHERE id = \? AND player = \?/) && has(cold.trips[1], /FROM item_uids WHERE char_id = \?1 OR claim_char = \?1/) && has(cold.trips[1], /FROM item_dupes WHERE char_id = \?/) && has(cold.trips[1], /FROM realm_config WHERE key = 'budget'/));
+  // PIN MOVED (SESSION-SIGN, AUDIT PLAN-1000 E3): the record's row asks its session and the ban beside it, its places numbered
+  assert.ok(has(cold.trips[1], /FROM realm_characters WHERE id = \?1 AND player = \?2/) && has(cold.trips[1], /FROM item_uids WHERE char_id = \?1 OR claim_char = \?1/) && has(cold.trips[1], /FROM item_dupes WHERE char_id = \?/) && has(cold.trips[1], /FROM realm_config WHERE key = 'budget'/));
   const warm = await ask(save);
   assert.equal(warm.r.status, 200);
   assert.equal(warm.trips[1].batch?.length, 3, 'the config this isolate keeps is not asked');
@@ -155,7 +156,8 @@ function laggingD1() {
   const mark = (n) => `${n.toString(16).padStart(8, '0')}-00000000-00000000-${'0'.repeat(32)}`;
   const posOf = (m) => parseInt(m.slice(0, 8), 16);
   const L = { refuse: /** @type {string | null} */ (null), sessions: /** @type {{ c: string, on: string }[]} */ ([]) };
-  const stmtOn = (node, sql, refused) => { const st = node.db.prepare(sql); let a = []; const api = { bind(...x) { a = x; return api; }, async all() { if (refused) throw new Error('D1_ERROR: bookmark refused'); return { results: st.all(...a) }; }, async first() { return st.get(...a) ?? null; }, async run() { return { meta: { changes: st.run(...a).changes } }; } }; return api; };
+  // PIN MOVED (YARD-SNAP): a refused bookmark refuses its first statement whatever it is - the town's built row now
+  const stmtOn = (node, sql, refused) => { const st = node.db.prepare(sql); let a = []; const api = { bind(...x) { a = x; return api; }, async all() { if (refused) throw new Error('D1_ERROR: bookmark refused'); return { results: st.all(...a) }; }, async first() { if (refused) throw new Error('D1_ERROR: bookmark refused'); return st.get(...a) ?? null; }, async run() { return { meta: { changes: st.run(...a).changes } }; } }; return api; };
   const binding = {
     prepare: (sql) => stmtOn(primary, sql, false),
     withSession(c) {

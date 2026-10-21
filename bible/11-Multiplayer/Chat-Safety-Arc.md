@@ -319,7 +319,8 @@ as `#<account id>`, which `/cases` shows beside each name, where two players sha
 `POST /v1/mod/cases`, `/v1/mod/case` and `/v1/mod/dismiss`, a moderator's alone.
 
 **Who may act is the game's question.** `DISCORD_MODERATORS` pairs a Discord user's id with a game handle; a press is that
-account's act and only while it holds `MODERATOR_HANDLES` or `DEVELOPER_HANDLES`. Taking a handle off the list takes the
+account's act and only while it holds `MODERATOR_HANDLES` or `DEVELOPER_HANDLES` (or, SHADOW-FANG-MOD, a title in
+`MOD_TIERS` - Shadow Fang's list). Taking a handle off the list takes the
 buttons with it; a Discord role grants nothing; the record names the moderator's own account, "(Discord)".
 
 **Every interaction is signed** by the Discord application's Ed25519 key; the service checks the signature over the exact

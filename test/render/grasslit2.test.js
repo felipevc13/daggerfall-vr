@@ -206,7 +206,7 @@ test('GRASS-LIT2: the vertex stage still fits the vectors WebGL2 promises every 
     for (const v of names.split(',')) vectors += Number(v.match(/\[(\d+)\]/)?.[1] ?? 1) * (type === 'mat4' ? 4 : 1);
   }
   assert.ok(vectors <= 256, `${vectors} vectors at most`);
-  assert.equal(vectors, 221, 'the count the docs quote');   // FLICKER-FIX: 212 with eight casters - uPointShadowParams and uShadowIndex are twelve now (+8); MEADOW1: 221, the meadow's switch (+1)
+  assert.equal(vectors, 222, 'the count the docs quote');   // FLICKER-FIX: 212 with eight casters - uPointShadowParams and uShadowIndex are twelve now (+8); MEADOW1: 221, the meadow's switch (+1); OW-HORIZON: 222, the cloud block's far law (+1 - never told here, so the grass reads (0, 0): the map to its edge, as before)
   // the two const face tables are 12 more if a driver keeps a dynamically indexed const array in uniform storage
   assert.ok(vectors + 12 <= 256);
   assert.ok(GAME_GRASS_VS.includes(`uniform vec4 uPointLights[${GRASS_MAX_LIGHTS}];`) && GAME_GRASS_VS.includes(`uniform vec3 uPointColors[${GRASS_MAX_LIGHTS}];`));
@@ -361,8 +361,9 @@ test('GRASS-LIT2: the host reads the slope off the near grid\'s normals it keeps
   assert.ok(learn.startsWith('const drawnMeans = grassRecords.has(groundArchive) ? null\n      : groundDrawnMeans.has(groundArchive) ? groundDrawnMeans.get(groundArchive)\n      : (await dfmodGroundLayers(groundArchive, groundTex))?.map(tileMeanColour) ?? null;'));
   assert.ok(learn.indexOf('await') < learn.indexOf('grassRecords.set(') && learn.includes('groundMeanColour.set(groundArchive, drawnMeans ?? layers.map(tileMeanColour));'));
   // AUDIT GRASS-LIT2 B2: the means are the UPLOADED layers' - taken beside the upload, not asked of the door again
-  assert.ok(w.includes('if (labGrass) groundDrawnMeans.set(groundArchive, modLayers ? modLayers.map(tileMeanColour) : null);'));
-  assert.ok(w.indexOf('renderer.uploadTileArray(groundArchive, modLayers ? layers : markPuddleWater(layers));') < w.indexOf('if (labGrass) groundDrawnMeans.set('));
+  // AUDIT PRECIP GROUND-2 (PIN MOVED): the set's OWN layers' means - never its twin's winter half
+  assert.ok(w.includes('if (labGrass) groundDrawnMeans.set(groundArchive, own.modLayers ? own.modLayers.map(tileMeanColour) : null);'));
+  assert.ok(w.indexOf('renderer.uploadTileArray(key, winter == null ? own.layers : twinLayers(') < w.indexOf('if (labGrass) groundDrawnMeans.set('));
   assert.ok(learn.includes('grassRecords.set(groundArchive, grassRecordsOf(layers));'), 'which records are grass stays the classic file\'s question');
   // a mod's big tile is read every k-th texel, k odd - a two-texel pattern (the blue here) is read on both its phases; a classic tile whole
   const big = { width: 1024, height: 1024, colors: new Uint8Array(1024 * 1024 * 4) };

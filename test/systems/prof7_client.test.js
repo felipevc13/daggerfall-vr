@@ -392,7 +392,7 @@ test('PROF7 pieces: the loom\'s - leather armour DFU\'s at Leather with the qual
   assert.equal(accountRefusalText('prof-hunt-cap'), 'Your account has taken all the hides a day allows, across your characters.');
   assert.match(accountRefusalText('prof-hunt-high'), /rare hides/);
   assert.match(accountRefusalText('prof-dye'), /cannot be dyed/);
-  assert.match(accountRefusalText('prof-foe'), /No knife/);
+  assert.match(accountRefusalText('prof-foe'), /^That body cannot be skinned\.$/);
 });
 
 // ─── THE PAGES ───────────────────────────────────────────────────────
@@ -439,15 +439,30 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   assert.equal(loomRecipes('clothing', 'cloth:wool', 'MensClothing').length, 41);
   assert.equal(loomRecipes('clothing', 'cloth:wool', 'WomensClothing').length, 35);
   assert.deepEqual(loomRecipes('tools').map((r) => r.id), ['fishingnet:linen']);
+  // PLAIN-ODDS: a Leatherworker's leather says its step, and the plain stitch's line stands for anyone else's
+  const loomTrack = tracks.get('outfitting');
+  const ODDS_EVEN = 'Quality chances: Crude 20% | Standard 60% | Fine 20%. They get better the further your rank (10) is above the recipe\'s (10). Press every stitch on the beat to raise the result one quality.';
+  press('Leather');
+  buttons().find((b) => b.textContent.startsWith('Cuirass')).onclick();
+  assert.match(text(), /Leather Cuirass - rank 10/);
+  assert.ok(text().includes(ODDS_EVEN) && !text().includes('Being a'), text());
+  loomTrack.specs[50] = 'leatherworker'; draw();
+  assert.ok(text().includes(`${ODDS_EVEN} Being a Leatherworker raises leather one more.`), text());
+  loomTrack.specs[50] = 'tailor'; draw();
+  assert.ok(text().includes(ODDS_EVEN) && !text().includes('Being a'), 'a Tailor\'s step is clothing\'s alone');
+  loomTrack.specs[50] = null;
   press('Clothing');
   assert.ok(buttons().some((b) => b.textContent === 'Women\'s' && b.className.includes(' on')), 'the player\'s own clothing first');
   press('Men\'s');
   // PIN MOVED (CRAFT2): the loom lists its patterns (a garment of the clothing shown), the cloth chosen in the box - none
   // held, so its first (Linen)
   const shirt = buttons().find((b) => b.textContent.startsWith('Short Shirt') && !b.textContent.includes(','));
-  assert.match(shirt.textContent, /wants its inputs/);
+  assert.match(shirt.textContent, /needs materials/);
   shirt.onclick();
   assert.match(text(), /Linen Short Shirt - rank 0/);
+  loomTrack.specs[50] = 'tailor'; draw();   // PLAIN-ODDS: a Tailor's clothing says its step
+  assert.ok(text().includes('Quality chances: Standard 50% | Fine 40% | Superior 10%. They get better the further your rank (10) is above the recipe\'s (0). Press every stitch on the beat to raise the result one quality. Being a Tailor raises clothing one more.'), text());
+  loomTrack.specs[50] = null; draw();
   assert.deepEqual(buttons().filter((b) => b.parentNode?.className?.includes('prof-made')).map((b) => b.textContent), ['Linen', 'Wool', 'Silk - rank 40', 'Standard-bearer\'s Silk - rank 55'], 'CRAFT2: its four cloths, the two past the rank naming it');
   await press('Buy 2 from the Weavers - 4 silver');
   assert.deepEqual(bought, [['cloth:linen', 2, 'weavers']]);
@@ -457,7 +472,7 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   press('Craft');
   const bar = root.querySelector('.prof-heatbar');
   assert.ok(bar, 'the stitch\'s bar');
-  assert.match(text(), /The stitch - press on the beat, 8 in a row/);
+  assert.match(text(), /The stitch: press on the beat, 8 in a row/);
   // eight stitches on the beat: the page's act ticked by hand, each stitch on it
   const { _loomForTests } = await import('../../src/ui/professions/profPages.js');
   const act = _loomForTests().act;
@@ -499,14 +514,14 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
     return root.textContent;
   };
   const hunting = page('Hunting');
-  assert.doesNotMatch(hunting, /not practised/);
-  assert.match(hunting, /Today: 7 hides, 1 of 3 of tiers 5-6 - your account's, across your characters/);   // PIN MOVED (CAP-OFF, 2026-10-07 - Mac: "Remove the cap on life skills"): '7 of 30 hides'
-  assert.match(hunting, /Waits on a trophy to stand as/);
+  assert.doesNotMatch(hunting, /not practiced/);
+  assert.match(hunting, /Today: 7 hides, 1 of 3 of grades 5 and 6 \(shared by all your characters\)/);   // PIN MOVED (CAP-OFF, 2026-10-07 - Mac: "Remove the cap on life skills"): '7 of 30 hides'
+  assert.match(hunting, /Comes when trophies are added/);
   assert.match(hunting, /Harpy Feathers, Dreugh Shell/);
   const outfitting = page('Outfitting');
-  assert.doesNotMatch(outfitting, /not practised/);
-  assert.match(outfitting, /Waits on a second dye the classic cloth can take/);   // PIN MOVED: BR5
-  assert.match(outfitting, /Waits on a wagon upgrade to hold/);
+  assert.doesNotMatch(outfitting, /not practiced/);
+  assert.match(outfitting, /Comes when cloth can take a second dye/);   // PIN MOVED: BR5
+  assert.match(outfitting, /Comes when wagons can be upgraded/);
   const smithing = page('Smithing');
   assert.match(smithing, /Silver.*rank 25.*Elven, Dwarven.*rank 40.*Mithril.*rank 55/s, 'PROF7 (FOUND): the three AUDIT 30\'s note swallowed');
   assert.match(smithing, /Skinning Knife/);
@@ -544,7 +559,7 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   assert.match(w, /profBook\.track\('hunting'\)\.specs\?\.\[50\] !== 'tracker' \|\| _mode\(\) !== 'exterior'\) return null;\n\s*return trackerMarks\(exteriorFoes\.foes, enchantFeet\(\)\);/);
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /if \(interiorBuilding\.buildingType === BUILDING_TYPES\.ClothingStore\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: LOOM_FEE \};/);
-  assert.match(m, /if \(decorOwnerHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'loom'\)\) return \{ kind: 'home', fee: 0 \};/);
+  assert.match(m, /if \(stationOwnerHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'loom'\)\) return \{ kind: 'home', fee: 0 \};/);   // PIN MOVED (FB1018D HOME-BENCH, test/scenes/fb1018d_homebench.test.js): a home's stations serve its owner's account
   const g = src('src/scenes/gatherHost.js');
   assert.match(g, /const gone = act\.loose \? !w : !act\.dungeon && !stood\.has\(pixelKey\(act\.px, act\.py\)\);/);
   assert.match(g, /climate: a\.info\?\.climate \?\? null, region: a\.info\?\.region \?\? null, act: report,/);
