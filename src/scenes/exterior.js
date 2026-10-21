@@ -4,6 +4,7 @@
 // selectable with ?region=<name>&loc=<name>. Ground archive comes from the
 // location's climate (CLIMATE.PAK -> GetWorldClimateSettings).
 
+import { setAirGround } from '../systems/weather/airTemperature.js';   // PRECIP1: the air's map (none here)
 import { walkModeOn, bindWalkMode } from '../player/walkMode.js';   // PADWALK: walk mode, one button on and off
 import { YesNoBoxWindow } from '../ui/yesNoBox.js';   // SOFTCAP3: the Master Skills offer
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
@@ -250,7 +251,9 @@ import { BODY } from '../world/windmillMesh.js';   // WM2d: the tower, for the c
 import { remapSubMeshes } from '../world/texRemap.js';   // WM3: the one climate/dungeon remap seam
 import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';
 import { getPref } from '../systems/uiPrefs.js';   // WATER1: the water's switch
+import { monsterVolume } from '../systems/monsterVolume.js';   // MONSTER-VOL: a monster's pain cry rides the Audio tab's Monster Volume
 import { createCoverIndex, isCoverFlat, coverProxies } from '../ai/cover.js';   // TACT1: billboards are cover
+import { flatBodies } from '../world/propBodies.js';   // PROP-BODIES: the solid flats' bodies, beside their cover
 import { createLowPolyTrees } from '../systems/lowPolyTreesAssets.js';   // LPT1: Low Poly Trees - the host's one door (as world.js)
 import { LPT_SCALE_MAX, buildTreeSet } from '../world/lowPolyTrees.js'; import { naturePicture } from '../world/naturePicture.js';   // LPT1; AUDIT 05b A12: which picture a nature flat stands as, every host's one choice
 import { spherePlanes } from '../render/bounds.js';   // LPT1 (AUDIT LPT B4): the near trees' sphere test reads normalised planes
@@ -317,7 +320,7 @@ import { isShelved } from '../systems/quest/quest.js';   // QUEST-SHELF: a quest
 import { ENEMY_BASICS } from '../characters/enemy/enemyBasics.js';   // ROAD-G G2: FinalizeFoe's Flying lift reads the behaviour flag
 import { isHouseOwned } from '../systems/banking.js';   // QX1/H1: Place.SetupSites' residence filter
 import { generateBuildingName } from '../world/buildingNames.js';   // QX1/IH1: %cbd regenerates the current building's name
-import { createQuestBridge, tokensToRows } from './quest/questBridge.js';   // QX1: THE QUEST MACHINE, in the fixed-city host
+import { createQuestBridge, tokensToRows, choiceDoor } from './quest/questBridge.js';   // QX1: THE QUEST MACHINE, in the fixed-city host
 import { QuestAudioSource } from '../systems/audio.js';   // QX1/E6: PlaySound's ONE source per machine
 import { WORLD_CONTEXT, makeAnchor, teleportPlan, ANCHOR_MUST_BE_SET } from '../systems/teleportAnchor.js';   // TP2/A10: the Recall anchor's law - shape, IsSameInterior, the plan, and the 4001 record id
 import { STREAMING_TERRAIN_SCALE } from '../world/terrain/terrainSampler.js';   // TERRAIN-SCALE1: the anchor's stamp
@@ -574,7 +577,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   let wxFrom = wxNow;
   let seenJump = weatherJumpStamp();   // WX2a: the sim's jump stamp as this host last saw it
   let seenCrossing = weatherCrossingStamp();   // WEATHER2b: the sim's crossing stamp as this host last saw it
-  const climateAt = (px, py) => maps.getClimateIndex(px, py);   // WEATHER2b: the map's climate lookup for the field
+  const climateAt = (px, py) => maps.getClimateIndex(px, py); setAirGround(null);   // WEATHER2b: the map's climate lookup for the field; PRECIP1: and no map for the air - the fixed city's ground wears DFU's season, so the season's law says what falls on it
   const mapGroundHere = mapGround(climateAt);   // AUDIT WEATHER3 R1: the ground law the map's words go through, here
   const fieldCellsHere = () => currentFieldCells().map((c) => cellOfField(c, (x, z) => pixelLocalOfField(_locPixel.x, _locPixel.y, x, z))).filter(Boolean);   // WEATHER2b/c; WEATHER3c: the map's cells carry their importance and rank; WEATHER3g: a storm cell its clip
   function applyWeather(w) {
@@ -1161,6 +1164,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // SIB1: the cache's answer for this archive; LPT1: its far picture and its 3D tree near - AUDIT 05b A12: the choice is
     // every host's one (world/naturePicture.js)
     const { sib, proto: lpt, far, plain, key: rkey } = await naturePicture({ door: lowPolyTrees, seasons, renderer, uploadRecord }, t, archive, record);
+    collider.cover.add('prop-bodies', flatBodies(t, archive, record, plain, centers, { tree: archive === natureArchive && isTreeRecord(natureArchive, record) }));   // PROP-BODIES: the record's own
     if (far) {
       lowPolyTrees.acquire(far); lptHandles.push(far);
       lptGroups.push({ h: lptHandles.length - 1, centers, wild: null });
@@ -2237,7 +2241,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     hurtGuard: (f, damage, feet) => cityGuards.hurtGuard?.(f, damage, feet, null),
     damageFoe: (f, damage, feet) => exteriorFoes.damageFoe(f, damage, feet, null, { kind: 'melee' }),
     voice: (f) => enemyHeavyPainVoice(f),
-    playVoice: (f, v) => audio.play3d(v.clip, [f.ai.feet[0], f.ai.feet[1] + 0.9, f.ai.feet[2]], 1, { maxDistance: 16, pitch: 1 + v.pitchLift }),   // AUDIT-RR2 G5: EnemySounds.cs:172-175
+    playVoice: (f, v) => audio.play3d(v.clip, [f.ai.feet[0], f.ai.feet[1] + 0.9, f.ai.feet[2]], monsterVolume(), { maxDistance: 16, pitch: 1 + v.pitchLift }),   // AUDIT-RR2 G5: EnemySounds.cs:172-175
   });
   // AUDIT 62 F14: DFU's population is INACTIVE indoors. PlayerEnterExit
   // .DisableAllParents (PlayerEnterExit.cs:1047) does
@@ -4232,6 +4236,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       buttonsMulti: buttons,
       onButton: (b) => { respond(b); return []; },
     }),
+    showChoice: choiceDoor(showQuestBox),   // QL4: the questlines' `ask` (questBridge.js choiceBoxes, through choiceDoor - HOST-SPLIT)
     // E6: PlaySound's busy skip over the ONE source (PlaySound.cs:110-116).
     // AUDIT 58: the table id goes through the ID door, as
     // PlaySound.cs:74-75 does at create - the four-hosts twin of the
@@ -6227,7 +6232,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // falls next and never what has already fallen.
       precip.enhanced = !!sky?.cloudShadow;
       if (precip.enhanced) {
-        precip.intensity = fx.intensity;   // WX2: the front's share of the profile
+        precip.intensity = fx.intensity; precip.snowShare = fx.snow ?? null;   // WX2: the front's share of the profile; PRECIP1: and its snow share
         // WX1: THE LAB'S WIND LAW, term for term - the rate handed to the
         // shader is the lab's metres a second WITHOUT the gust, and the
         // travel integrated on the CPU carries it, as grass-proto.html's
@@ -6238,7 +6243,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         precip.windV[0] = wd.windV[0]; precip.windV[1] = wd.windV[1];
         precip.windOff[0] += wd.step[0]; precip.windOff[1] += wd.step[1];
       }
-      precip.draw(precipShown, proj, view, eye32, camRight, now / 1000);
+      precip.drawFall(precipShown, proj, view, eye32, camRight, now / 1000);   // PRECIP1: at the air's snow share
       renderer.markForeignPass();   // EV6: so did the rain
     }
     // WIND3: THE WISPS - the wind, seen (render/windWisps.js). After the

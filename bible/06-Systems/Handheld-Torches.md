@@ -779,13 +779,26 @@ the skeleton with its bone addons joined. It HANGS rather than rides: `hangAffin
 (`hangAnchor`, measured once) at a hook fixed to the pelvis (`HIP_LANTERN_HOOK` = (14, 5, 9.5) off the pelvis in the
 actor's own Z-up, +Y-forward axes, measured on Weapon Sheathing's vendored copy of the retail Bip01 chain: the right
 hip at the scabbard's belt height, clear of the thigh), plumb whatever the pelvis does, times the swing matrix the
-rig steps each frame off the motor's bag, the heading's turn and the walk clip's phase. Its flame, if the record has
+rig steps each frame off the motor's bag, the heading's turn and the walk's phase (the body motion's gait while it walks the legs - BODY-MOTION, `systems/lanternSwing.js` createHipLantern - else the walk clip's). Its flame, if the record has
 one, hangs with it (`effectPlacement`). Hidden ONLY when not lit - never by the carried-left rule, since it is in no
 hand; the portrait shows it lit. `setHipLight` is `setTorch`'s shape with its audit's fixes: the fast path one
 compare, the slow path binding once on the body, a failed bind remembered (`hipLightTried`), the light in
 `lastBuildOpts` for the equip-follow rebuild, a light arriving mid-build queued, unload resetting it. The mesh is the
 body's one mesh, so it needs no owner of its own (`releaseThirdMesh` frees it with the rest). Morrowind-Rules.md
 HT-WAIST.
+
+**HT-WAIST-SIZE (2026-10-20, Mac: "the lantern attached to the waist in absolutely gigantic on the morrowind model").**
+Morrowind hangs no lantern on a belt: its carriable lanterns are lights made to hang in a street or be held up in a hand,
+and the hang placed the picked record's mesh at the size its author made it for that - nothing said how big a lantern at
+the waist is. The sprite's picture always had a height (`HIP_LANTERN_SPRITE.height`, 0.3 m); the mesh had none. Now
+one height serves both bodies - `systems/lanternSwing.js` `HIP_LANTERN_HEIGHT`, 0.3 m from the ring to the foot, which
+the sprite's picture reads - and the Morrowind body's hang is scaled to it about its top: `hangAnchor` measures the
+part's own height beside its anchor, `combat/fpArm.js` `hipLanternSize` turns it into a scale once at the bind
+(`hangHipLight`, both the build's and a lantern lit later), and `hangAffine` lays `rot * size` about the anchor - so the
+ring stays on the hook, it swings as before, its flame (a particle system placed by the same affine) is sized with it,
+and its normals are renormalised on both skin paths. A peer's body takes the same bind. Not verified here: no Morrowind
+data is in this container, so how big the retail lantern was is not measured - the pin hangs the fixture's 2-unit mesh
+at 21 units (0.3 m), whatever its size (`test/combat/htwaist_mwbody.test.js` HT-WAIST-SIZE; `tools/mutants/held_steady.json`).
 
 **Eye Of The Beholder's sprite** (`player/eyeOfTheBeholder/eotbBody.js`; the lantern's law `player/eyeOfTheBeholder/eotbLantern.js` since HT-WAIST-BACK).
 A second billboard, apart from the IL's machine: the Lantern template's own world texture (TEXTURE.200 record 10, read
@@ -840,7 +853,7 @@ boolean weaponRig hands your own body every frame - the first lit binds the LIGH
 slow path, once, from the WATCHER's archives; no lantern record there is a note on the body's card, as for your own),
 put out it hides, lit again it shows on the fast path, one arriving mid-build is queued (ASYNC NEVER DROPS). It swings
 off that body's own stub camera (`peerCamera`: `mv` as the forward move, the pace measured off the drawn pose, the
-eased yaw, the walk clip's phase) exactly as yours swings off the motor's bag; the pose carries no direction of
+eased yaw, the walk's phase - its gait's, under BODY-MOTION) exactly as yours swings off the motor's bag; the pose carries no direction of
 travel, so a peer backing away swings as its legs walk, forward. It is the body's own mesh, released with the body
 (EVERY ALLOCATION HAS AN OWNER). The HELD torch still rides nothing (Morrowind-Rules.md MW-D51 "Recorded, not faked";
 `test/combat/mwtorch.test.js` still pins that `peerBodies.js` passes no torch) - this light is in no hand. RELAY_VERSION

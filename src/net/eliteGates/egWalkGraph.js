@@ -397,6 +397,11 @@ export function egFloorBetween(view, x, z, y0, y1) {
   }
   return false;
 }
+/** FB1018D BANNER-SHAFT (Elite-Gates-Ascent.md section 2) - TWO STOREYS STACKED: do a body standing at storey `ay` over (ax, az)
+ *  and one at `by` over (bx, bz) stand one over the other in hall `view` - a floor or a ceiling over the lower one's plan, up to
+ *  the higher one's own floor (egFloorBetween)? A balcony beside the court, open to it, is not stacked over a body that stands
+ *  clear of its plan; the court under its rim is. Pure. */
+export const egStacked = (view, ax, ay, az, bx, by, bz) => (ay <= by ? egFloorBetween(view, ax, az, ay, by) : egFloorBetween(view, bx, bz, by, ay));
 /**
  * THE ASCENT (section 2) - WHERE A BODY STEPS OFF piece `hi` of `view.fl` onto the lower piece `lo`: of the higher piece's rim
  * (rimOf - a hero's open edges alone), the point nearest where their plans meet (`P`, egPortalOf's) whose step EG_DROP_OUT_M

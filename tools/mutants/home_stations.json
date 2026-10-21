@@ -113,7 +113,7 @@
   {
     "name": "HOME-STATIONS-any-visitor-served",
     "file": "src/scenes/worldModes.js",
-    "old": "  function useDecorStation(piece) {\n    if (!decorOwnerHere()) {",
+    "old": "  function useDecorStation(piece) {\n    if (!stationOwnerHere()) {",
     "new": "  function useDecorStation(piece) {\n    if (false) {",
     "tests": [
       "test/ui/homestations.test.js"

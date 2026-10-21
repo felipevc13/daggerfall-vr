@@ -20,7 +20,7 @@ import { renownHeldSql } from '../../../server-account/src/renownTracks.js';
 import { RENOWN_TRACKS_MAX } from '../../../src/net/renown.js';
 import { GUILD_FOUND_RENOWN, GUILD_RANK_MASTER } from '../../../src/net/guild/guildLaw.js';
 import {
-  mintToken, verifyToken, claimsValid, REALM_CHARACTER_RE, TOKEN_MAX_CHARS, TOKEN_BODY_MAX, tokenBodyOf, GLYPHS, SEAT_TITLES, AURAS,
+  mintToken, verifyToken, claimsValid, REALM_CHARACTER_RE, TOKEN_MAX_CHARS, TOKEN_BODY_MAX, tokenBodyOf, GLYPHS, SEAT_TITLES, AURAS, ICONS,
   RENOWN_MAX, ARENA_RATING_MAX, CHARACTER_LEVEL_MAX, TOKEN_ARMS_TOP_MAX,
 } from '../../../src/net/identityToken.js';
 import { HOUSE_NAME_MAX, HOUSE_GIVEN_MAX, HOUSE_GEN_MAX } from '../../../src/net/houseLaw.js';
@@ -173,8 +173,9 @@ test('AUDIT LEGACY III O11: THE TOKEN\'S BODY BOUND IS ONE - the relay\'s hello 
   const nowS = 1_760_000_000;
   const seatT = SEAT_TITLES.reduce((x, t) => (t.length > x.length ? t : x), '');
   const aura = AURAS.reduce((x, a) => (a.length > x.length ? a : x), '');
+  const icon = ICONS.reduce((x, a) => (a.length > x.length ? a : x), '');   // WITCH1: and the profile icon worn, at its widest
   const every = {
-    s: 'a'.repeat(40), n: 'W'.repeat(NAME_MAX), k: 'linked', t: seatT, ts: [0xffffffff, 9999], g: [...GLYPHS], au: aura, mu: nowS + 10 ** 9, lv: RENOWN_MAX,
+    s: 'a'.repeat(40), n: 'W'.repeat(NAME_MAX), k: 'linked', t: seatT, ts: [0xffffffff, 9999], g: [...GLYPHS], au: aura, pi: icon, mu: nowS + 10 ** 9, lv: RENOWN_MAX,
     gi: `g${'z'.repeat(10)}`, gt: 'WWWW', gm: `m${'9'.repeat(15)}`, rc: 1, rb: [15, 14], ar: ARENA_RATING_MAX, cl: CHARACTER_LEVEL_MAX,
   };
   const house = { hn: 'H'.repeat(HOUSE_NAME_MAX), hc: 'G'.repeat(HOUSE_GIVEN_MAX), hb: 1, hg: HOUSE_GEN_MAX };
@@ -237,7 +238,8 @@ test('AUDIT LEGACY III O12: A TOMBSTONE ACTS IN NOTHING - its last open item, dr
   assert.equal((await call('/v1/prof/state', { character: fallen.id }, bran)).status, 200, 'no word of whose character is dead');
   // one door, before every route
   const src = rd('server-account/src/index.js');
-  assert.ok(src.indexOf('isTombstone(db, who.player.id, body.character)') < src.indexOf("if (path === '/v1/auth/token' && request.method === 'POST')"), 'asked before the first route');
+  // PIN MOVED (PRIMARY-FOLD, Scale-Arc.md THE PLAN PAST 1,000): the tombstone is the door's one statement's first read (door.js doorReads)
+  assert.ok(src.indexOf('if (door.dead) return no(\'dead\', 410, origin);') > 0 && src.indexOf('if (door.dead) return no(\'dead\', 410, origin);') < src.indexOf("if (path === '/v1/auth/token' && request.method === 'POST')"), 'asked before the first route');
 });
 
 test('AUDIT LEGACY III O3: A YES IS TAKEN BACK, AND NEVER OUTLIVES ITS WORD - the service: a half is written once (posted again it keeps its first `at`), `withdraw` takes it back (answered the union when it stood first), and the other\'s half is the union only while it stands (asked IN the write)', async () => {
@@ -1829,7 +1831,7 @@ test('AUDIT LEGACY III O2/P1 (the world host, by source): a line the realm refus
   assert.match(src, /createRealmLine\(\{ io: realmIoNow, storage: \(\) => appStorage\(\), onRefused: \(id, error\) => \{ townTalk\.say\(LEGACY_TEXT\.lineRefused\(realmRefusalText\(error\)\)\); \} \}\)/);
   assert.match(src, /for \(let i = 0; born && legacyRealmLine\?\.unwrittenOf\(fam\.id\) && !legacyRealmLine\.refusalOf\(fam\.id\) && i < 2; i\+\+\) \{/);
   assert.match(src, /const unwritten = born \? legacyRealmLine\?\.unwrittenOf\(fam\.id\) \?\? null : null;\n    if \(unwritten\) return \{ ok: false, error: unwritten \};\n    let made = null;/);
-  assert.match(LEGACY_TEXT.lineRefused('X.'), /^The realm would not keep your family's record\. X\. This device keeps it\.$/);
+  assert.match(LEGACY_TEXT.lineRefused('X.'), /^The realm refused your family's record\. X\. It is kept on this device instead\.$/);
 });
 
 test('AUDIT LEGACY III U1/U2 (the pause window, by source - driven in Chromium): a held Enter or Space presses nothing (the Succession\'s own rule: Play as and Pass the mantle armed and fired on one held press); the keyboard comes into the window - a Tab from outside lands on its first control, and the window takes the focus as it mounts', () => {

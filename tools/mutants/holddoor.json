@@ -63,7 +63,7 @@
     ]
   },
   {
-    "name": "HOLD-parts-unweighed",
+    "name": "HOLD-parts-left-in-hold",
     "file": "src/scenes/holdDoor.js",
     "old": "    const onClose = parts ? () =>",
     "new": "    const onClose = false ? () =>",

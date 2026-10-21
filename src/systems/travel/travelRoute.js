@@ -51,6 +51,11 @@ export const ROUTE_COST = Object.freeze({ road: 1, track: 1.6, open: 3.5 });
 export const SEA_COST = Object.freeze({ sea: 1.2, coast: 1.5, shore: 6 });
 /** OWS2: the kinds a crossing's steps are. */
 export const SEA_KINDS = Object.freeze(['sea', 'embark', 'landfall']);
+/** PASSAGE (AUDIT PASSAGE A1, bible/03-World/Passage.md): a booked voyage (`sea.voyage`) comes ashore only this near its
+ *  goal (map pixels, the longest axis) - the port's own roadstead, as far as SEA-LANES finds one from its town
+ *  (systems/naval/seaLanes.js ROADSTEAD_PX, pinned equal) - so a coast road is never the cheaper way to the port a passenger
+ *  paid to sail to. */
+export const VOYAGE_LANDFALL_PX = 3;
 /** OWS2: the search's layers - ashore with the boat to hand, afloat, ashore with it left behind (the one layer without
  *  `sea` is the last's law: no launch). */
 const ASHORE = 0, AFLOAT = 1, LEFT = 2;
@@ -293,7 +298,8 @@ class Heap {
  * none. `isWater(x, y)` refuses a pixel - never the two ends, which the traveller already stands on or asked for.
  * OWS2: `sea` puts the boat in the search - `start` 'sea' when the traveller is afloat already (at the helm), 'land'
  * with the boat to hand ashore; `again` when a landfall packs it (it launches again later); `goal` 'sea' when the end
- * is a spot on the water (reached afloat), 'land' when it is ashore (the default).
+ * is a spot on the water (reached afloat), 'land' when it is ashore (the default); PASSAGE: `voyage` a booked passage's -
+ * its landfall only within VOYAGE_LANDFALL_PX of the goal.
  * @param {{x:number,y:number}} from
  * @param {{x:number,y:number}} to
  * @param {{ roads?: ArrayLike<number>|null, tracks?: ArrayLike<number>|null, isWater?: (x:number,y:number)=>boolean,
@@ -301,7 +307,7 @@ class Heap {
  *   openBlocked?: ((ax:number, ay:number, bx:number, by:number, leaving?:boolean) => boolean)|null, goalExempt?: boolean,
  *   peakAt?: ((x:number, y:number) => boolean)|null,
  *   apart?: ((from:{x:number,y:number}, to:{x:number,y:number}, net:{roads:any, tracks:any}) => boolean)|null,
- *   sea?: { start: 'land'|'sea', again?: boolean, goal?: 'land'|'sea' } | null }} [opts] -
+ *   sea?: { start: 'land'|'sea', again?: boolean, goal?: 'land'|'sea', voyage?: boolean } | null }} [opts] -
  *   `openBlocked`: an OPEN step refused (OW-MOUNTAINS) - never a road's or a track's; AUDIT OW3 J5: asked of the step out
  *   of the start too, and of the step onto the goal unless `goalExempt` (a place: a town among the peaks is reached; a
  *   spot is not - false, the cliff up to a plateau refused). AUDIT OW4 J1: told `leaving` - the step starts in the
@@ -413,6 +419,7 @@ function search(from, to, { roads, tracks, isWater, width, height, bounds, margi
           // the landfall: the step up the beach, and the boat taken out - to hand again when it packs. THE MERGE: never
           // up onto the peaks (OW-MOUNTAINS) but a place's own pixel asked for
           if (peakAt && peakAt(nx, ny) && !(n === goal && goalExempt)) continue;
+          if (sea.voyage && Math.max(Math.abs(nx - to.x), Math.abs(ny - to.y)) > VOYAGE_LANDFALL_PX) continue;   // PASSAGE: ashore at the port she sails for
           nl = sea.again ? ASHORE : LEFT; kindIx = 5; step = diag * ROUTE_COST.open + SEA_COST.shore;
         }
       } else if (wet && (seaGoal || n !== goal)) {   // a place's own pixel on the water is walked into (the harbour town), a spot on it sailed to
@@ -507,8 +514,45 @@ export function joinPoint(me, a, b) {
  * @param {{x:number,z:number}} end
  * @param {(leg: {x:number,y:number}) => number[]} centre - a leg's pixel middle, native
  */
-export function routeDrawPoints(me, legs, end, centre) {
-  return [[me.x, me.z], ...legs.slice(0, -1).map((l) => (l.at ? [l.at.x, l.at.z] : centre(l))), [end.x, end.z]];
+export function routeDrawPoints(me, legs, end, centre, via = null) {
+  return [[me.x, me.z], ...legs.slice(0, -1).map((l) => (l.at ? [l.at.x, l.at.z] : centre(l))), ...(via ? [[via.x, via.z]] : []), [end.x, end.z]];   // AUDIT OW-REVISITED L2-1/L2-2: where the last leg leaves its road (finalRoadVia)
+}
+
+/**
+ * AUDIT OW-REVISITED L3-2 / L6-1: THE WAY STILL TO WALK - the drawn line's own (scenes/world.js travelViewRoute) as the
+ * forecast reads it: from `me`, a town's streets still ahead (`route.street`'s points from the run the walk is on, `seg`
+ * - the walked ones dropped: they ran the forecast's distances back through the town), the rejoin, then each leg's point
+ * from the one being walked on (`natives`, one a leg - routeDrawPoints - the last leg's road end and the journey's end
+ * its own). Native `[x, z]` points, and each stretch's own (`of`: the leg's index in the route, 'street' or 'join'). Null
+ * with no route or no line.
+ */
+export function wayStillToWalk(me, route, seg, natives) {
+  const n = natives ?? [];
+  if (!route || n.length < 2) return null;
+  const points = [[me.x, me.z]], of = [];
+  for (const q of (route.street?.pts ?? []).slice(Math.max(0, seg | 0))) { points.push([q.x, q.z]); of.push('street'); }
+  if (route.join) { points.push([route.join.x, route.join.z]); of.push('join'); }
+  const last = (route.legs?.length ?? 1) - 1;
+  for (let k = Math.min(n.length - 1, (route.i ?? 0) + 1); k < n.length; k++) { points.push([n[k][0], n[k][1]]); of.push(Math.min(k - 1, last)); }
+  return { points, of };
+}
+
+/**
+ * AUDIT OW-REVISITED L2-1 / L2-2: WHERE A ROUTE'S LAST LEG LEAVES ITS ROAD for the journey's end - a place: its leg's own
+ * pixel middle, the road's end (the place's middle lies off it for the main quest's eight off-middle dungeons, whose
+ * walk said "arrived" fifty metres short of them); a spot: the road's point nearest it (joinPoint), so the last run is
+ * walked on the road to there and off it to the spot (it was walked on one bearing from the leg before - a click 300 m
+ * beside a road walked 280 m beside it, and one past a bend cut the bend). Null where the last leg walks no road (open
+ * ground, the sea, a join's or a ring's own point) or has none behind it. `mid(leg)` a leg's pixel middle, native -
+ * `{x, z}` or `[x, z]`; `end` native `{x, z}`. The walk (travelOptions.js startRouteLeg) and the drawn line
+ * (routeDrawPoints' `via`) ask the same.
+ */
+export function finalRoadVia(legs, end, mid, { place = false } = {}) {
+  const last = legs?.[legs.length - 1], prev = legs?.[legs.length - 2];
+  if (!last || !prev || !end || last.at || last.ring || (last.kind !== 'road' && last.kind !== 'track')) return null;
+  const xz = (l) => { const v = l.at ?? mid(l); return Array.isArray(v) ? { x: v[0], z: v[1] } : { x: v.x, z: v.z }; };
+  const b = xz({ ...last, at: null }), a = xz(prev);
+  return place ? b : joinPoint(end, a, b);
 }
 
 /** How much of a route is on a road or a track - the readout's "by the road" line. 0..1. OWS2: a road or a track

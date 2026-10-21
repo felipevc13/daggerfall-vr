@@ -210,7 +210,7 @@ test('AUDIT WORLD6b-iii(a): the direction law, the stand-in, the wire\'s u8', ()
   assert.deepEqual(missileAimDirection([1, 1, 1], [1, 1, 1]), [0, 0, 0], 'a zero vector normalises to zero, no NaN');
   const d = missileAimDirection([0, 0, 0], [3, 4, 0]); assert.ok(Math.abs(Math.hypot(...d) - 1) < 1e-9);
   assert.equal(Object.isFrozen(PEER_CAST_TARGET), true); assert.deepEqual(PEER_CAST_TARGET.activeEffects, []);
-  assert.equal(validFoeRecord({ i: 1, s: 255 })?.s, 255); assert.equal(validFoeRecord({ i: 1, s: 256 }), null, 'C8: a SPELLS.STD index is a u8');
+  assert.equal(validFoeRecord({ i: 1, s: 255 })?.s, 255); assert.equal(validFoeRecord({ i: 1, s: 503 })?.s, 503, 'PIN MOVED (DEX4a): a mod\'s spell crosses (Daggerfall Enemy Expansion\'s 500-503)'); assert.equal(validFoeRecord({ i: 1, s: 65536 }), null, 'C8: a standard spell index is bounded - PIN MOVED (DEX4a): a u16, SPELL_INDEX_MAX');
 });
 
 test('AUDIT WORLD6b-iii(a) by source: the sinks say whose blow it is (B2, the three doors); the leap spends no token (B7); every release counts, the rider too (A9); the wall arm\'s caster (A1); the dungeon\'s probe is MY capsule and its stand-in the shared one (C2/A10); Testing.md and the arc no longer state the retired law (C5/C7); the record', () => {
@@ -233,7 +233,7 @@ test('AUDIT WORLD6b-iii(a) by source: the sinks say whose blow it is (B2, the th
   assert.match(d, /playerFeet: lastPlayerFeet, playerHeight: lastPlayerHeight,\s+\/\/ ROAD-H H2/, 'C2: the dungeon\'s probe is mine');
   assert.doesNotMatch(d, /_pt\?\.feet \?\? lastPlayerFeet/, 'the peer\'s feet are gone from it');
   assert.match(d, /foeDeps\.isLocalPlayerTarget\(f\.ai\.target\)\)\s*\n\s*\? playerEntity : \(f\.ai\.target\?\.entity \?\? foeDeps\.PEER_CAST_TARGET \?\? playerEntity\);/, 'A10');
-  const tm = rd('bible/09-Testing/Testing.md');
+  const tm = rd('bible/09-Testing/Testing.md') + rd('bible/09-Testing/Testing-Rows-2026-10-19.md');   // LEGIBLE 1b: the page and its closed table
   assert.doesNotMatch(tm, /suppressed tick/, 'C5: Testing.md no longer describes the retired suppression');
   assert.doesNotMatch(tm, /no cast at a peer\)/, 'C5');
   const arc = rd('bible/06-Systems/Online-Arc.md');

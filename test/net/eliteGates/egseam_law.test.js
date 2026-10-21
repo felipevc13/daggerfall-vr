@@ -200,7 +200,12 @@ async function serpentGolden() {
 
 /** The hashes taken on the tree before the seam (4f0e71965), and how many words each heard. */
 const GOLDEN = Object.freeze({
-  gate: Object.freeze({ n: 192, h: 'b834e08be997ead417e31e9887435d0d368e209d8736d9c6b351d997b87d10df' }),
+  // PIN MOVED (COURT-WATCH, bible/11-Multiplayer/World-Bosses.md section 24): the answer to an `in` that seats a fighter
+  // says so (`me`) - the two answers here; every frame else word for word (`,"me":1` taken out, b834e08b... as before)
+  // PIN MOVED (WB14a, bible/11-Multiplayer/Breach-Portents.md section 3): the Warden's new arsenal - his Chains thrown at
+  // the seeded fight's fortieth second (their cooldown run from his wake), naming the chained by peer id (`pk`); every frame
+  // before it word for word as COURT-WATCH's (05991c48..., 192 frames)
+  gate: Object.freeze({ n: 190, h: '3db1852e7b7c714a313ceb3f19790f9cfb0e6348f2599c0905f35c97bdfe9c35' }),
   sd: Object.freeze({ n: 140, h: 'b0019f8f7fd56073923afc19176cba6cf95d3d295840299ee38804d233195ee9' }),
   serpent: Object.freeze({ n: 232, h: '8569aebc4ba221743d3191c8d952bcca99e72e164b032cfd37f00eb613ce3ded' }),
   orrery: Object.freeze({ n: 288, h: '2a803880284730aad89cc34c064edbda5b846e4ffd6c3d76631cb95567ba3bc1' }),

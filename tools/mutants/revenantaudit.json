@@ -38,8 +38,8 @@
   {
     "name": "AUDIT-A5-the-pack-destroyed",
     "file": "src/systems/revenant/revenantCompanions.js",
-    "old": "    for (const it of items) { if (isGoldPieces(it)) addGoldPieces(_player, it.stackCount ?? 1); else addItem(_player.items, it); }",
-    "new": "    void items;",
+    "old": "  for (const it of items) { if (isGoldPieces(it)) addGoldPieces(_player, it.stackCount ?? 1); else addItem(_player.items, it); }",
+    "new": "  void items;",
     "tests": [
       "test/systems/revenant/revenant_audit.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "AUDIT-A2-the-load-keeps-the-mark",
     "file": "src/systems/revenant/revenant.js",
-    "old": "_state.mirrorId = null; _lastSlew = null; clearPlayerHarm(); endPlayerFights(); },   // the last game's harm",
-    "new": "_state.mirrorId = null; _lastSlew = null; endPlayerFights(); },   // the last game's harm",
+    "old": "_state.mirrorId = null; _lastSlew = null; clearPlayerHarm(); endPlayerFights(); forgetBodies(); },   // the last game's harm",
+    "new": "_state.mirrorId = null; _lastSlew = null; endPlayerFights(); forgetBodies(); },   // the last game's harm",
     "tests": [
       "test/systems/revenant/revenant_audit.test.js"
     ]

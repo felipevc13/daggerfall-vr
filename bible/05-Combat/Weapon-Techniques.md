@@ -179,7 +179,7 @@ hit frame for a technique's loose before the host sees it.
 | cooling down | `<name>` is not ready (Ns). |
 | too little fatigue | You are too tired. |
 | a shot with no lane in this host / no ammunition | Not here. / You have nothing to shoot. |
-| a leap or dash with no motor / climbing, swimming, levitating, slow-falling, riding, knocked down, in the air (but a Flying Kick: KICK-AIR, below) | Not here. / You cannot leap from here. |
+| a leap or dash with no motor / climbing, swimming, levitating, slow-falling in the air (a Slowfall spell on a body on the ground refuses nothing: LEAP-SLOW, below), riding, knocked down, in the air (but a Flying Kick: KICK-AIR, below) | Not here. / You cannot leap from here. |
 | the aim out of reach, or no foe there | Out of reach. / No foe there. |
 
 When a cooldown runs out with that technique in hand, the message line says "`<name>` is ready again." - the classic HUD
@@ -198,6 +198,27 @@ the same strike landing with the body. A fall already under way keeps where it b
 top of a jump, the kick's 2.5 m rise is measured from feet already in the air, so it reaches a ledge a jump's height
 higher than a kick from the ground (once in 10 s).
 
+**LEAP-SLOW - the slow fall refuses a flight in the air alone** (FIELD BUGS 2026-10-18d, JUMP-SLOW's law carried to the techniques' leaps, for Mac's review, on
+Warrgrim's "Please Fix Leaping Strike Weapon Techniques. items" - "you cannot leap from here", the legendary weapons and
+the Flying Kick - and the 2026-10-14 kick report's "flat ground ... nothing works"). The gate and the motor's launch
+read the slow fall's flag, which is the SPELL's (`shared.js` `applyMotorEffectFlags`, the dungeon's `playerSlowFalling`)
+and stands while a piece that casts Slowfalling while held is worn - a Rare armour flavour, The Raven's Wings
+(`systems/loot/lootRarity.js`) - so every leap and dash its wearer owned said "You cannot leap from here." on flat
+ground, while the plain jump went (JUMP-SLOW, `01-Overview/bugs/Field-Bugs-2026-10-11b.md`) and LEGEND-HELD had made the
+Wings free to put on. Now the spell refuses a flight only off the ground (`combat/techniques.js` refusal,
+`player/motor.js` `techniqueLaunch`): from the ground a leap or a dash goes under it, and the Flying Kick from the air is
+still refused under it (KICK-AIR's refusal stands). The flight is its own arc under the spell (`player/motor.js`
+ApplyGravity): plain gravity carries it to its aim on its strike's clock - a 9 m Leap Strike lands 8.81 m out after
+0.78 s of `launchTo`'s 0.80 s, as without the spell, where the spell's 2.1 m/s glide would have carried it to 12.9 m
+after 1.15 s - and the spell bills none of its fall but its last step's (the fall's start re-anchored each step, as the
+glide's is). The glide
+takes the body again once the flight is over: a jump's descent and a walk off an edge after the landing, a placement
+mid-flight, a levitation or the water let go in the air, and the drop out of the hang or the wall a flight was caught
+on (the flight is a Jumping, which the ground, a climb and a placement clear; the swim/levitate branch ends it, and so
+do a parkour catch and a wall grab where they begin - `_parkourBegin`, `_wallBegin` - since a clamber's exit sets
+Jumping again: AUDIT FB1018D L2-2). The parkour's running leap stays refused under the spell (`_pkMayLeap`): it has no aim,
+and under the spell it would be a traversal glide. A departure, Port-Ledger A.
+
 **The acts.** A **swing** sets the technique's blow on the weapon (`PlayerWeapon.techniqueBlow`) and starts the
 machine's own strike (`techniqueStrike` - machineAttack, the arm's fpAttack); the blow follows the feet to its hit
 frame and goes when the machine is idle again. A **shot** starts the bow's StrikeDown; its hit frame is claimed as the
@@ -212,7 +233,8 @@ falls. A **flight** (leap, dash) launches the motor
 Flying Kick's 1.2 m, a dash's 0.25 m - each at least 0.4 m over the landing - raised until the ground speed is under
 12 m/s; lowered, where a ceiling stands over the path, to the highest that fits, `flightApex`), and starts the strike so its hit
 lands WITH the body - when the time left in the air is the swing's own time to its hit, asked of the machine's
-schedule (`blowSchedule`). The collider stops the body; gravity lands it; the fall is a jump's (DFU's fall law measures
+schedule (`blowSchedule`). The collider stops the body; gravity lands it - under a slow fall too, which bills none of
+it but its last step (LEAP-SLOW); the fall is a jump's (DFU's fall law measures
 the landing) - from the launch, or, for a kick launched mid-fall, from where that fall began (KICK-AIR). Air control
 does not steer a technique's flight (`techFlight`), and no click starts a swing while it is in the air
 (`techniqueFlying` - the rig asks no gesture), so the landing's strike is never thrown away; at the strike the
@@ -646,6 +668,12 @@ Gauntlets' Flying Kick and Haymaker) - every technique a press away.
   ground and let go in the air, the other leaps and dashes refused in the air, the kick's other refusals (the saddle, a
   slow fall, the water, a levitation), and no feather fall (a 7 m ledge's fall kept). Mutants
   `tools/mutants/fb1015_kickair.json` (9, all dead).
+- `test/combat/fb1018d_leapslow.test.js` (5) - LEAP-SLOW on a real PlayerMotor over a real Collider through the press and
+  the release, the spell put on by The Raven's Wings through the real equip door: the Leap Strike from the ground under
+  it (on its aim, the arc's time, the foe struck, no fall billed but its last step), its price, the Flying Kick from the air still refused
+  (and the motor's own launch in the air), the glide after the landing (a jump, a walk off an edge), and the flight cut
+  short (a placement, a levitation let go, a catch and the eject out of it). Mutants `tools/mutants/fb1018d_leapslow.json`
+  (11, all dead).
 - `test/scenes/tech1_hosts.test.js` (4) - the action, its key and its rows; the rig's order, its held-hit flag; THE FOUR HOSTS,
   swept from the source (each host's door, and each ground pass's marks call right after its foes'); the dungeon lane;
   the mark's own size in the pass; the world host's chip seam and recentre, the HUD's colour, the side buttons' guard.

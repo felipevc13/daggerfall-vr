@@ -229,8 +229,8 @@ test('AUDIT WORLD34 B1/B3 by source: a dead foe is retyped too (a joiner whose s
   // REST-SYNC re-aim: the frame also carries the room's shared encounters (`x`) - an empty full frame still goes
   assert.match(d, /if \(!out\.length && !shared\.length && !full\) return null;\s*const frame = \{ n: \+\+_foesSeq, k: _locationKey, f: out \};/, 'the empty full frame goes');
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const dungeonAuthority = \(now = performance\.now\(\)\) => !\(online\?\.room && isWorldRoom\(online\.room\) && online\.status === 'open' && online\.host && !online\.isHost\(\) && now - _foesInAt < FOES_STALE_MS\);/, 'the seat still reads the heartbeat');
-  assert.match(w, /online\.onFoes = \(id, data\) => \{\s*(?:\/\/[^\n]*\n\s*)*(?:if \(isCellRoom\(online\.room\) && [^\n]*camps\.applyOwner[^\n]*\n\s*)?if \(isCellRoom\(online\.room\)\) \{[\s\S]*?if \(modes\?\.applyDungeonFoes\?\.\(id, data\) && modes\?\.mode === 'dungeon'\) _foesInAt = performance\.now\(\);\s*\};/, 'and every frame in, empty or not, is the heartbeat (AUDIT WORLD6a B8: in a dungeon - a building\'s room streams no foes; WORLD6b: a cell\'s frame is the encounter pool\'s, no heartbeat)');
+  assert.match(w, /const dungeonAuthority = \(now = performance\.now\(\)\) => !\(online\?\.room && isWorldRoom\(online\.room\) && online\.status === 'open' && online\.host && !online\.isHost\(\) && seatClock\.live\(now\)\);/, 'the seat still reads the heartbeat');   // PIN MOVED (FIELD BUGS 2026-10-18d SEAT-LIVE): the seat heard is the seat clock's (net/seatLive.js createSeatClock) - the page's own absence spends none of it
+  assert.match(w, /online\.onFoes = \(id, data\) => \{\s*(?:\/\/[^\n]*\n\s*)*(?:if \(isCellRoom\(online\.room\) && [^\n]*camps\.applyOwner[^\n]*\n\s*)?if \(isCellRoom\(online\.room\)\) \{[\s\S]*?if \(modes\?\.applyDungeonFoes\?\.\(id, data\) && modes\?\.mode === 'dungeon'\) seatClock\.heard\(performance\.now\(\)\);\s*\};/, 'and every frame in, empty or not, is the heartbeat (AUDIT WORLD6a B8: in a dungeon - a building\'s room streams no foes; WORLD6b: a cell\'s frame is the encounter pool\'s, no heartbeat)');   // PIN MOVED (FIELD BUGS 2026-10-18d SEAT-LIVE): the seat heard is the seat clock's (net/seatLive.js createSeatClock) - the page's own absence spends none of it
 });
 
 test('AUDIT WORLD34 C2 by source: the memory\'s action records are the SHARED half out (no picker\'s latch) and PROJECTED in (validActionRecord, as an act\'s are) - the relay serves the stored bytes back unparsed for thirty days', () => {
@@ -267,7 +267,7 @@ test('AUDIT WORLD34 D4/D5: the relay names itself in /health; the session says t
   assert.deepEqual(lines, [`[online] room dungeon:m${PRIVATEERS_HOLD} - a shared world`, '[online] host bbbb-0002', '[online] room world:3,12 - shared country (each player\'s foes are everyone\'s)'], 'a cell says its room and no host (WORLD6b: and what it shares)');
   const menu = rd('src/ui/enhanced/enhancedMenu.js');
   assert.doesNotMatch(menu, /el\('p', 'meta', 'Everyone runs their own game from their own save; you see each other and walk together\. Nothing else is shared yet\.'\)/, 'the pre-WORLD1 promise is gone');
-  assert.match(menu, /Dungeons and buildings are shared: enemies, doors, levers and every chest, shelf or cupboard someone has opened are the same for everyone, and stay that way\. In towns and the wilds you share who is around: what one player meets, everyone nearby sees and can fight/);   // WORLD6a: the building joined the sentence; WORLD6b: the cell's foes
+  assert.match(menu, /Dungeons and buildings are shared: enemies, doors, levers and opened chests are the same for everyone and stay that way\. In towns and the wilds, everyone nearby sees the same monsters and can fight them/);   // WORLD6a: the building joined the sentence; WORLD6b: the cell's foes
 });
 
 test('AUDIT WORLD34: the record carries the root and the pins that enshrined it are turned', () => {

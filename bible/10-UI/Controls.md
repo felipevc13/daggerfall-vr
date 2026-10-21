@@ -297,7 +297,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | `TurnRight` | RIGHT |  | Turn right |
 | `LookUp` | INS |  | Look up |
 | `LookDown` | DEL |  | Look down |
-| `CenterView` | HOME |  | Centre the view |
+| `CenterView` | HOME |  | Center the view |
 | `TogglePerspective` | MOUSE4 |  | First / third person |
 | `Jump` | SPACE | `JoystickButton5` | Jump |
 | `Crouch` | C | `JoystickButton4` | Crouch and sneak |
@@ -352,8 +352,8 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | `CharacterSheet` | F5 |  | Character sheet |
 | `Inventory` | F6 | `JoystickButton6` | Inventory |
 | `Status` | I |  | Status |
-| `LogBook` | L |  | Quest log |
-| `NoteBook` | N |  | Notebook |
+| `LogBook` | L |  | Chronicle: Quests (Enhanced Plus) / logbook (Classic) |
+| `NoteBook` | N |  | Chronicle: Notes (Enhanced Plus) / notebook (Classic) |
 | `AutoMap` | M |  | Map |
 | `TravelMap` | V |  | Travel map |
 | `QuickDial` | TAB |  | Quick dial |
@@ -392,8 +392,8 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 
 | Action | Key | Pad | What it does |
 |---|---|---|---|
-| `ActChoice` | UP |  | At a profession node: the next of its acts on the list |
-| `Professions` | DOWN |  | Open your Professions and Stores (online) |
+| `ActChoice` | UP |  | Next action at a profession node |
+| `Professions` | DOWN |  | Open your Professions page (online) |
 
 ### Game
 

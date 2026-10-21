@@ -236,7 +236,7 @@ test('EG-G1 THE ARRIVAL CARD, THE OBJECTIVE, THE DOOR, THE LORD\'S BAR (section 
   assert.ok(egDoorMarker({ x: 0, z: 0 }, { x: 30, z: 0 }, Math.PI / 2).ahead, 'turned toward it');
   // the lord's bar
   const lordState = stateAt({ h: 5, fight: { ...EG_STATE_EMPTY.fight, h: 5, bodies: [{ i: 1, role: 0, k: 0, pt: 0, hp: 250, max: 1000, fl: 0, ph: 2 }] } });
-  assert.deepEqual(egLordBar(lordState), { name: 'Grath', court: true, frac: 0.25, phase: 'II' });
+  assert.deepEqual(egLordBar(lordState), { name: 'Grath', court: true, frac: 0.25, phase: 'II', ward: false });   // PIN MOVED (FB1018D WARD-BAR): the bar says its ward
   assert.equal(egLordBar(stateAt({ h: 5, fight: { ...EG_STATE_EMPTY.fight, h: 5, bodies: [{ i: 1, role: 0, k: 0, hp: 9, max: 10, fl: 0, ph: 0 }] } })), null, 'asleep');
   assert.ok(egSpireHudModel(lordState, ME, T0 + 120_000, {}).lord, 'a Court\'s lord on the bar');
   const champ = stateAt({ h: 3, fight: { ...EG_STATE_EMPTY.fight, h: 3, bodies: [{ i: 1, role: 0, k: 13, pt: 0, hp: 5, max: 10, fl: 0, ph: 1 }] } });

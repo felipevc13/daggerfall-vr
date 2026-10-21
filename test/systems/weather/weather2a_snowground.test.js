@@ -125,7 +125,7 @@ test('WEATHER2a the wind blows by the table\'s word: a storm turned to snow buil
   assert.ok(Math.abs(fb.strength / fa.strength - VIOLENCE.thunder / VIOLENCE.snow) < 1e-9, 'the same roll, the storm\'s violence');
   const c = createWindModel({ seed: 3 }); c.tick(0, 'sunny'); c.tick(600, 'snow', 'nonsense');
   assert.ok(Math.abs(c.state().front.strength - fa.strength) < 1e-12, 'an unknown violence word falls back to the worn one');
-  assert.match(rd('src/scenes/shared.js'), /windModel\.tick\(extra\?\.classicMinutes \?\? 0, weatherName, extra\?\.violence \?\? weatherName, extra\?\.approach \?\? 0\);/);
+  assert.match(rd('src/scenes/shared.js'), /windModel\.tick\(extra\?\.classicMinutes \?\? 0, systemWordOf\(weatherName\), extra\?\.violence \?\? weatherName, extra\?\.approach \?\? 0\);/);
 });
 
 test('WEATHER2a the hosts: the arrival hands the sim its minute, the sky is handed the violence word, and the sim has one write of the worn word', () => {
@@ -147,5 +147,5 @@ test('WEATHER2a records: the arc page, the ledger row, Home\'s index and the tes
   assert.match(rd('bible/07-Rendering/Weather-Arc.md'), /^## A - NO RAIN OVER SNOW \(WEATHER2a, 2026-09-14\)/m);
   assert.match(rd('bible/01-Overview/Port-Ledger.md'), /^\| \*\*NO RAIN OVER SNOW, ENHANCED LANE \(WEATHER2a, 2026-09-14\)\*\*/m);
   assert.match(rd('bible/01-Overview/Page-Index.md'), /`07-Rendering\/Weather-Arc\.md`/);   // PIN MOVED (WALLET1's merge of main, 2026-10-05): Home.md's page index moved, byte for byte, to its own page
-  assert.match(rd('bible/09-Testing/Testing.md'), /^\| weather2a_snowground\.test\.js \| \d+ \| WEATHER2a/m);
+  assert.match(rd('bible/09-Testing/Testing-Rows-2026-10-19.md'), /^\| weather2a_snowground\.test\.js \| \d+ \| WEATHER2a/m);
 });

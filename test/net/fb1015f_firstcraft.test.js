@@ -56,11 +56,11 @@ test('CRAFT-FIRST-SHOWN the law the words say: the patterns whose first lays on 
   assert.deepEqual(MASON_RECIPES.map((w) => [w.id, !!w.act && firstCraftPays(w)]), [['cut:stone', true], ['mix:mortar', true]], 'the bench\'s line says both');
   assert.deepEqual(COOKING_RECIPES.filter((r) => !firstCraftPays(r)).map((r) => r.id), [], 'the fire\'s line stands for every dish');
   // the box's line, at the rank the craft is read at
-  assert.equal(craftXpLine(recipeById('garment-165:linen'), 0, 'Outfitting'), '20 Outfitting XP. Made only of cloth from the Weavers, it earns no first-time bonus.');
-  assert.equal(craftXpLine(recipeById('fishingnet:linen'), 0, 'Outfitting'), '20 Outfitting XP. Made only of cloth from the Weavers, it earns no first-time bonus.');
-  assert.equal(craftXpLine(recipeById('garment-149:linen'), 0, 'Outfitting'), '20 Outfitting XP, and 500 more the first time you make this piece at this tier.', 'a bolt and a Cured Leather: the 500');
-  assert.equal(craftXpLine(recipeById('longsword:daedric'), 90, 'Smithing'), '140 Smithing XP, and 500 more the first time you make this piece at this tier.');
-  assert.equal(craftXpLine(recipeById('dagger:iron'), 70, 'Smithing'), '5 Smithing XP, and 500 more the first time you make this piece at this tier.', 'tier 1 at rank 70: a quarter; the 500 whole');
+  assert.equal(craftXpLine(recipeById('garment-165:linen'), 0, 'Outfitting'), '20 Outfitting experience. Pieces made only from Weavers\' cloth earn no first-time bonus.');
+  assert.equal(craftXpLine(recipeById('fishingnet:linen'), 0, 'Outfitting'), '20 Outfitting experience. Pieces made only from Weavers\' cloth earn no first-time bonus.');
+  assert.equal(craftXpLine(recipeById('garment-149:linen'), 0, 'Outfitting'), '20 Outfitting experience, and 500 more the first time you make this piece at this grade.', 'a bolt and a Cured Leather: the 500');
+  assert.equal(craftXpLine(recipeById('longsword:daedric'), 90, 'Smithing'), '140 Smithing experience, and 500 more the first time you make this piece at this grade.');
+  assert.equal(craftXpLine(recipeById('dagger:iron'), 70, 'Smithing'), '5 Smithing experience, and 500 more the first time you make this piece at this grade.', 'tier 1 at rank 70: a quarter; the 500 whole');
 });
 
 // ─── THE CRAFT'S WORD, FROM THE SERVICE'S ANSWER ─────────────────────
@@ -76,10 +76,10 @@ test('CRAFT-FIRST-SHOWN the craft\'s word, from the real Worker\'s answer throug
     assert.equal(r.ok, true, JSON.stringify(r));
     return [r.data.xp, r.data.first, craftXpText(recipeById(id), r.data, 'Outfitting')];
   };
-  assert.deepEqual(await word('garment-141:linen'), [20, true, '(+20 Outfitting XP - your first, but cloth from the Weavers earns no first-time bonus)']);
-  assert.deepEqual(await word('garment-149:linen'), [520, true, '(+520 Outfitting XP, with the first-time bonus)']);
-  assert.deepEqual(await word('garment-149:linen'), [20, false, '(+20 Outfitting XP)'], 'once');
-  assert.deepEqual(await word('garment-141:linen'), [20, false, '(+20 Outfitting XP)'], 'and the cloth\'s second says nothing of a first');
+  assert.deepEqual(await word('garment-141:linen'), [20, true, '(+20 Outfitting experience. Weavers\' cloth earns no first-time bonus)']);
+  assert.deepEqual(await word('garment-149:linen'), [520, true, '(+520 Outfitting experience, with the first-time bonus)']);
+  assert.deepEqual(await word('garment-149:linen'), [20, false, '(+20 Outfitting experience)'], 'once');
+  assert.deepEqual(await word('garment-141:linen'), [20, false, '(+20 Outfitting experience)'], 'and the cloth\'s second says nothing of a first');
   // in the player's language: the drafts, read when said
   const tm = await import('../../src/systems/textManager.js');
   const rows = tm.loadStringTableCsv(src('locales/fr/Port_Strings.csv'));
@@ -97,13 +97,14 @@ test('CRAFT-FIRST-SHOWN the craft\'s word, from the real Worker\'s answer throug
   // THE HOSTS DO NOT GROW: world.js's craft says its XP through the module, one call
   const w = hostText('src/scenes/world.js');
   assert.match(w, /^import \{ craftXpText \} from '\.\.\/ui\/craftXpWords\.js';/m);
-  assert.match(w, /const rec = recipeById\(recipe\);\n.*\n\s+return \{ ok: true, text: `\$\{chain \? `\$\{chain\} ` : ''\}\$\{made\} \$\{craftXpText\(rec, r\.data, st\.xp\)\}\$\{paid \?/);
+  // PIN MOVED (FIELD BUGS 2026-10-18f CRAFT-LIMIT-SAID): one call still, the crafter's limit over the track handed in (profBook.js limit)
+  assert.match(w, /const rec = recipeById\(recipe\);\n.*\n\s+return \{ ok: true, text: `\$\{chain \? `\$\{chain\} ` : ''\}\$\{made\} \$\{craftXpText\(rec, r\.data, st\.xp, profBook\.limit\(rec\?\.profession\)\)\}\$\{paid \?/);
   assert.doesNotMatch(w, /\(\+\$\{r\.data\.xp\} \$\{st\.xp\} XP\)/, 'the old word, which left `first` unread, is gone');
 });
 
 // ─── THE STATIONS' BOXES ─────────────────────────────────────────────
 
-test('CRAFT-FIRST-SHOWN the stations say it, read off the real book: the loom\'s Straps, Fishing-Net and Wool rug the cloth\'s no-bonus line, its Boots and Leather Cuirass the 500; the anvil\'s Dagger and the jeweller\'s Silver Ring (its odds no longer carrying the XP) the 500 at Smithing\'s rank, a metal past the rank no line; the workbench\'s Staff and a Sculptor\'s Stone Column at Building 100 a quarter and the 500; the mason\'s works their first; the fire\'s stew its first; a counter-only potion why it pays none (mutants: each station\'s line gone; the rank\'s guard; the profession named)', async (t) => {
+test('CRAFT-FIRST-SHOWN the stations say it, read off the real book: the loom\'s Straps, Fishing-Net and Wool rug the cloth\'s no-bonus line, its Boots and Leather Cuirass the 500; the anvil\'s Dagger and the jeweller\'s Silver Ring (its odds no longer carrying the XP) the 500 at Smithing\'s rank, a metal past the rank no line; the workbench\'s Staff a quarter and the 500 at Building 99, and the mason\'s works their first; at a Master\'s 100 the Staff, the works and a Sculptor\'s Stone Column none, said (CRAFT-LIMIT-SAID); the fire\'s stew its first; a counter-only potion why it pays none (mutants: each station\'s line gone; the rank\'s guard; the profession named)', async (t) => {
   t.mock.method(Date, 'now', () => NOON * 1000);
   resetProfPages();
   setPref('gentleActs', false);
@@ -137,14 +138,14 @@ test('CRAFT-FIRST-SHOWN the stations say it, read off the real book: the loom\'s
     assert.ok(b, `${title}: a box`);
     return [b.children[0].textContent, [...b.querySelectorAll('p')].map((p) => p.textContent)];
   };
-  const FIRST = (xp, prof) => `${xp} ${prof} XP, and 500 more the first time you make this piece at this tier.`;
-  const SHOP = (xp) => `${xp} Outfitting XP. Made only of cloth from the Weavers, it earns no first-time bonus.`;
+  const FIRST = (xp, prof) => `${xp} ${prof} experience, and 500 more the first time you make this piece at this grade.`;
+  const SHOP = (xp) => `${xp} Outfitting experience. Pieces made only from Weavers' cloth earn no first-time bonus.`;
   try {
     draw();
     // THE LOOM, Outfitting 10: the Weavers' cloth alone says it earns none; a boot's Cured Leather and the leathers the 500
     press('The Loom', 'Clothing', true);
     press('The Loom', 'Straps');
-    assert.deepEqual([box('The Loom')[0], box('The Loom')[1].slice(-2)], ['Linen Straps - rank 0', ['Your rank 10, margin 10: Standard 50 | Fine 40 | Superior 10. A clean stitch is a step better.', SHOP(20)]], 'under the odds');
+    assert.deepEqual([box('The Loom')[0], box('The Loom')[1].slice(-2)], ['Linen Straps - rank 0', ['Quality chances: Standard 50% | Fine 40% | Superior 10%. They get better the further your rank (10) is above the recipe\'s (0). Press every stitch on the beat to raise the result one quality.', SHOP(20)]], 'under the odds');   // PIN MOVED (PLAIN-ODDS): the odds said in plain words
     press('The Loom', 'Boots');
     assert.equal(box('The Loom')[0], 'Linen Boots - rank 0');
     assert.equal(box('The Loom')[1].at(-1), FIRST(20, 'Outfitting'));
@@ -160,29 +161,40 @@ test('CRAFT-FIRST-SHOWN the stations say it, read off the real book: the loom\'s
     // THE ANVIL, Smithing 0: the Iron Dagger's 20 and the 500; the Silver Dagger past the rank, no line
     press('The Anvil', 'Dagger');
     assert.deepEqual(box('The Anvil')[0], 'Iron Dagger - rank 0');
-    assert.equal(box('The Anvil')[1].filter((p) => / XP/.test(p)).join('|'), FIRST(20, 'Smithing'));
+    assert.equal(box('The Anvil')[1].filter((p) => / experience/.test(p)).join('|'), FIRST(20, 'Smithing'));
     press('The Anvil', 'Silver - rank 25', true);
     assert.equal(box('The Anvil')[0], 'Silver Dagger - rank 25');
-    assert.deepEqual(box('The Anvil')[1].filter((p) => / XP/.test(p)), [], 'a recipe past the rank says no XP');
+    assert.deepEqual(box('The Anvil')[1].filter((p) => / experience/.test(p)), [], 'a recipe past the rank says no XP');
     // THE JEWELLER'S BENCH, a jewel on Smithing's track: the odds without the XP, the XP its own line beside the first's
-    press('The Jeweller\'s Bench', 'Silver Ring');
-    const jewel = box('The Jeweller\'s Bench');
+    press('The Jeweler\'s Bench', 'Silver Ring');
+    const jewel = box('The Jeweler\'s Bench');
     assert.equal(jewel[0], 'Silver Ring - rank 0');
-    assert.ok(jewel[1].includes('Your rank 0, margin 0: Crude 20 | Standard 60 | Fine 20. A clean facet is a step better.'), jewel[1].join('|'));
+    assert.ok(jewel[1].includes('Quality chances: Crude 20% | Standard 60% | Fine 20%. They get better the further your rank (0) is above the recipe\'s (0). Stop every turn where the stone catches the light to raise the result one quality.'), jewel[1].join('|'));
     assert.equal(jewel[1].at(-1), FIRST(20, 'Smithing'));
-    // THE WORKBENCH, Building 100: a Pine Staff, tier 1, is a quarter - 5 - and its first still the 500
+    // THE WORKBENCH, Building 100. PIN MOVED (FIELD BUGS 2026-10-18f CRAFT-LIMIT-SAID): a Master's track takes no more XP -
+    // the service credits MIN(earned, PROF_XP_MAX - held), none - so the Staff, the works and a Sculptor's carving say so
+    // (it said "5 Building XP, and 500 more", which the Worker never paid); the quarter and the 500 at Building 99, below
+    const TOP = 'No Building experience: Building is at Master.';   // PIN MOVED (VOICE2): experience, not XP; no dash aside (the craft-limit lines in the voice)
     press('The Workbench', 'Staff');
-    assert.deepEqual([box('The Workbench')[0], box('The Workbench')[1].at(-1)], ['Pine Staff - rank 0', FIRST(5, 'Building')]);
+    assert.deepEqual([box('The Workbench')[0], box('The Workbench')[1].at(-1)], ['Pine Staff - rank 0', TOP]);
     // THE MASON'S BENCH: the works' first, and a Sculptor's carving
-    assert.ok(station('The Mason\'s Bench').querySelectorAll('p').some((p) => p.textContent === 'Your first cut and your first mix each earn 500 more Building XP.'));
+    assert.ok(station('The Mason\'s Bench').querySelectorAll('p').some((p) => p.textContent === TOP));
     press('The Mason\'s Bench', 'Stone Column');
-    assert.deepEqual([box('The Mason\'s Bench')[0], box('The Mason\'s Bench')[1].at(-1)], ['Stone Column - a Sculptor\'s', FIRST(10, 'Building')]);
+    assert.deepEqual([box('The Mason\'s Bench')[0], box('The Mason\'s Bench')[1].at(-1)], ['Stone Column - a Sculptor\'s', TOP]);
     // THE FIRE: a dish's first, beside the pans' XP
     press('The Fire', 'Hunter\'s Stew');
-    assert.equal(box('The Fire')[1].at(-1), 'The first time you cook this dish: 500 more Provisioning XP.');
+    assert.equal(box('The Fire')[1].at(-1), 'The first time you cook this dish: 500 more Provisioning experience.');
     // THE ALCHEMY STATION: a potion wholly of the Apothecaries' goods says why it pays no first (AUDIT 32 S1's law, brewFirstPays)
     press('The Alchemy Station', 'Water Breathing');
-    assert.match(box('The Alchemy Station')[1].join('|'), /60 Provisioning XP\. Made only of the Apothecaries' goods, it earns no first-time bonus\./);
+    assert.match(box('The Alchemy Station')[1].join('|'), /60 Provisioning experience\. It is made only from the Apothecaries' goods, so it earns no first-time bonus\./);
+    // PIN MOVED (CRAFT-LIMIT-SAID): Building 99, an Expert's top tier 7 with room to take it - a Pine Staff, tier 1, is a
+    // quarter (5) and its first still the 500; the mason's works their first
+    track('building', xpForRank(99));
+    assert.equal((await book.refresh({ force: true })).ok, true);
+    draw();
+    press('The Workbench', 'Staff');
+    assert.deepEqual([box('The Workbench')[0], box('The Workbench')[1].at(-1)], ['Pine Staff - rank 0', FIRST(5, 'Building')]);
+    assert.ok(station('The Mason\'s Bench').querySelectorAll('p').some((p) => p.textContent === 'Your first cut and your first mix each earn 500 more Building experience.'));   // PIN MOVED (VOICE2): experience in a sentence (Voice.md rule 3)
   } finally {
     setProfessionsPages(null);
     root?.remove?.();

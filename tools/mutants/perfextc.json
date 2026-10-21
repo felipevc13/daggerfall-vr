@@ -531,11 +531,12 @@
  {
   "name": "PERF-EXT24-a-lent-slice-is-counted-in-every-sample-after",
   "file": "src/systems/frameClock.js",
-  "old": "  lent = 0;\n  open = null;",
-  "new": "  open = null;",
+  "old": "  lent = 0;\n  const stamp = open;",
+  "new": "  const stamp = open;",
   "tests": [
    "test/systems/buildslice.test.js"
-  ]
+  ],
+  "note": "AUDIT FB1018D L2-1 (re-aimed by content): the frame's stamp is kept between the two lines now."
  },
  {
   "name": "PERF-EXT24-the-interval-is-the-mean-a-hitch-drags",

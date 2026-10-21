@@ -167,7 +167,7 @@ test('CSA-H: IsNearPort walks the square round the player - FIELD BUGS 29h DEED-
 
 // ── PackBoat and the cargo ───────────────────────────────────────────────────
 
-test('CSA-H: PackBoat - the boat\'s parts ("hull * 10 + variant", the hull\'s price, weight and name) to the back of the pack with the HUD\'s line; a cargo aboard moved whole into PackedCargoes under the parts\' UID and its weight on the parts; the boat destroyed and off the list; a UID already keyed throws (Dictionary.Add)', () => {
+test('CSA-H: PackBoat - the boat\'s parts ("hull * 10 + variant", the hull\'s price, weight and name) to the back of the pack with the HUD\'s line; a cargo aboard moved whole into PackedCargoes under the parts\' UID, its weight never on the parts (PARTS-WEIGHT, a departure from the C#\'s sum); the boat destroyed and off the list; a UID already keyed throws (Dictionary.Add)', () => {
   const s = scene();
   const boat = s.place(1, 3);
   boat.Cargo.Items.push({ name: 'rope', weightInKg: 2, stackCount: 3 }, { name: 'net', weightInKg: 1.5 });
@@ -175,7 +175,7 @@ test('CSA-H: PackBoat - the boat\'s parts ("hull * 10 + variant", the hull\'s pr
   assert.deepEqual(s.out.hud, ['You store the boat in your inventory']);
   const [parts] = s.out.pack;
   assert.deepEqual([parts.templateIndex, parts.message, parts.value, parts.name], [1320, 13, HULL_PRICES[1], "Parts of Large Boat 'IV'"]);
-  assert.equal(parts.weightInKg, f(HULL_WEIGHTS[1] + 7.5), 'the hull\'s weight and the cargo\'s, in the C#\'s floats');
+  assert.equal(parts.weightInKg, HULL_WEIGHTS[1], 'the hull\'s weight alone (PARTS-WEIGHT: the C# adds the cargo\'s)');
   assert.deepEqual(s.rt.state.PackedCargoes.get(String(parts.UID)).map((i) => i.name), ['rope', 'net']);
   assert.equal(boat.Cargo.Items.length, 0, 'TransferAll empties the hold');
   assert.equal(boat.MapPixel, null);

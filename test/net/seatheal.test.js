@@ -13,6 +13,7 @@ import * as acorn from 'acorn';
 import { validFoeRecord } from '../../src/net/wire.js';
 import { renownFoeStruck, renownFoeDied } from '../../src/net/renownTracker.js';   // RENOWN1: the kill door's stamps, in the harness's scope
 import { reportPlayerKill } from '../../src/systems/playerKills.js';   // SET2: the kill door's third word, in the harness's scope
+import { createSeatClock } from '../../src/net/seatLive.js';   // PIN MOVED (FIELD BUGS 2026-10-18d SEAT-LIVE): the seat heard is the clock's - the page's own absence spends none of it
 
 const rd = (p) => readFileSync(new URL('../../' + p, import.meta.url), 'utf8');
 const D = rd('src/scenes/dungeonContext.js');
@@ -74,7 +75,7 @@ function joiner() {
 
   const t = { now: 0 };
   const online = { room: 'dungeon:m7', status: 'open', host: 'H', id: 'J', isHost() { return this.host === this.id; }, onHost: null, onFoes: null };
-  const ws = { online, modes, performance: { now: () => t.now }, _foesInAt: -Infinity, _foesFullAt: -Infinity, _worldPublishedAt: 0, FOES_STALE_MS: 6000, exteriorFoes: { applyFoes() {} }, isWorldRoom: (k) => /^(dungeon|interior):/.test(k), isCellRoom: () => false };
+  const ws = { online, modes, performance: { now: () => t.now }, seatClock: createSeatClock(6000), _foesFullAt: -Infinity, _worldPublishedAt: 0, FOES_STALE_MS: 6000, exteriorFoes: { applyFoes() {} }, isWorldRoom: (k) => /^(dungeon|interior):/.test(k), isCellRoom: () => false };
   new Function('__s', `with (__s) { ${dungeonAuthorityLine}\n ${onHostLine}\n ${onFoesSrc}\n __s.dungeonAuthority = dungeonAuthority; }`)(scoped(ws));
 
   let n = 0;

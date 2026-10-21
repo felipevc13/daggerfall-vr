@@ -130,6 +130,12 @@ export function motionBagOf(player) {
     // AUDIT PRE-MERGE 0929 D1/D2: and the yaw the motor moved by (its own, beside forward and strafe; NaN before a
     // step) - the collision-trigger pass turns forward/strafe into the direction the body presses (actionContact)
     yaw: Number.isFinite(player.moveYaw) ? player.moveYaw : NaN,
+    // AUDIT BODY-MOTION GAIT-9 / GAIT-17 / RIG-6: what the third-person body's legs read (characters/bodyMotion/) - the
+    // ground the body's own steps crossed (as drawn, cumulative), the yaw it is drawn at (bodyYawFor's own: a bench's or
+    // a climb's facing, else the view's turned by the climb's easing offset) and the turns a deck gave it
+    travel: typeof player.travelAt === 'function' ? player.travelAt() : null,
+    bodyYaw: player.drawYaw ?? player._bodyYaw ?? null, bodyYawOff: Number.isFinite(player._bodyYawOff) ? player._bodyYawOff : 0,
+    carriedYaw: Number.isFinite(player.carriedYaw) ? player.carriedYaw : 0,
   };
 }
 /** CLIMB5 (the Enhanced Climbing arc - bible/03-World/Parkour-Arc.md): THE CLIMB ON THE WIRE - `cl` 1 hanging from a
@@ -365,6 +371,7 @@ import { TRANSPORT_MODES, isRiding, rideBaseFor, canRunUnlessRiding, rideWalks }
 import { timeScale } from '../systems/timeScale.js';   // TO1: Unity's Time.fixedDeltaTime rides Time.timeScale (see update())
 import { CLIMB_MOVE_KINDS, CLIMB_MOVE_RISE_MAX, CLIMB_MOVE_TIME_MAX } from '../net/wire.js';   // CLIMB6: a move on the wire, its kinds and bounds the wire's
 import { clampToRing } from '../net/duel/duelSession.js';   // AUDIT DUEL1 D4: the ring's one clamp
+import { keepOffBodies } from './bodyClamp.js';   // PROP-BODIES: the flats' bodies, kept out of after the collider's move
 import { MAX_TERRAIN_HEIGHT, STREAMING_TERRAIN_SCALE } from '../world/terrain/terrainSampler.js';   // FALL-KEPT: the world's tallest drop bounds a carried fall
 
 /** PlayerSpeedChanger.GetWalkSpeed, verbatim (audit 2026-08-16e F1):
@@ -548,6 +555,13 @@ export class PlayerMotor {
     // MOVE-REAL: the ground this body covered under its OWN steps, across (h) and up or down (v) - what the movement
     // skills count past 100 (systems/skillSoftcap.js movementTallyWeight). Hosts hand this live object on.
     this.odometer = { h: 0, v: 0 };
+    // AUDIT BODY-MOTION GAIT-9: and the same steps' move AS A VECTOR (world metres, x y z), latched at each step's start
+    // as the render span is - so a body's legs read the ground the body itself crossed this frame, as drawn (a wall that
+    // stops the capsule stops the stride; a deck's carry, a pin, a spawn and an origin shift are never a step); and
+    // the turns the world gave the body that it did not take itself (a deck's - RIG-6), so its feet ride the deck
+    this.travel = [0, 0, 0];
+    this._travelPrev = [0, 0, 0];
+    this.carriedYaw = 0;
     this._alpha = 1;               // _acc / FIXED_DT after the last update
     this._eyeFeetY = null;         // MAC1: the render eye's LOW-PASSED interpolated feet height (eyeAt); null = not yet primed
     this._eyeSmoothing = true;     // MAC1: the harness's off switch, so a bare walk can be measured beside a smoothed one
@@ -728,11 +742,12 @@ export class PlayerMotor {
    * meets, gravity brings it down, the fall counts from the launch (or, launched mid-fall, from where that fall began:
    * KICK-AIR) - and the Jump spell's air control does not steer it
    * (`techFlight`, cleared on the ground: a leap's flight keeps its launch, as a parkour leap's does). Refused (false) to a
-   * body the hands hold (a climb, a hold, a mantle), the water or the air (a swim, a levitation, a slow fall), the saddle,
-   * a knockdown and a held motor - nothing there leaps.
+   * body the hands hold (a climb, a hold, a mantle), the water or the air (a swim, a levitation, a slow fall in the air),
+   * the saddle, a knockdown and a held motor - nothing there leaps. FB1018D LEAP-SLOW: on the ground the slow fall holds
+   * nothing up (JUMP-SLOW's jump goes there), and the flight it launches is its own arc under the spell (ApplyGravity).
    */
   techniqueLaunch(dir, along, up) {
-    if (this.swimming || this.levitating || this.slowFalling || this.climb?.isClimbing || this._wall || this._pkMove) return false;   // not from a climb, a wall, a vault, the water or the air's own spells
+    if (this.swimming || this.levitating || (this.slowFalling && !this.grounded) || this.climb?.isClimbing || this._wall || this._pkMove) return false;   // not from a climb, a wall, a vault, the water or the air's own spells
     if (this.riding || this.isDown() || this.freezeMotor > 0 || this.paralyzed) return false;
     if (!Array.isArray(dir) || !(Number.isFinite(along) && Number.isFinite(up))) return false;
     this.velY = up;
@@ -947,6 +962,20 @@ export class PlayerMotor {
     if (!(h + v <= ODOMETER_MAX_SPEED * step)) return;
     this.odometer.h += h;
     this.odometer.v += v;
+    this.travel[0] += p[0] - q[0]; this.travel[1] += p[1] - q[1]; this.travel[2] += p[2] - q[2];   // AUDIT BODY-MOTION GAIT-9
+  }
+
+  /** AUDIT BODY-MOTION GAIT-9: THE BODY'S OWN TRAVEL as drawn - the steps' move (`travel`) across the render span by the
+   *  span's own alpha, as bodyFeetAt lerps the feet (world metres, cumulative: a reader takes the change frame to frame). */
+  travelAt(alpha = this._alpha) {
+    const a = Math.max(0, Math.min(1, alpha)), p = this.travel, q = this._travelPrev;
+    return [q[0] + (p[0] - q[0]) * a, q[1] + (p[1] - q[1]) * a, q[2] + (p[2] - q[2]) * a];
+  }
+
+  /** AUDIT BODY-MOTION RIG-6: the world turned the body `rad` it did not turn itself (a deck's turn - the view turned
+   *  with it): counted, so the legs read it as the ground's, never as a turn on the spot. */
+  carryTurn(rad) {
+    if (Number.isFinite(rad)) this.carriedYaw += rad;
   }
 
   /** CSA-D: another script writes the PlayerObject's transform - Come Sail Away's helm pin (`playerObject.transform
@@ -1619,9 +1648,11 @@ export class PlayerMotor {
       // fix-your-timestep shape) and a zero-step frame keeps the
       // previous span and just advances alpha.
       this._prevPos[0] = this.pos[0]; this._prevPos[1] = this.pos[1]; this._prevPos[2] = this.pos[2];
+      this._travelPrev[0] = this.travel[0]; this._travelPrev[1] = this.travel[1]; this._travelPrev[2] = this.travel[2];   // AUDIT BODY-MOTION GAIT-9
       this._step(step, moveInput, yaw, pitch);
       this._pushStep(step);   // TELL6e: a blow's push, after the step's own move
       if (this.arena) this._keepInArena();   // DUEL1: after the collider's move, so both ends of the span stand inside
+      keepOffBodies(this, CAPSULE_RADIUS);   // PROP-BODIES: a tree's trunk, a rock, a barrel - walked round, never through
       this._countOdometer(step);   // MOVE-REAL
     }
     this._alpha = Math.min(1, this._acc / step);
@@ -2180,6 +2211,7 @@ export class PlayerMotor {
   _wallBegin(mode, normal, lipY, key) {
     this._pkUnsink();
     this._wall = { mode, normal: [normal[0], 0, normal[2]], lipY, key: key ?? null, carrier: null, warned: false, upRefused: false, look: this._pkLookNow ?? null };
+    this.techFlight = false;   // FB1018D LEAP-SLOW (AUDIT FB1018D L2-2): a wall taken ends a technique's flight - a grab mid-flight is no move (_pkGrab), and an eject from it is the parkour leap's own flight, the slow fall's to glide
     this._pkSide = null;   // AUDIT CLIMB2 A3: a new wall asks the look afresh (a corner is no new wall: C7)
     if (key != null) this._wall.carrier = this.collider.bucketPose?.(key) ?? null;
     this._wallTally = 0;
@@ -2817,6 +2849,7 @@ export class PlayerMotor {
     this._pkUnsink();
     this._pkArm = null;   // the tap catch: the press is spent on the move
     this._pkLeap = null;  // CLIMB3: a leap's flight ends in what it caught
+    this.techFlight = false;   // FB1018D LEAP-SLOW (AUDIT FB1018D L2-2): and a technique's - a clamber's or a vault's exit sets Jumping again, and the drop after it is the slow fall's to glide
     this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6: a move is no run off an edge (a wall run let go is no late leap)
     this._pkMove = move;
     // CLIMB2: a corner the shimmy turns is no new exertion. AUDIT CLIMB-ARC L13: a frame of several steps can begin two
@@ -3045,6 +3078,7 @@ export class PlayerMotor {
       // carried into it.
       this._airVelX = 0;
       this._airVelZ = 0;
+      this.techFlight = false;   // FB1018D LEAP-SLOW: and a technique's flight with it - a fall after is the slow fall's to glide
       const cp = Math.cos(pitch), sp = Math.sin(pitch);
       let mx = (sin * cp * input.forward + cos * input.strafe) * factor;   // HANDEDNESS (mat4's law): right = (cos, 0, -sin)
       let my = sp * input.forward * factor;
@@ -3393,7 +3427,13 @@ export class PlayerMotor {
     if (!this.grounded) {
       if (this.slowFalling && this.falling && !(this.jumping && this.velY > 0)) {   // JUMP-SLOW: a jump's rise is the jump's
         this.fallStart = this.pos[1];
-        this.velY = -SLOWFALL_VELOCITY;   // F032: DFU's step, not ours
+        // FB1018D LEAP-SLOW: a technique's flight keeps the arc it was launched on (techniqueLaunch), to its aim on its
+        // strike's clock - the spell bills none of its fall and glides the body again once the flight is over: the flight
+        // is a Jumping, which the ground, a climb and a placement each clear, and the water, a levitation, a parkour move
+        // (a catch, a clamber, a vault - _parkourBegin; AUDIT FB1018D L2-2: an exit sets Jumping again) and a wall taken (a
+        // grab, a hang - _wallBegin, before any eject) end it themselves (the swim/levitate branch, _parkourBegin, _wallBegin)
+        if (this.techFlight && this.jumping) this.velY -= GRAVITY * dt;
+        else this.velY = -SLOWFALL_VELOCITY;   // F032: DFU's step, not ours
       } else {
         this.velY -= GRAVITY * dt;
       }

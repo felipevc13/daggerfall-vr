@@ -32,7 +32,7 @@ import { mat33Mul } from '../../src/formats/morrowind/mwNifMesh.js';
 import { applyMirrorRig, mirrorPlan, counterpartName, strikingSide, limbSkeleton, offWeaponBoneAddon, WEAPON_BONE_LEFT_SOURCE, mirrorBindSources } from '../../src/combat/twoHands/mirrorRig.js';
 import { rotAxisAngle } from '../../src/combat/climbRig.js';
 import { createFpArm, fpSkeletonPath, tpSkeletonPath, strideOppositeTime, FP_CLIP_PATH, resolveOffWeaponParts, resolveWeaponParts, OFF_WEAPON_BONE, fpWeaponKey, GUARD_LENS_DROP, bladePictureHeight, bladeInnerEdge, FP_FIELD_OF_VIEW } from '../../src/combat/fpArm.js';
-import { GUARD, RUN_PUMP, RUN_STEP_M, runPhaseOfBob, runPhaseFollow, runPhaseStep, PAIR_SPREAD, pairSpreadAngle } from '../../src/combat/twoHands/handsLaw.js';
+import { GUARD, RUN_PUMP, RUN_STEP_M, runPhaseOfBob, runPhaseFollow, runPhaseStep, PAIR_SPREAD, pairSpreadAngle, RUN_3D } from '../../src/combat/twoHands/handsLaw.js';
 import { HeadBobber } from '../../src/player/headBobber.js';
 import { MW_WEAPON_TYPE, MW_UNITS_PER_METER, assembleFirstPersonArm, poseAssembly } from '../../src/formats/morrowind/mwFirstPerson.js';
 import { bodyRec } from '../fixtures/mw/bodyRec.mjs';
@@ -764,6 +764,23 @@ test('TWO-HANDS AUDIT the arm, THE RUN ON THE LENS (finding 11): with the arms o
   } finally { arm.setFollowCamera(true); }
 }));
 
+test('RUN-WIDE THE FIRST PERSON\'S RUNNING FISTS (2026-10-19, Mac: "The hands are way too close together when running both in third and first person"): the top of the pump\'s stroke stands each fist before and just outside its own shoulder - its line through the picture, at its distance out, past the retail shoulder joint across, on a 16:9 picture and a 4:3 one (at 0.36 of the half-frame it stood 14 cm across and 11, toward the middle) - and the arm\'s own run asks the wrist for that place (mutants: RUN-WIDE-the-first-person-fists-in)', () => seeded(async () => {
+  const sk = retail(), rest = M(sk, new Map());
+  const shoulder = dist(rest.get(sk.byName.get('bip01 l upperarm')).t, rest.get(sk.byName.get('bip01 r upperarm')).t) / 2 / MW_UNITS_PER_METER;
+  const tanV = Math.tan(FP_FIELD_OF_VIEW / 2);
+  const across = (aspect) => { const v = [RUN_3D.TOP.x * tanV * aspect, 1, RUN_3D.TOP.y * tanV]; return (RUN_3D.TOP.d * v[0]) / Math.hypot(v[0], v[1], v[2]); };
+  for (const aspect of [16 / 9, 4 / 3]) assert.ok(across(aspect) > shoulder, `at ${aspect.toFixed(2)}: the fist ${across(aspect).toFixed(3)} m across, the shoulder ${shoulder.toFixed(3)}`);
+  // the arm asks for it: the right hand at the top of its stroke, on the picture at the law's share across
+  const arm = await drawnArm();
+  arm.setHands({ mode: 'fists', lead: 'R' });
+  arm.setSheathed(true);
+  for (let i = 0; i < 40; i++) arm.update(1 / 60);
+  arm.setRunHands(true, { speed: 0, phase: Math.PI / 2 });
+  arm.update(1 / 60);
+  const t = arm.handsState().run.targets, d = [t.R[0] - t.eye[0], t.R[1] - t.eye[1], t.R[2] - t.eye[2]];
+  assert.ok(Math.abs(d[0] / d[1] / (tanV * 16 / 9) - RUN_3D.TOP.x) < 1e-6, `the right fist asked for at ${(d[0] / d[1] / (tanV * 16 / 9)).toFixed(3)} of the half-frame across`);
+}));
+
 test('TWO-HANDS AUDIT the arm, THE PAIR\'S DRAW (finding 7): the second arm is composed from the first frame of the right hand\'s draw to the last of its sheathe - the blades come and go at the right\'s attach and detach keys', () => seeded(async () => {
   const arm = await drawnArm();
   arm.setHands({ mode: 'dual', lead: 'R' });
@@ -1068,7 +1085,9 @@ test('TWO-HANDS AUDIT 2 the rig under a READY Morrowind arm (L5): a light that i
 test('TWO-HANDS the arm, by source: the mirror is posed over the clip ahead of the neck and the climb (the assembly\'s own hook), both rigs ask it, the run is solved under the climb\'s request in the same slot (TWO-HANDS AUDIT: blended, never chosen), and the rig hands the arm the hands\' mode, the left hand\'s weapon and the blow\'s hand every frame', () => {
   const fp = rd('src/formats/morrowind/mwFirstPerson.js');
   assert.match(fp, /const pose = fns\.poseSkeleton\(skeleton, tracks, sampleTrack, time, \{ accumRoot \}\);\n(?:\s*\/\/[^\n]*\n)*\s*assembly\.mirrored = mirror \? applyMirrorRig\(skeleton, pose, GRAPH_ROOT, fns\.skelMats, mirrorWithPoses\(mirror, fns, skeleton, accumRoot\)\) : null;\n(?:\s*\/\/[^\n]*\n)*\s*applyFirstPersonNeck\(/);
-  assert.match(fp, /applyFirstPersonNeck\([^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*assembly\.runFit = run \? applyClimbRig\(skeleton, pose, GRAPH_ROOT, fns\.skelMats, run\) : null;\n(?:\s*\/\/[^\n]*\n)*\s*assembly\.climbFit = climb \? applyClimbRig/, 'the run under the climb, after the neck');
+  // PIN MOVED (BODY-MOTION, 2026-10-18): the third-person body's own motion (`motion`, characters/bodyMotion/) is solved
+  // between the neck and the run - over the mirror, under the run and the climb
+  assert.match(fp, /applyFirstPersonNeck\([^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*assembly\.motionFit = motion \? motion\(skeleton, pose, GRAPH_ROOT, fns\.skelMats\) : null;\n(?:\s*\/\/[^\n]*\n)*\s*assembly\.runFit = run \? applyClimbRig\(skeleton, pose, GRAPH_ROOT, fns\.skelMats, run\) : null;\n(?:\s*\/\/[^\n]*\n)*\s*assembly\.climbFit = climb \? applyClimbRig/, 'the run under the climb, after the neck');
   const arm = rd('src/combat/fpArm.js');
   assert.equal((arm.match(/mirror: mirrorFor\('(first|third)', /g) ?? []).length, 2, 'both views');
   // PIN MOVED (TWO-HANDS AUDIT, finding 4): the slot took the climb OR the run (`climb: held ? null : (firstClimb(climbWorld,

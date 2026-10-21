@@ -454,12 +454,12 @@
   {
     "name": "PROF4-saw-smithing-xp",
     "file": "server-account/src/professions.js",
-    "old": "  const cap = r.xp ? craftXpCap(r.xp, ranks) : 0;\n  const xp = scaleXp(r.act ? masonXp(count, rank, { clean: act }) : r.xp ? smeltXp(out.tier, count, rank) : 0,",
-    "new": "  const cap = craftXpCap(r.xp ?? 'smithing', ranks);\n  const xp = scaleXp(r.act ? masonXp(count, rank, { clean: act }) : smeltXp(out.tier, count, rank),",
+    "old": "  const cap = r.xp ? craftCapSql('?1', '?2', r.xp) : '0';\n  const xp = scaleXp(r.act ? masonXp(count, rank, { clean: act }) : r.xp ? smeltXp(out.tier, count, rank) : 0,",
+    "new": "  const cap = craftCapSql('?1', '?2', r.xp ?? 'smithing');\n  const xp = scaleXp(r.act ? masonXp(count, rank, { clean: act }) : smeltXp(out.tier, count, rank),",
     "tests": [
       "test/net/prof4_service.test.js"
     ],
-    "note": "CRAFT3: re-aimed by content."
+    "note": "AUDIT FB1018f L5-1: re-aimed by content - the cap read in the statement (craftCapSql), no longer bound."
   },
   {
     "name": "PROF4-craft-as-smith",
@@ -594,8 +594,9 @@
   {
     "name": "PROF4-tree-flat-shared",
     "file": "src/scenes/treeHost.js",
-    "old": "if (claimed.has(f.id) || insideRocks(rocks, f.x, f.z)) continue;",
-    "new": "if (insideRocks(rocks, f.x, f.z)) continue;",
+    "old": "      if (claimed.has(f.id)) continue;",
+    "new": "",
+    "note": "JUNGLE-WOODS (PIN MOVED): the rock check is asked once a flat, before the trees' loop - the mutation is the claim's check gone, as it was",
     "tests": [
       "test/systems/prof4_client.test.js"
     ]

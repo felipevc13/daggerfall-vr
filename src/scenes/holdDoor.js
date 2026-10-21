@@ -18,8 +18,8 @@
 //   book - wherever she lies.
 // - ANY SHIP OF THEIRS BY HER NUMBER (`openShip`, the Fleet page's): afloat here or anywhere (her boat's own hold), laid
 //   up (Come Sail Away's PackedCargoes under her number - laidUpHold, the same list her placing takes back aboard), or
-//   packed in the pack (the same list; her parts' weight carries her hold's, so it is weighed again when the window
-//   shuts - comeSailAway.js PackBoat's own sum).
+//   packed in the pack (the same list - PARTS-WEIGHT, FIELD BUGS 2026-10-18e: her parts weigh her timbers alone, so
+//   nothing put in or taken out here weighs on them, wherever they lie).
 // A Rowboat carries no hold - the mod gives her no cargo box (HULL_HOLDS) - and is said so.
 //
 // The hold is the player's own, kept in their save: online it is nobody else's to see, so opening it from afar shares
@@ -32,12 +32,12 @@
 //     ships() -> the Fleet's records ({ uid, hull }) - the ledger's own by default (fleet.js fleetShips)
 //     partsOf(uid) -> her parts item in the pack, or null
 //     openHold(target) -> bool    the inventory window over a loot target (world.js csaOpenCargo's door)
-//     nameOf(uid) -> her name, or ''     weigh(items) -> kg (the mod's cargoWeight - ItemCollection.GetWeight)
+//     nameOf(uid) -> her name, or ''
 //     say(text)
 //   }
 
 import { cargoLootTarget } from '../systems/comeSailAway/comeSailAwayItems.js';
-import { CARGO_CONTAINER_IMAGE, packedHullWeight } from '../systems/comeSailAway/comeSailAwayBoat.js';
+import { CARGO_CONTAINER_IMAGE } from '../systems/comeSailAway/comeSailAwayBoat.js';
 import { t } from '../systems/textManager.js';
 import { fleetShips, titleOf as titleDeedOf } from '../systems/fleet.js';
 
@@ -90,19 +90,14 @@ export function createHoldDoor(deps) {
     if (!r?.laidUpHold) return said(false, t('naval.hold.noSea', 'Come Sail Away is not running.'));
     const items = r.laidUpHold(uid);
     const parts = deps.partsOf?.(uid) ?? null;
-    // packed: her parts weigh her hold as well as her timbers (PackBoat) - weighed again as the window shuts. AUDIT 2: and
-    // weigh her timbers alone while it is open - what is taken out of her was counted twice (her parts carried it still,
-    // so a take that would fit was refused); and her parts stored in her own hold come back to the pack (none of her
-    // left to the Fleet - no parts, no title - and her hold with no door)
+    // packed: AUDIT 2: her parts stored in her own hold come back to the pack as the window shuts (none of her left to the
+    // Fleet - no parts, no title - and her hold with no door). PARTS-WEIGHT: nothing here weighs on them - they weigh her
+    // timbers alone (PackBoat), so a stow can never make them heavier than the bearer can lift
     const onClose = parts ? () => {
       const at = items.indexOf(parts);
       if (at >= 0) { items.splice(at, 1); deps.toPack?.(parts); }
-      parts.weightInKg = Math.fround(packedHullWeight(rec.hull) + Math.fround(deps.weigh?.(items) ?? 0));
     } : null;
-    if (parts) parts.weightInKg = Math.fround(packedHullWeight(rec.hull));
-    const opened = !!deps.openHold?.({ ...cargoLootTarget({ Items: items, ContainerImage: CARGO_CONTAINER_IMAGE, playerOwned: true }), title: titleOf(uid), ...(onClose ? { onClose } : {}) });
-    if (!opened) onClose?.();
-    return opened;
+    return !!deps.openHold?.({ ...cargoLootTarget({ Items: items, ContainerImage: CARGO_CONTAINER_IMAGE, playerOwned: true }), title: titleOf(uid), ...(onClose ? { onClose } : {}) });
   }
 
   return {

@@ -38,8 +38,8 @@
   {
     "name": "KICK-AIR-the-saddle-unread",
     "file": "src/combat/techniques.js",
-    "old": "m.slowFalling || m.riding || m.isDown?.()",
-    "new": "m.slowFalling || m.isDown?.()",
+    "old": "&& !m.grounded) || m.riding || m.isDown?.()",
+    "new": "&& !m.grounded) || m.isDown?.()",
     "tests": [
       "test/systems/fb1015_kickair.test.js"
     ]
@@ -47,7 +47,7 @@
   {
     "name": "KICK-AIR-the-slow-fall-unread",
     "file": "src/combat/techniques.js",
-    "old": "m.levitating || m.slowFalling || m.riding",
+    "old": "m.levitating || (m.slowFalling && !m.grounded) || m.riding",
     "new": "m.levitating || m.riding",
     "tests": [
       "test/systems/fb1015_kickair.test.js"
@@ -56,8 +56,8 @@
   {
     "name": "KICK-AIR-the-levitation-unread",
     "file": "src/combat/techniques.js",
-    "old": "m.isPlayerSwimming || m.levitating || m.slowFalling",
-    "new": "m.isPlayerSwimming || m.slowFalling",
+    "old": "m.isPlayerSwimming || m.levitating || (m.slowFalling",
+    "new": "m.isPlayerSwimming || (m.slowFalling",
     "tests": [
       "test/systems/fb1015_kickair.test.js"
     ]

@@ -154,7 +154,8 @@ test('EV6: the skies neither query CURRENT_PROGRAM nor restore - the hosts mark 
     // WINDFALL1: and Windfall's leaves and snow flurries, one more in both hosts (before the haze, which bends them)
     // SD2c: and a Super dungeon's omen, one more in the world host (after the rite's smoke - PIN MOVED)
     // POI-3: and the POI editor's lines, one more in the world host (its boxes and handles, after the translucent pass - PIN MOVED)
-    const want = host === 'src/scenes/world.js' ? 31 : 7;   // SHIP-COLOURS: the ships' flags, cloth after the banners, one seam (PIN MOVED)   // EG-G2: an Elite Breach's own sky, one seam (render/eliteGates/egSkyPass.js - PIN MOVED)   // EG-PLAY: an Elite Breach hall's telegraphs, vents and rifts, one seam (PIN MOVED)   // SD-LOOK: the Rift's window, its floor light and its halos, one seam (PIN MOVED)   // SD8d: the Brass Remnant's blows on the arena's floor (PIN MOVED)   // SD5b: the Shattered Hour's sky (PIN MOVED)   // HOTFIX 1003l: the sky over the arena's floor, through the world host's drawSky hook   // CROWN-HALL: the banners' cloth in a castle's throne room (PIN MOVED)   // LOOT11: the loot lines' two seams, the street's pass and the modes' hook
+    // STAR4: and the Starfall in the sky - an omen, a fall, a landing, a beacon - one more in the world host (after the Hollow's omen - PIN MOVED)
+    const want = host === 'src/scenes/world.js' ? 32 : 7;   // SHIP-COLOURS: the ships' flags, cloth after the banners, one seam (PIN MOVED)   // EG-G2: an Elite Breach's own sky, one seam (render/eliteGates/egSkyPass.js - PIN MOVED)   // EG-PLAY: an Elite Breach hall's telegraphs, vents and rifts, one seam (PIN MOVED)   // SD-LOOK: the Rift's window, its floor light and its halos, one seam (PIN MOVED)   // SD8d: the Brass Remnant's blows on the arena's floor (PIN MOVED)   // SD5b: the Shattered Hour's sky (PIN MOVED)   // HOTFIX 1003l: the sky over the arena's floor, through the world host's drawSky hook   // CROWN-HALL: the banners' cloth in a castle's throne room (PIN MOVED)   // LOOT11: the loot lines' two seams, the street's pass and the modes' hook
     assert.equal((s.match(/renderer\.markForeignPass\(\);/g) || []).length, want,
       `${host} marks its foreign seams (the sky, the rain, the sand, the wisps, the bolts${want === 6 ? ', and the grass' : ''})`);
   }
@@ -324,7 +325,14 @@ test('AUDIT 47: no shader in the tree uses a uniform it did not declare in its o
   const cloudShadowGlsl = (readFileSync('src/render/cloudShadow.js', 'utf8').match(/export const CLOUD_SHADOW_GLSL = `([\s\S]*?)`;/) || [, ''])[1];   // VC6c: and the cloud shadow's, once TWO passes needed it
   const aoGlsl = (readFileSync('src/render/airPass.js', 'utf8').match(/export const AIR_AO_GLSL = `([\s\S]*?)`;/) || [, ''])[1];   // EL3: and the AO's
   const adaptGlsl = (readFileSync('src/render/airPass.js', 'utf8').match(/export const AIR_ADAPT_GLSL = `([\s\S]*?)`;/) || [, ''])[1];   // EL4: and the eye's
-  const fogGlsl = (readFileSync('src/render/fogGlsl.js', 'utf8').match(/export const FOG_GLSL = `([\s\S]*?)`;/) || [, ''])[1];   // AUDIT 68 S17-fog-glsl-dup: and the fog's, which nine programs share
+  // BANTHA1: and the jungle's haze - its law (inside the fog block and the far ring's), the ring's and the skies' halves
+  const hazeGlslSrc = readFileSync('src/render/hazeGlsl.js', 'utf8');
+  const hazeLawGlsl = (hazeGlslSrc.match(/export const HAZE_LAW_GLSL = `([\s\S]*?)`;/) || [, ''])[1];
+  const hazeSkyGlsl = (hazeGlslSrc.match(/export const HAZE_SKY_GLSL = `([\s\S]*?)`;/) || [, ''])[1];
+  const ringHazeGlsl = (hazeGlslSrc.match(/export const RING_HAZE_GLSL = `([\s\S]*?)`;/) || [, ''])[1].replace(/\$\{HAZE_LAW_GLSL\}/g, hazeLawGlsl);
+  assert.match(hazeLawGlsl, /uniform vec4 uJungleHaze\[2\];/, 'the haze law is where the sweep reads it');
+  assert.match(hazeSkyGlsl, /uniform vec4 uHazeSky;/, 'and the skies\' half');
+  const fogGlsl = (readFileSync('src/render/fogGlsl.js', 'utf8').match(/export const FOG_GLSL = `([\s\S]*?)`;/) || [, ''])[1].replace(/\$\{HAZE_LAW_GLSL\}/g, hazeLawGlsl);   // AUDIT 68 S17-fog-glsl-dup: and the fog's, which nine programs share
   // FAR-SEA1: and the horizon's haze and the ring's sea, a leaf the far ring (both lanes) and the water interpolate
   const hazeSrc = readFileSync('src/render/horizonHaze.js', 'utf8');
   const horizonHazeGlsl = (hazeSrc.match(/export const HORIZON_HAZE_GLSL = `([\s\S]*?)`;/) || [, ''])[1];
@@ -371,6 +379,7 @@ test('AUDIT 47: no shader in the tree uses a uniform it did not declare in its o
       // lighting lane composes EL_GLSL + EL_FOG_GLSL + EL_POINT_LIT_GLSL into each of its shaders
       const body = m[2].replace(/\$\{CLOUD_SHADOW_GLSL\}/g, shared).replace(/\$\{CLOUD_FIELD_GLSL\}/g, field).replace(/\$\{SHADOW_GLSL\}/g, shadowGlsl).replace(/\$\{AIR_AO_GLSL\}/g, aoGlsl).replace(/\$\{AIR_ADAPT_GLSL\}/g, adaptGlsl).replace(/\$\{(?:EL_)?FOG_GLSL\}/g, fogGlsl)
         .replace(/\$\{RING_SEA_GLSL\}/g, ringSeaGlsl).replace(/\$\{HORIZON_HAZE_GLSL\}/g, horizonHazeGlsl)   // FAR-SEA1
+        .replace(/\$\{RING_HAZE_GLSL\}/g, ringHazeGlsl).replace(/\$\{HAZE_SKY_GLSL\}/g, hazeSkyGlsl).replace(/\$\{HAZE_LAW_GLSL\}/g, hazeLawGlsl)   // BANTHA1
         .replace(/\$\{([A-Z_]+)\}/g, (all, name) => { const b = s.match(new RegExp(`const ${name} = \`([^\`]*)\``)); return b ? b[1] : all; });
       const declared = new Set([...body.matchAll(/uniform\s+(?:(?:lowp|mediump|highp)\s+)?\w+\s+([^;]+);/g)]
         .flatMap((x) => x[1].split(',').map((v) => v.trim().replace(/\[.*?\]/, '').split('//')[0].trim())));
@@ -1216,8 +1225,8 @@ test('AUDIT-AIR1: the shadow reset is ONE HOME - six copies of a rule is five ch
   // a seventh seam cannot be added with its own hand-copied block.
   const src = readFileSync(new URL('../../src/render/renderer.js', import.meta.url), 'utf8');
   // PIN MOVED (ECOTONE1, 2026-10-07): the terrain's neighbour sets on units 3-5 and the border switch are shadows the
-  // same seams lose, so the one home forgets them too, after the tile size
-  assert.match(src, /_forgetTextureShadows\(\) \{\s*\n\s*this\._tex1Bound = null;\s*\n\s*this\._tex0Bound = null; this\._activeUnit = null;\s*\n\s*this\._sq = \{\};\s*\n\s*this\._tArrayTex = null;\s*\n\s*this\._tTileSize = null;\s*\n\s*\(this\._tEcoTex \?\?= \[null, null, null\]\)\.fill\(null\);[^\n]*\n\s*this\._tEcoOn = null;[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*this\._frameStamp\+\+;\s*\n\s*\}/,
+  // same seams lose, so the one home forgets them too, after the tile size; PRECIP4 (2026-10-19): and the snow's switch
+  assert.match(src, /_forgetTextureShadows\(\) \{\s*\n\s*this\._tex1Bound = null;\s*\n\s*this\._tex0Bound = null; this\._activeUnit = null;\s*\n\s*this\._sq = \{\};\s*\n\s*this\._tArrayTex = null;\s*\n\s*this\._tTileSize = null;\s*\n\s*\(this\._tEcoTex \?\?= \[null, null, null\]\)\.fill\(null\);[^\n]*\n\s*this\._tEcoOn = null;[^\n]*\n\s*this\._tSnowOn = null;[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*this\._frameStamp\+\+;\s*\n\s*\}/,
     'the one home exists and clears all six (LA-COST1: and forgets the four frame blocks, whose lane images sit on units too; ECOTONE1: and the neighbour sets)');
   // nobody clears them by hand any more
   const decl = src.indexOf('_forgetTextureShadows() {');

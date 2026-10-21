@@ -35,6 +35,7 @@ import { STAT_KEYS_ORDER } from '../systems/chargen.js';
 import { statDescriptionRows } from '../systems/talk/talkMacros.js';   // ATTRMACRO1: SetTextTokens' macro pass over TEXT.RSC records 0..7
 import { SKILLS, SKILL_NAMES, skillValue, skillValueText, getSkillRecentlyIncreased, resetSkillsRecentlyRaised } from '../systems/skills.js';
 import { applyLevelUp, bonusPoolFor, LEVELUP_SKILL_SUM_PER_LEVEL } from '../systems/advancement.js';
+import { refreshOnlineLayer } from '../systems/renownLayer.js';   // AUDIT LEVEL-EVEN L2-2: the rollout's points reach the online floor
 import { usesVirtueLeveling, levelBarProgress, LEVELUP_TOTAL } from '../systems/oblivionLeveling.js';   // ORL1: whose law levels this character
 import { ActionTextBox } from './actionText.js';   // the mustDistributeBonusPoints refusal, ClickAnywhereToClose
 import { OGHMA_BONUS_POOL } from '../systems/artifactEffects.js';   // AUDIT 39: the sheet's oghmaBonusPool (:44)
@@ -456,6 +457,7 @@ export class CharSheet {
       }
       this.leveling = false;
       Object.assign(this.entity.stats, this.working);   // PlayerEntity.Stats = statsRollout.WorkingStats (:448)
+      refreshOnlineLayer(this.entity, { keepHealth: true });   // AUDIT LEVEL-EVEN L2-2: the rollout's Endurance reaches the online floor now
       return true;
     }
     if (this.entity) resetSkillsRecentlyRaised(this.entity);
@@ -852,7 +854,7 @@ export class CharSheet {
         : guide && pathPossible(e) ? t('schools.sheet.guide', 'Arcane paths  (S)') : null;
     // MARTIAL1: and the Martial row under that, the same way - the weapons' specialisation (W)
     const martialText = martialPathOf(e) && masterSkillsActive(e) ? t('martial.sheet.chosen', '{name}  (W)', { name: martialPathOf(e).name })
-      : masterSkillsActive(e) && martialChoices(e).length ? t('martial.sheet.choose', 'Martial specialisation  (W)')
+      : masterSkillsActive(e) && martialChoices(e).length ? t('martial.sheet.choose', 'Martial specialization  (W)')
         : guide && martialPossible(e) ? t('martial.sheet.guide', 'Martial paths  (W)') : null;
     const h = (lines + 1 + (pathText ? 1 : 0) + (martialText ? 1 : 0)) * 9 + 14;   // SOFTCAP3: + the Master Skills row under the skills
     const w = twoColumn ? 246 : 130;
@@ -929,7 +931,7 @@ export class CharSheet {
     const pool = martialChoices(e);
     if (!pool.length) return;
     const p = pool[(this._martialPick = ((this._martialPick ?? -1) + 1)) % pool.length];
-    const more = pool.length > 1 ? ['', t('martial.sheet.next', '{n, plural, one {# martial specialisation is open - No, then W, for the next.} other {# martial specialisations are open - No, then W, for the next.}}', { n: pool.length })] : [];
+    const more = pool.length > 1 ? ['', t('martial.sheet.next', '{n, plural, one {# martial specialization is open. Choose No, then press W to see the next.} other {# martial specializations are open. Choose No, then press W to see the next.}}', { n: pool.length })] : [];
     this.child = new YesNoBoxWindow({
       rows: [...martialChoiceRows(e, p.id, { others: false }), ...more],
       onYes: () => { const r = chooseMartialPath(e, p.id); if (r.ok) computeEntityMods(e); this.notice = r.text; this.noticeOk = r.ok; },
@@ -948,7 +950,7 @@ export class CharSheet {
     const pool = pathChoices(e);
     if (!pool.length) return;
     const p = pool[(this._pathPick = ((this._pathPick ?? -1) + 1)) % pool.length];
-    const more = pool.length > 1 ? ['', t('schools.sheet.next', '{n, plural, one {# specialisation is open - No, then S, for the next.} other {# specialisations are open - No, then S, for the next.}}', { n: pool.length })] : [];
+    const more = pool.length > 1 ? ['', t('schools.sheet.next', '{n, plural, one {# specialization is open. Choose No, then press S to see the next.} other {# specializations are open. Choose No, then press S to see the next.}}', { n: pool.length })] : [];
     this.child = new YesNoBoxWindow({
       rows: [...pathChoiceRows(e, p.id, { others: false }), ...more],
       onYes: () => { const r = choosePath(e, p.id); if (r.ok) computeEntityMods(e); this.notice = r.text; this.noticeOk = r.ok; },
@@ -977,7 +979,7 @@ export class CharSheet {
         return;
       }
       const id = pool[(this._masteryPick = ((this._masteryPick ?? -1) + 1)) % pool.length];
-      const more = pool.length > 1 ? ['', `${pool.length} skills are ready - No, then M, for the next.`] : [];   // SOFTCAP6
+      const more = pool.length > 1 ? ['', `${pool.length} skills are ready. Choose No, then press M to see the next.`] : [];   // SOFTCAP6
       this.child = new YesNoBoxWindow({
         rows: [...masteryChoiceRows(e, id, SKILL_NAMES), ...more],
         onYes: () => { const r = masterSkill(e, id, SKILL_NAMES); this.notice = r.text; this.noticeOk = r.ok; },

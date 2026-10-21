@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { DATASET, HOURS_MAX, QUESTIONS, loadHours, loadSql, loadTable } from '../../tools/d1Load.mjs';
 import { standService, T0 } from '../accountDb.mjs';
-import { confirmedSeats, SEAT_ROWS_KEPT_S } from '../../server-account/src/townSeats.js';
+import { confirmedSeats, SEAT_ROWS_KEPT_S, SEAT_ROWS_SQL, SEAT_JUDGED_SQL } from '../../server-account/src/townSeats.js';
 import { titheAt } from '../../server-account/src/seatHolding.js';
 import { settleWeek, settleDueOnce } from '../../server-account/src/seatTurning.js';
 import { seatReportText, seatWeekOf, seatWeekStartMs } from '../../src/net/townSeatLaw.js';
@@ -100,11 +100,14 @@ case "$sql" in *"blob2 = 'CRON'"*) cp "$FAKE_DIR/cron.json" "$out"; echo -n "$FA
   assert.doesNotMatch(refused.summary, /\*\*The clock's jobs\*\*/, 'a refusal is never drawn as a table');
   assert.match(refused.out, /::warning::the cron question was refused \(HTTP 403\)/);
   assert.match(refused.summary, /\*\*Minute by minute\*\*/, 'the other questions still answer');
+  // AUDIT PLAN-1000 A7 (relay-load.yml's twin): a refusal whose body carries rows is still a refusal - never drawn
+  const odd = run({ data: [{ job: 'cron:odd', firings: 1, failed: 0, d1_wait_s: 1, statements: 1, changed: 0, p95_ms: 1 }] }, '500');
+  assert.doesNotMatch(odd.summary, /\| cron:odd \|/, 'an HTTP 500 is never drawn, whatever its body');
 });
 
 const ENV = { SEATS_OPEN: 'on' };
 const ANTICLERE = { key: 3021, name: 'Anticlere', region: 21, tier: 'palace', pixel: [402, 151] };
-const WITNESS_SQL = "SELECT key, account, report, at FROM world_witness WHERE kind = 'seat'";
+const seatRead = (sql) => sql === SEAT_ROWS_SQL || sql === SEAT_JUDGED_SQL;   // LEAN-WITNESS (PIN MOVED): the rows the law judges by are a read of them
 /** The service with Anticlere confirmed and held by a guild, its seat witness reads counted (`c.n`). */
 async function heldSeat() {
   const svc = await standService(ENV);
@@ -117,7 +120,7 @@ async function heldSeat() {
   const base = svc.env.DB;
   const c = { n: 0, sql: [] };
   const db = Object.create(base);
-  db.prepare = (sql) => { if (sql === WITNESS_SQL) c.n++; c.sql.push(sql); return base.prepare(sql); };
+  db.prepare = (sql) => { if (seatRead(sql)) c.n++; c.sql.push(sql); return base.prepare(sql); };
   db.batch = (l) => base.batch(l);
   return { svc, raw, db, c };
 }

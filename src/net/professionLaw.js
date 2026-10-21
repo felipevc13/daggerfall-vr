@@ -151,7 +151,7 @@ const OWN_CHOICES = Object.freeze({
     50: pair(spec('prospector', 'Prospector', "Surface veins within 500 m are marked on the compass (a dungeon's within 200 m), and each vein on the Overworld by its ore; gems come a tenth more often."),
       spec('deep-delver', 'Deep Delver', 'Dungeon veins yield double, and every vein in the dungeon is marked on the compass.')),
     100: pair(spec('motherlode-sense', 'Motherlode Sense', "The day's Motherlodes are marked on your map from the day's start; warnings come 30 minutes ahead, not 10."),   // PROF2b: its Motherlodes built - chosen as any
-      spec(SURVEYOR, 'Surveyor', "Your own word witnesses the ground: unwitnessed veins can be any of their land's ores for you (a region's own ore still waits on witnesses). Quarrying yields Cut Stone directly.")),
+      spec(SURVEYOR, 'Surveyor', "You witness the ground yourself: unwitnessed veins can hold any ore of their land for you (a region's own ore still needs the other players). Quarrying yields Cut Stone directly.")),
   }),
   logging: Object.freeze({
     50: pair(spec('lumberjack', 'Lumberjack', 'Two chops fewer a tree (three at least).'),
@@ -179,13 +179,13 @@ const OWN_CHOICES = Object.freeze({
   }),
   smithing: Object.freeze({
     50: pair(spec('weaponsmith', 'Weaponsmith', 'Weapons +1 quality step.'),
-      spec('armoursmith', 'Armoursmith', 'Armour +1 quality step.')),
+      spec('armoursmith', 'Armoursmith', 'Armor +1 quality step.')),
     100: pair(spec('masterwright', 'Masterwright', 'Masterwork chance +5%.'),
       spec('quartermaster', 'Quartermaster', 'Ingots and repair kits x2.')),
   }),
   outfitting: Object.freeze({
     50: pair(spec('tailor', 'Tailor', 'Clothing +1 quality step.'),
-      spec('leatherworker', 'Leatherworker', 'Leather armour +1 quality step.')),
+      spec('leatherworker', 'Leatherworker', 'Leather armor +1 quality step.')),
     100: pair(spec('couturier', 'Couturier', 'Two-colour dyes.', 'two-colour'),   // PROF7: DFU's cloth takes one dye
       spec('saddler', 'Saddler', 'A wagon upgrade (Horse Cart and Cargo) of +100 kg.', 'wagon')),   // PROF7: DFU's wagon has one limit
   }),
@@ -208,7 +208,7 @@ const OWN_CHOICES = Object.freeze({
     50: pair(spec('brewer', 'Brewer', '3 potions a brew at Journeyman.'),
       spec('distiller', 'Distiller', 'Potent chance +10%.')),
     100: pair(spec('master-alchemist', 'Master Alchemist', 'Potent is +40%, not +25%.'),
-      spec('transmuter', 'Transmuter', 'Two of a DFU metal and a Mercury make one of the next up.')),
+      spec('transmuter', 'Transmuter', 'Two of a metal and a Mercury make one of the next metal up.')),
   }),
   enchanting: Object.freeze({
     50: pair(spec('efficient', 'Efficient', 'A further -5% cost.'),
@@ -225,7 +225,7 @@ const OWN_CHOICES = Object.freeze({
   jewelcrafting: Object.freeze({
     50: pair(spec('gemcutter', 'Gemcutter', 'A set gem adds +10% enchantment points.'),
       spec('goldsmith', 'Goldsmith', 'Silver counts as Gold.')),
-    100: pair(spec('master-jeweller', 'Master Jeweller', 'Jewellery Masterwork chance +5%.'),
+    100: pair(spec('master-jeweller', 'Master Jeweler', 'Jewelry Masterwork chance +5%.'),
       spec('lapidary', 'Lapidary', 'Siege-cracked Gems set as any gem.')),
   }),
 });
@@ -991,6 +991,33 @@ export function craftXpCap(profession, ranks) {
   const past = Object.entries(ranks ?? {}).filter(([p, r]) => p !== own && BY_ID.get(p)?.kind === 'crafting' && r > JOURNEYMAN_RANK).length;
   return past >= CRAFTS_ABOVE_JOURNEYMAN ? xpForRank(JOURNEYMAN_RANK + 1) - 1 : PROF_XP_MAX;
 }
+/** CRAFT-LIMIT-SAID (FIELD BUGS 2026-10-18f; the Discord, "Smithing stuck at 50": "it is literally 1xp off of levelling
+ *  up but everything I craft gives me 0xp"): THE LIMIT AS IT STANDS OVER ONE CRAFT'S TRACK, for the words that say it -
+ *  `cap` the most it may hold (craftXpCap's, which the service's decisions bind), `room` what the track at `xp` can still
+ *  take under it (none at the cap, as none at Master), and `by` the crafts past Journeyman that hold it there, in the
+ *  Professions tab's order - empty where the limit does not hold it. `ranks` every track's rank, as craftXpCap's. A
+ *  gathering track is never held (3.2: "Gathering is unlimited" - no decision of the service caps one).
+ *  AUDIT FB1018f L5-2: and `rank` THE RANK IT IS HELD AT - the cap's (Journeyman's 50 under the limit, Master's where none
+ *  holds it), or the track's own where it stands past its cap: a third craft that crossed with another before AUDIT
+ *  FB1018f L5-1 made the limit one decision (nothing lowers a track) is held at its 60, never "at rank 50". */
+export function craftLimit(profession, ranks, xp) {
+  const own = trackOf(profession), cap = BY_ID.get(own)?.kind === 'crafting' ? craftXpCap(profession, ranks) : PROF_XP_MAX;
+  const by = cap < PROF_XP_MAX ? PROFESSIONS.filter((p) => p.kind === 'crafting' && p.id !== own && (ranks?.[p.id] ?? 0) > JOURNEYMAN_RANK).map((p) => p.id) : [];
+  return { cap, room: Math.max(0, cap - (Number(xp) || 0)), by, rank: rankOfXp(Math.max(cap, Number(xp) || 0)) };
+}
+/** CRAFT-LIMIT-SAID: craftLimit read off a character's track views as the service answers them (its state's `tracks`,
+ *  an act's `track` - `{ profession, xp }`), each rank the service's own (rankOfXp of its XP) - the client's way to the
+ *  very limit the service's decision binds. A discipline asked is its craft's. */
+export function craftLimitOf(tracks, profession) {
+  const list = [...(tracks ?? [])].filter((v) => v && typeof v.profession === 'string');
+  const own = list.find((v) => v.profession === trackOf(profession));
+  return craftLimit(profession, Object.fromEntries(list.map((v) => [v.profession, rankOfXp(Number(v.xp))])), own?.xp ?? 0);
+}
+/** CRAFT-LIMIT-SAID: WHAT AN ACT CREDITS - the XP it earns, never past the `room` its track has left, never below none:
+ *  the account service's decision, `MAX(0, MIN(earned, cap - held))`, in the craft's, the smelt's, the temper's, the brew's
+ *  and the disenchant's own INSERT (server-account/src/professions.js, alchemy.js), which a station says before the act
+ *  (ui/craftXpWords.js). */
+export const creditedXp = (earned, room) => Math.max(0, Math.min(Number(earned) || 0, room));
 
 // ─── PROF11: THE BUILDER AND THE FORTIFIER - SEAT2b'S TO CALL (PROF0 3.3; SEAT0 7.5) ───
 //

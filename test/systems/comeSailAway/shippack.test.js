@@ -128,7 +128,7 @@ test('SHIP-PACK her hold goes with her and comes back: packed under her number, 
   b.Cargo.Items.push({ name: 'rope', weightInKg: 2 }, { name: 'net', weightInKg: 1.5 });
   assert.equal(s.rt.PackBoat(b, true), true);
   const parts = s.pack.at(-1);
-  assert.equal(parts.weightInKg, Math.fround(PACKED_WEIGHT_MAX + 3.5), 'her weight and her hold\'s');
+  assert.equal(parts.weightInKg, PACKED_WEIGHT_MAX, 'her timbers alone - her hold rides her parts no more (PARTS-WEIGHT)');
   assert.deepEqual(s.rt.state.PackedCargoes.get('650').map((it) => it.name), ['rope', 'net']);
   const again = s.rt.LaunchFromParts(parts, () => s.pack, AT, DIR, s.terrains[1]);
   assert.deepEqual(again.Cargo.Items.map((it) => it.name), ['rope', 'net'], 'aboard again');

@@ -691,8 +691,11 @@ test('AUDIT EG V L1-24, L1-27 and L1-28 THE PAGE SAID AS BUILT (sections 13.2 an
     G.L.hp = Math.floor(G.L.max * frac);
     const o = G.step(gHere());
     assert.ok(words(o).includes('challenge'), `a duel called at his turn (phase ${G.L.ph})`);
+    // FB1018D DUEL-RING (AUDIT FB1018D L3-M1): his honour duel is a ring's whatever the company - no braziers keep it, and it
+    // is never said as the open duel, called or ended
+    assert.equal(o.find((f) => f.k === 'esay' && f.w === 'challenge')?.t, undefined, 'his duel called as a ring\'s');
     duels.push([G.L.ph, G.L.hold]);
-    for (let k = 0; k < 80 && G.F.mem.challenge; k++) G.step(gHere());
+    for (let k = 0; k < 80 && G.F.mem.challenge; k++) { const e = G.step(gHere()).find((f) => f.k === 'esay' && (f.w === 'challengeend' || f.w === 'challengewon')); if (e) assert.equal(e.t, undefined, 'and ended as one'); }
     assert.equal(G.F.mem.challenge, null, 'it ends by its own 15 s');
   }
   assert.deepEqual(duels, [[2, PHASE_AT[1]], [3, 0]], 'two duels, at his two turns - the one at his third phase\'s turn holds his fall');

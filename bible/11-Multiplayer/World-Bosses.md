@@ -2027,7 +2027,7 @@ discordgates, gateclear, loot7 and survtiers3 lists. world141 re-hashed in place
 > within. Every apprentice who calls a scamp into a circle proves as much, and every coven of the Bay that calls a
 > Prince on his own day proves it more loudly.
 >
-> **The faithful.** Mehrunes Dagon, Prince of Destruction, has never lacked for worshippers in a land as quarrelsome
+> **The faithful.** Mehrunes Dagon, Prince of Destruction, has never lacked for worshipers in a land as quarrelsome
 > as ours. His faithful keep to the wilds, and to a rite older than Wayrest. They gather about a ring of braziers, burn
 > his sigil into the earth, and bleed for him. What opens is not a gate as the Daedra raise them in their own realms.
 > It is a breach: a wound in the world, held open by the will of the Prince and the blood of his faithful, and by
@@ -2588,6 +2588,257 @@ thirtieth of its light (its comment says so now); the two court fires are not so
 fighter back in after his fall). Found and NOT fixed, outside the slice: `AUDWBX2-M3-the-mark-handed-over`
 (`tools/mutants/auditwbx2.json`, `server/src/index.js`) survives on the pushed head as before this change - a relay
 pin for the next relay slice.
+
+## 23. The court's door (GATE-DOOR, 2026-10-18)
+
+From play at a thousand online: "Server is kinda breaking down near oblivion gate cause so many ppl lol". The court
+admitted ten hellos a second, one bucket for its whole crowd, and a player standing in a court that had said nothing for
+COURT_SILENT_MS (section 22, AUDIT GATE-FBX C1) was cast out of it - so at the opening a share of the crowd was thrown out
+of the court it was waiting to enter, and walked back in to queue again. A court and its copies now admit
+GATE_HELLO_HZ_MAX (48) a second, and a court that refuses a player busy counts as an answer for COURT_DOOR_WAIT_MS after
+they step in - the room's own busy close, and (AUDIT PLAN-1000 B1) a court socket that failed before it ever opened, the
+Worker's own 503 (`askRoom` overloaded, or every layer full) that the browser closes 1006. A look change in the court
+reads the court's rate, not a cell's (B2). The measurements, the model and the pins are `Scale-Arc.md` GATE-DOOR (THE
+PLAN PAST 1,000), with what the audit left: junk at the door (B7) and a mid-fight deploy's wave. Not a DFU member:
+Daggerfall has no other players.
+
+## 24. The court's watchers (COURT-WATCH, 2026-10-18)
+
+The owner, of more than GATE_FIGHTERS_MAX (256) at one gate: "Make the best call for future proofing" (`Scale-Arc.md`
+THE PLAN PAST 1,000, decision 5). The fight seats 256 accounts (`net/gate/gateBrain.js` joinFight), and the next one to
+ask was told `the court is full` and cast out before the gate - at a thousand online, a crowd's later arrivals walked in
+to be thrown out. Now a full court keeps them as its **watchers**:
+
+- **The relay** answers a full court's `in` as before (`no`, `the court is full`) - handed the fight as it stands just
+  before it (AUDIT PLAN-1000 G8: a watcher drew no boss until the next state, up to 5 s) - and keeps the socket: its
+  beats are the room's, so a watcher hears and sees the fight. It refuses every fighter's frame a watcher sends (a blow,
+  a crystal's, his host's, a heal: junked; a body word unheard), so a modified client takes no fighter's part (lane G,
+  reproduced on the real Room). The answer to an `in` that seats a fighter says so (`me: 1` on its
+  state, carried by `validGateOut`): a relay's word, never a guess from a beat.
+- **The client** (`net/gate/gateLink.js` `watching`): the full court's `no` is no refusal - said once, *The Burning Court
+  is full - you watch from its edge until a place frees.* - and the court (`scenes/gate/gateCourt.js`) sends none of a
+  fighter's part while it watches: no blow on him, a crystal or his host, no mate's heal owed, no body word; and none of
+  his blows lands on it, nor his burning ground (AUDIT PLAN-1000 G1 - it bit a watcher every second), and no heal is
+  owed it (G6 - one owed while watching was said once seated). Every COURT_WATCH_ASK_MS (15 s, `gateBrain.js`) it asks
+  for a seat again, through the host's own `in` door (scenes/world.js, the welcome's one line), never once he has fallen
+  or his Wrath is on (G4 - the relay's `the gate is closing` cast it out, in words that are false at the Wrath); the
+  answer with `me` seats it. The relay answers a socket's sooner ask as before and walks the court's sockets only when a
+  newcomer meets a full fight with a seat to free (G7: an `in` cost the court some 0.5 ms at 2,048 sockets, and a
+  modified watcher's spam took freed seats ahead of the honest asks).
+- **Which seat frees** (G2: this said "a fighter gone a while frees one"): freeSeat frees one only of a fighter gone with
+  no real part in the fight (`hasPart`: under SEAT_KEEP_MS stood and under RECEIPT_SHARE of its share dealt) - one who
+  fought keeps its seat and its claim for the whole fight, a reconnect costing it nothing. So at a full court of real
+  fighters a watcher stays one: seating past 256 is COURT-WIDE's, never unseating a fighter.
+- **Only on a relay that says `me`** (G3): a client the full court keeps as its watcher on a relay before world222 would
+  be seated by that relay's next `in` and never told - in the census and his health, striking nothing - so before it a
+  full court refuses as it did (`wire.js` relaySupportsCourtWatch, read off the welcome).
+- **Its bounds** (G13): the court and its seven copies hold 2,048 sockets - at most 1,792 watch beside 256 fighters; the
+  next meets every copy full (503), waits COURT_DOOR_WAIT_MS and is cast out. The copies hand every watcher's pose up to
+  the court uncoalesced, though no fight reads them (some 40 ms of the court a second at 1,792 watchers at 4 Hz) -
+  COURT-WIDE's blocker. A watcher whose socket drops after the seal is refused at its hello (`the gate is sealed`, G5):
+  no seat can come after the seal, and a relay deploy then sends every watcher home.
+- **What it does not do.** A watcher earns no share and no spoils (the relay's receipts are its fighters'); the boss
+  does not know it is there.
+
+The next step - copies that hold fighters of their own, past 256 (COURT-WIDE) - is `Scale-Arc.md`'s, with its blockers.
+Pins: `test/net/gate/courtwatch.test.js` (6 - the sixth AUDIT PLAN-1000 lane G's: the ground, a crystal, a heal, the ask
+after the fall, its cadence and clock, an older relay, the line's language); `tools/mutants/plan1000.json` COURTWATCH-*
+(30 - 29 dead, 1 equivalent as recorded: a watcher's owed heals, which since G6 it is never owed). PIN MOVED:
+`auditwb_court.test.js` AUDIT WB B5 (a sealed gate refuses; a full court keeps). AUDIT PLAN-1000 (the account and gate
+sets run whole after the slice, the change's own tests having passed it): the watcher's line goes through the text core
+(`net.gate.courtWatch`, `courtWatchText()` - the L10N4 ratchet held `gateLink.js` at 6), drafted in the thirteen
+languages that cover the catalog, and two pins that read the court's words moved with it: `egseam_law.test.js` THE
+GOLDEN FRAMES (the gate's hash - the two answers' `me`, every frame else word for word: taken out, the old hash to the
+byte) and `sd8c_remnant_page.test.js` (`me: 1` said in two answers, the court's beside the Hour's). Not a DFU member.
+
+## 25. The Breach's portents (WB14, 2026-10-19) - its own page
+
+Mac: *"adding the chance of a gate to spawn with platforms of wave based adds that need to be defeated before
+encountering the boss / More diabolical boss movesets / More unique, but not super hard mechanics. Like the boss
+splitting and players having to split and navigate to beat both sides and then merging at the end for its final stand
+(chance based encounter modifer)"*, then *"This is all yours to take on."* The record is
+`11-Multiplayer/Breach-Portents.md`: a third kind of mark beside his aspect and his trials (section 8 here, and section
+17's Legion-Lord, which carries none), the night's floor plan that grows this page's three courts (section 14, WB9b)
+into a graph of six floors and six walkways, the Warden's new arsenal, and the slices WB14a-g. A portent adds to the court;
+it never changes the gate's clock, its marks or its claim. Two of the arc's changes are every night's, named (AUDIT WB14
+RECORD-12, `01-Overview/audits/Audit-Breach-Portents.md`): the Warden's new arsenal is his on every night (Breach-Portents
+section 3), its Burning Gaze the one blow answered by turning, not by a step (section 5's escape law, Breach-Portents
+answer 5); and the Tithe-Imp may run on any night, the Legion-Lord's too (Breach-Portents section 9).
+
+## 26. A whole blow on a body the relay runs (STAND-IN-WHOLE, FIELD BUGS 2026-10-19f)
+
+A player's private report: a Disintegrate on an online breach's boss popped a huge number, and his bar never moved.
+
+Every body a relay runs - the Warden, his crystals and his host; the Abyss Dungeon's Remnant, its Echoes and Hearts; every
+lord, add and struck object of an Elite Breach; the sea serpent; my opponent in a refereed bout - is struck on this machine
+against a stand-in (section 5, "A blow on the boss"), and its health stood at a placeholder nothing empties, 1e9. One law
+reads it: a Disintegrate deals its target what health it has left
+(`effects.js:"if (left > 0 && sinks.hurt) { out.damage += left; sinks.hurt(left, { whole: true }); }"` - DFU's
+`Disintegrate.MagicRound`, `SetHealth(0)`). So the cast claimed 1e9, and no wire carries that: the gate's `hit`, `ahit` and
+`xhit` and the Abyss's stop at GATE_DMG_WIRE_MAX (`wire.js:"if (!finite(m.d) || m.d <= 0 || m.d > GATE_DMG_WIRE_MAX) return null;"`,
+100,000), an Elite Breach's at 1e6, a bout's at 10,000 (`arenaLaw.js:"const d = num(m.d, 10000), r = int(m.r, 0, 2);"`).
+Every relay refused the cast whole, and the spell door popped the claim. The relay caps a blow anyway (HIT_CAP_X times
+the reference at the striker's level - section 5's bucket; an Elite Breach's grown by the Vestiges' declared factor), so
+the fix is the stand-in's, as a duel's was (`combat/duelCombat.js` DUEL_STAND_IN, whole at the wire's vital ceiling):
+
+- **THE WHOLE** (`gateBoss.js:"export const STAND_IN_WHOLE = HIT_CAP_X * dpsRef(LV_MAX) * EG_BUCKET_X_MAX;"`, 975) - the
+  most one blow lands at any relay: the gate's cap at LV_MAX (780) grown by the most a breach's bucket grows, over the
+  serpent's (SERPENT_HIT_CAP_X of a galley's reference, 182) and a bout's (`arenaBlowCap`, 122 at most); and under the least
+  ceiling nobody clamps (the bout's 10,000), with the rest of a spell's room beside it. Every stand-in stands at it
+  (`gateBoss.js:"e.maxHealth = e.health = STAND_IN_WHOLE;"`). A Disintegrate counts it whole, every wire carries it and
+  the relay's own law weighs and clips it - his stun heavier, an Unyielding ward 15% lighter (975 of it still past the cap
+  at the level cap), the bucket. The serpent's door already held its claim to 5,000; it carries the whole as it is.
+- **THE NUMBER** says what can land (`standInSpell.js:"const shown = standInShown(dealt, standInBlowCap(body.entity, player.level));"`):
+  the claim, never past the most one blow of mine lands there (`gateBoss.js:"export function standInBlowCap(e, lv) {"` -
+  the relay's cap at my level, grown by the factor the stand-in's owner says my bucket grows by: an Elite Breach hands its
+  stand-ins my Vestiges' declared factor, `egFight.js:"const myBlowX = () =>"`, at most EG_BUCKET_X_MAX; on my opponent the
+  referee's spell cap, ARENA_SPELL_MAX). The paths' riders are told the same (`took`: what the foe could lose). The claim
+  goes out whole beside it - clipping it here would lose what the relay weighs before its cap.
+- **THE DOOR** is one: the court's four spell doors (him, his crystals, his host, my opponent - each its own copy in
+  `buildDungeonContext`) left the host for `scenes/gate/standInSpell.js`
+  (`standInSpell.js:"export function createStandInSpell(host) {"`), which the context wires where they stood
+  (`dungeonContext.js:"} = createStandInSpell({"`;
+  `01-Overview/Host-Split.md` STAND-IN-WHOLE).
+- **NOTHING LOCAL READS IT AS A BODY.** With the whole finite, every reader of a stand-in's health was read again: the
+  spell doors' sinks only count, a swing's and a shaft's formula takes nothing (the number is sent, never subtracted), and
+  every lasting family is forgotten at once - nothing here empties a stand-in, pinned on every factory. An "under its
+  health" power reads the relay's word (RELAY-SHARE, `relayHealth`); the weapon masteries the same. The blood ladder read
+  the placeholder and bled the bottom rung on every blow; a whole of 975 would have bled a body of 975's rungs, so it
+  measures no whole on a stand-in (`bloodDecals.js:"maxHealth: Number.isFinite(entity?.maxHealth) && !entity?.relayHealth ? entity.maxHealth : 0,"`):
+  the same rung, by law now; a host body's real whole still comes as its `bloodOf`.
+- **MEHRUNES' RAZOR STAYS PASSED BY** (`artifactEffects.js:"if (!target || !item || target.spareGear) return null;"`, AUDIT
+  WBX F1). Its two reasons were the 1e9 billed to its condition and a blow the wire refused; the wire carries the whole
+  now and no Strikes payload bills wear on a stand-in (F2) - and that is why it stays: the Razor's kill is paid in its own
+  condition, the health it removes (`MehrunesRazorEffect`), and on a body the relay runs nothing would pay it - a whole blow
+  free on every failed save, its number the whole on top of the swing's.
+
+What it does not do: the serpent's door raises no number (BOSS-DOT, section 27, brought it into the module and tells its
+riders what a hand's purse can land); a swing's number is not capped (no swing reaches the cap but the Razor's, which stays passed by).
+A departure from DFU (`Disintegrate.MagicRound` kills outright): on a body the relay runs it is the most one blow lands.
+Pins: `test/net/gate/fb1019f_standinwhole.test.js` (5: the whole against the real constants, every wire and the purses;
+a real Disintegrate on every factory's stand-in, out through the real court to the brain; the number on each door at two
+levels, a breach's and a bout's; the readers; the hosts - the context's wiring and an Elite Breach's real fight handing its
+bodies my Vestiges' factor). PIN MOVED: `wb4b_gate_blows.test.js` (his whole; his spell door in the module),
+`fb1018f_relayshare.test.js` (the placeholder's value), `auditwbx.test.js` (the Razor on his real stand-in, the trap's
+door), `audit_wb11.test.js`, `wb9c_gate_reckoning.test.js`, `wb8a_never_swayed.test.js`, `wbx_gate_fixes.test.js`,
+`audit_schools.test.js` (L2 F4 - the riders told what can land), `arena4b_blows.test.js` and `fb1018f_turnedblow.test.js`
+(the three doors' numbers by the body they met, driven on the module). `tools/mutants/fb1019f_standinwhole.json` (20, all
+dead). Re-aimed by content (13, all dead): `arena4b_blows.json`, `audit_schools.json`, `audit_wb11.json`, `wb8a.json` (3),
+`fb1018f_turnedblow.json` (the host's number; the crystal's and the Warden's retired with the copies they named), `blood1.json`,
+`fb1018f_relayshare.json` (5).
+
+## 27. A spell's lasting harm, carried (BOSS-DOT, FIELD BUGS 2026-10-19f; the owner, 2026-10-19: "Carry DoTs")
+
+Section 26's door counted a spell on a stand-in and wiped the stand-in at once - "continuous families are not his to carry",
+WB4b's comment, never a decision (WBX7 named it, "his stand-in forgets every lasting effect", and carried the Soul Trap
+alone). So a Continuous Damage spell on any body a relay runs landed its cast's round and nothing after: a level-20 Burn
+(the spell maker's Continuous Damage, 10 a round for five rounds and one a level - 25 rounds; his save lets 8 of each
+through at even dice) dealt its first round alone, 8 of its 200, and the other 24 rounds went nowhere. Now its rounds are
+carried:
+
+- **What is carried** (`standInSpell.js:"export const carriedOnStandIn = (a) =>"`): Continuous Damage on health (1,0 - DFU's
+  ContinuousDamageHealth), a round still to run. Its siblings on fatigue and magicka (1,1 and 1,2) have nothing to fall on -
+  a relay body is health alone - and the duel's other lasting families (Paralyze, Silence, Drain) are the relay brain's to
+  know, never a claim: none of those is.
+- **Kept a body** (`standInSpell.js:"export function createStandInRounds({ now = Date.now, rolls = Math.random } = {}) {"`):
+  him, one of his host, a crystal (the Remnant, its Echoes and Hearts in the Hour; an Elite Breach's lords, legion and struck
+  objects through the host seam). A cast on the body lays its running rounds on the stand-in first, as copies - the
+  incumbent a recast RENEWS (STACK-CAP's renewRounds; a renewal fires no first round, as DFU's AddState does) - and keeps
+  what the cast leaves when its claim went: a spell the ward or the ground turns, or whose claim is refused, lays nothing.
+- **Ticked on the court's clock** (COURT_ROUND_MS, the soul trap's: one game minute online, five seconds), every body on the
+  same round as DFU's broker raises one round for every entity - never this machine's magic round, which a rest, a wait or
+  a court sentence moves in a burst. A round runs the entries against the body's stand-in by the one law every round runs
+  by (`tickActiveEffects` - the save rolled fresh each round, its caster's power) and sends the sum through the door a
+  spell's claim takes (`dungeonContext.js:"standInRound();"`, beside the foes' own rounds): a spell's claim, the relay's caps
+  and its blow rate deciding what lands. Every body's round leaves in the same frame - one blow's sequence where the court
+  groups them (AUDIT WB11 W3), one token of the hand. A round into his ward is lost, as any blow is, and the rest run on;
+  a stalled frame's rounds go as one claim.
+- **They end** with the body (fallen, withdrawn, the fight over, out of the screen's offer), my death, and the context
+  (the court left). A walk to another of his courts: the court refuses every claim from there (AUDIT WB9 brain F1) - its
+  rounds are lost while I stand there, as my blows would be.
+- **An Elite Breach** weighs a round as no blow: the host door carries its mark (`tick`) to `egFight.js` hostHit, where it
+  takes no Momentum, builds none and rolls no Arcane Echo; the relay's own factors weigh it as any spell's claim.
+- **The sea serpent's** door left bootWorld for the module (`createSerpentSpell`): its Continuous Damage carried the same,
+  each round to the segment it last met through the host's hand door (`serpentHost.js` handStruck), ended with the fight;
+  its riders told what a hand's purse can land (STAND-IN-WHOLE's law).
+- **A bout carries none** (BAL8: the referee's blow alone - every spell claim it counts a cast, and OPEN-HAND drops what a
+  follow-up owes a player).
+
+A departure from DFU, which has no relay: its ContinuousDamageHealth runs on the target's own manager each magic round and
+takes the health there; on a body the relay runs it runs on this machine against the stand-in, and each round is a claim
+the relay's caps decide. No relay or wire change: a round is a spell's claim on the wire as it stands.
+Pins: `test/net/gate/fb1019f_bossdot.test.js` (8: round for round what DoMagicRound deals, and the Burn's figure above;
+the round's law - a stall, a renewal, the ward, a refused claim, a body gone, my death, health alone, the bout; the keeper's
+clock, and a round of one sent; the real court - him and his host in one sequence, the wire, his fall; the serpent; an
+Elite Breach's real fight - no Momentum, no Echo; a turned recast on a Spire body, whose ward rides on its stand-in alone
+(`egFight.js` turnStandIn; the Flame's the same, `gateFlame.js`) - it renews nothing; the hosts by source). PIN MOVED:
+`arena4b_blows`, `audit_wb11`, `fb1019f_standinwhole`, `wb11_gate_host`, `fb1012g_openhand`, `wb4b_gate_blows`,
+`wb9c_gate_reckoning`, `audit_schools` (the serpent's riders), `serpent4`. `tools/mutants/fb1019f_bossdot.json` (26, all
+dead - AUDIT FB1019f's three among them: the ward read off the record alone, a round of one dropped, the figure moved);
+re-aimed by content (all dead): `fb1019f_standinwhole.json`'s the-claim-clipped and the-count-takes, `egz_vestiges.json`'s
+EGZR-stacks-any-body.
+
+## 28. Heard without the clip, drawn without the wait (GATE-MIX, 2026-10-20)
+
+The owner: "in oblivion gates ... while performance is overall good, the game hitches, audio becomes super loud and even
+distorts". The causes, landing in the same frames - his big landings, a wave rising, the Sundering:
+
+- **A cue at its targets, thinned** (`gateBoss.js:"export function cueTargetPlaces(points, ear) {"`). A cue `at: 'targets'`
+  (the Hellfire's release and landing, the Meteor's, the Brand's, the Torment's) played one copy at every target: a
+  Hellfire on five players was five of the fire's full-scale cast in one frame, ten in his third phase (its second volley
+  within 3 m of the first), and over a reach of 40 to 80 m with a linear fall every copy near a group came in at nearly
+  its whole level. Now the court's `sound` plays the target nearest my ear first, then the next standing
+  CUE_TARGET_APART_M (10 m) from every one kept, at most CUE_TARGET_COPIES (2): where it lands on me is still heard at my
+  feet, a fall across the court still from across it, and no two copies of one clip stand on one spot. What was left of
+  the overload - one cue at 2.2, a landing and its quake together, the pressed score under them - the limiter at the
+  speakers now holds (`08-Audio/Audio.md`, GATE-MIX). No cue's level moved.
+- **The passes made before they are wanted** (`gateCourt.js:"  function warmPasses() {"`). His landings' sparks and the
+  meteor (`render/gate/gateFx.js` GateFxRenderer), the Reckoning's crystals (`render/courtCrystals.js`) and the way home's
+  fire (`render/gate/gatePass.js` GatePassRenderer) were each compiled in the frame that first drew them - the first
+  landing of the fight, the first Reckoning, his fall - two programs each, and a compile is a frame's hitch. Now each is
+  made as I stand in the court, one pass a frame (the step's veil is over the screen for the first of them); the draws
+  still make one that was not, and a pass that would not build is tried once, as before. SHADER-STALL
+  (`07-Rendering/Performance-Priority.md`) asks each through its door: where the driver compiles beside the frames, the
+  three passes' compiles start together as I come in and each is built once its own is done; where it cannot, one a
+  frame as here.
+
+- **The night's bodies made ready** (`gateSpriteWarm.js:"export function createSpriteWarm({ getTexture = null, uploadRecordFrame = null, has = () => false } = {}) {"`).
+  His host's, his Flame's and his own sprites were fetched when their first body was drawn (a wave's first rising, the
+  Sundering), and each frame decoded and uploaded the first time it showed (a new angle, a first swing, a first hurt).
+  Now, as I stand in the court, it asks for the archive of every body the night can show (`nightMobiles`: him and the
+  Tithe-Imp any night; his host on a Legion-Lord's; the Vanguard's kinds, his Flame and the Gaolers on their portents'
+  nights - each by his aspect) and uploads their frames SPRITE_WARM_UPLOADS (4) a frame, looking over at most
+  SPRITE_WARM_LOOKS (48), until all stand. The draws upload whatever they still find missing, as before; the warm-up is
+  forgotten with the court, and the places' hold (PLACE-LRU) lets its pictures go with it.
+- **A frame on the GPU is not decoded again** (`renderer.js:"  heldTexture(archive, record) {"`). `uploadRecordFrame`
+  decoded a frame's palette into RGBA before the renderer's cache turned it away, so a hit's splash
+  (`hitEffects.js` spawn - every hit on him and his host) decoded all its frames again each time. It asks `heldTexture`
+  first: a real picture under the frame's plain key is held for the place asking, as an `uploadTexture` hit holds it,
+  and nothing is decoded. A placeholder answers no (the real picture replaces it), and a spectral or self-lit frame
+  still goes the whole way (each carries a second picture).
+- **A flash casts no shadow** (`gateArena.js:"export function withCourtLights(lit, lights) {"`). His landings' lights
+  (the Meteor's, the Hellfire's - one under each mark), his fall's white and the Wrath's light took a shadow caster's
+  slot by nearness alone (`render/shadowPass.js` pickShadowCasters), each a new light that rebuilt a cube map under
+  Enhanced Lighting's shadows, for half a second of light; the running Tithe-Imp's moved its cube every frame. Each now
+  wears `carried`, the mask a spell's impact light wears (`render/spellImpactFx.js`), and `withCourtLights` carries it
+  into the frame's mask: lit as before, no caster. The braziers, the crystals, a Ward-Bearer's ward and his glow cast as
+  they did.
+- **The peers down in the court** (`gateCourt.js:"  function peersHeard(inCourt) {"`). Every other player's sound
+  (`net/peer/peerFx.js` peerHeard) plays EG_MIX.peerDb (4 dB) under itself while I stand in the court, as THE SPIRE MIX
+  has it (`Elite-Gates.md` section 26), so a crowd's blows sit under his cues. The court hands the one scope in only when
+  no place holds it and takes it back only while it is still its own.
+
+Pins: `test/net/gate/gatemix_targets.test.js` (3: the thinning's law; a phase-three Hellfire on five players heard twice
+at most, at my feet first; the passes compiled on arrival, one a frame, and nothing compiled at his first landing);
+`gatemix_sprites.test.js` (4: the night's mobiles; the budget, each frame once, the night asked once; the look's bound;
+the real court warming a Legion-Lord's host before any of it rose); `gatemix_frames.test.js` (2: heldTexture's law; the
+freeware's blood splash decoded once over four hits); `gatemix_lights.test.js` (3: the mask carried; the shadow pick
+passing a flash by; the court's landing lights masked, his glow not); `gatemix_peers.test.js` (2: four decibels down in
+the court and as it was out of it; the Spire's scope never taken or cleared). PIN MOVED: `wb4_gate_boss` (its Hellfire's
+two marks now stand 12 m apart - the 8 m it had are one copy now); `wb11_gate_host` (the warm-up asks the night's
+archives too: each archive the host's own once, a frame uploaded once by either); `lightid` (a burst's flash record
+now carries its mask). `tools/mutants/gatemix.json` (36 dead
+with the limiter's, and one kept alive on purpose: the night's key in the warm-up, a cost and not a law).
 
 ## Shipped
 

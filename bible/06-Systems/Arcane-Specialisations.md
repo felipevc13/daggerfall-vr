@@ -90,7 +90,8 @@ could see or play. That is where the identity goes.
   Offline with the switch off, the path is neither and its signature spell casts as the plain bundle it is - nothing
   is lost, as Master Skills keeps a skill past 100 while off.
 - **Never at a player.** A rider or passive that strikes reaches foes only (`ownSpellAt`, BAL9's gate); a signature
-  spell cast at a duel opponent or given to a party mate lands as its plain classic bundle.
+  spell cast at a duel opponent or given to a party mate lands as its plain classic bundle. SKILL-SWAP (2026-10-19, `10-UI/Growth.md` section 11):
+  such a class can now change one unmastered class skill for a school, for gold, and a line under the guide's headline says so where one swap would open a path (AUDIT SUGGESTIONS-1019 L5-1).
 
 ## 4. SCHOOLS2 - the schools past 100
 
@@ -225,8 +226,8 @@ BUSY-GATE and CRAFT-PROCS at the merge of main).
   (dungeons). It tells the landed listeners (`applySpellToFoe` for my spell at a foe, `applySpellToPlayer` for my own
   cast on me - with `took`, what the target could lose, and `cast`, the cast's TOKEN: `{ cost }`, minted at the release
   and carried by every landing of that one cast, a missile's, each foe an area sweeps, the court's boss) and tallies by
-  castSchool. The relay's stand-ins tell them too (`scenes/dungeonContext.js` tellStandIn - the Burning Court's Warden,
-  its crystals, its host; `scenes/world.js` serpentSpellOn - the serpent's hide), with no foe record: the relay holds
+  castSchool. The relay's stand-ins tell them too (`scenes/gate/standInSpell.js` tellStandIn - the Burning Court's Warden,
+  its crystals, its host; its createSerpentSpell - the serpent's hide), with no foe record: the relay holds
   the body (AUDIT SCHOOLS L2 F4). `arcanePowers.js` is imported by `scenes/hostMagic.js` itself, so every page that
   builds the engine has the paths' powers - the standalone dungeon page had their price and none of their powers
   (AUDIT SCHOOLS L2 F8).

@@ -63,8 +63,8 @@
   {
     "name": "G7-channel-says-host-on-leave",
     "file": "server/src/index.js",
-    "old": "if (!isChatRoom(a.key) && this._leads(a, ws)) this._sayHost",
-    "new": "if (this._leads(a, ws)) this._sayHost",
+    "old": "if (!isChatRoom(a.key) && this._leaveMovesSeat(a, ws)) this._sayHost",
+    "new": "if (this._leaveMovesSeat(a, ws)) this._sayHost",
     "tests": [
       "test/net/rosterg.test.js",
       "test/net/chat1.test.js"

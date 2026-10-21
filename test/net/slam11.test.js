@@ -70,7 +70,10 @@ test('SLAM11: THE MEMORY LANDS - a room past the old cliff is handed the dungeon
   try {
     const n = 64;   // past the cliff: ~110 KiB x 63 = 6.8 MiB against a 4 MiB cap - under the OLD law not one socket is handed it
     const ws = [];
-    for (let i = 0; i < n; i++) { if (i % 7 === 6) clock += 1000; const s = r.connect(); await r.hello(s, `p${String(i).padStart(4, '0')}`, at(1, 1)); ws.push(s); }
+    // PIN MOVED (FIELD BUGS 2026-10-18d SEAT-LIVE): the host speaks as a live one does - a dungeon room's host silent past
+    // FOES_STALE_MS with others there to hear it holds the seat no longer (net/seatLive.js), and its stream goes every
+    // FOES_FULL_MS while anyone else is in; here a pose each second the hellos take
+    for (let i = 0; i < n; i++) { if (i % 7 === 6) { clock += 1000; await r.pose(ws[0], at(1, 1)); } const s = r.connect(); await r.hello(s, `p${String(i).padStart(4, '0')}`, at(1, 1)); ws.push(s); }
     const host = ws[0];
     assert.equal(r.room._hostOf(), 'p0000', 'the first in is the host');
     for (const s of ws) s.sent.length = 0;

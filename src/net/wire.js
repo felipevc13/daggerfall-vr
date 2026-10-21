@@ -195,7 +195,7 @@ import { HUB_SHARD_ROOMS, isHubShard, HUB_FIND_Q_MAX, REGION_SHARD_ROOMS } from 
 // fast travel, no sentence, no ?tod, no ?timescale.
 
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap. The relay re-exports this module (server/src/relay.js), so this reaches the worker too - mat4.js imports nothing itself.
-import { TITLES, GLYPHS, GLYPHS_MAX, AURAS, titleClaimed, seatTitleClaimOk, renownIssuable } from './identityToken.js';   // ACC3: the badge vocabulary, closed - `badged` writes it and `readBadge` checks it back   // RENOWN1: and the level's bound, `badged` and `readRenown` alike
+import { TITLES, GLYPHS, GLYPHS_MAX, AURAS, ICONS, titleClaimed, seatTitleClaimOk, renownIssuable } from './identityToken.js';   // ACC3: the badge vocabulary, closed - `badged` writes it and `readBadge` checks it back   // RENOWN1: and the level's bound, `badged` and `readRenown` alike
 import { nameAllowed, maskText, textCaught } from './nameFilter.js';   // NAME-F2: the filter runs INSIDE sanitizeName, so the relay carries it; TEXT-F1: and a player's words are starred inside sanitizeChat and wordsLine, the same way - nameFilter.js imports nothing, same as mat4.js above, so the worker's graph stays flat
 import { validRollSpec, validRoll, rollDice, ROLL_DICE_MAX, ROLL_SIDES_MAX, ROLL_MOD_MAX } from './dice.js';   // DICE1: the dice's law - one home for both ends (dice.js imports nothing, so the worker's graph stays flat)
 import { ribbonClaimOk } from './heraldryLaw.js';   // SEASON1 part two: a Season's banner ribbon - heraldryLaw.js imports nothing, so the worker's graph stays flat
@@ -211,7 +211,7 @@ import { readHouse } from './houseLaw.js';   // LEGACY7 part two: a house rides 
 import { validHoldemIn, validHoldemOut } from './holdemTable.js';   // CARDS5: the relay's card table's words both ways - holdemTable.js imports only cardLaw.js, which imports only dice.js (already the bundle's)
 import { validIliacIn, validIliacOut } from './iliac/iliacTable.js';   // CARDS10: the relay's Iliac table's words both ways - iliacTable.js imports the rules (iliacHand.js, iliacCards.js) and Hold'em's bounds
 import { validGambitIn, validGambitOut } from './gambit/gambitTable.js';   // KG5: the relay's King's Gambit table's words both ways - gambitTable.js imports the law (kingsGambit.js, which brings enemyBasics.js and mathf.js) and Hold'em's bounds
-import { validGateMods, GATE_FEEDS_MAX } from './gate/gateMods.js';   // WB8b: the Warden's marks on a gate's state - gateMods.js imports nothing, so the worker's graph stays flat
+import { validGateMods, GATE_FEEDS_MAX, validGatePortents } from './gate/gateMods.js';   // WB8b: the Warden's marks on a gate's state - gateMods.js imports nothing, so the worker's graph stays flat
 import { egStampOk } from './eliteGates/egShape.js';   // EG-FULL: a Spire blow's FULL shape stamp, checked as the wire carries it - egShape.js imports nothing, so the worker's graph stays flat
 export { validRollSpec, validRoll, rollDice, ROLL_DICE_MAX, ROLL_SIDES_MAX, ROLL_MOD_MAX };
 export { validHoldemIn, validHoldemOut };
@@ -237,6 +237,15 @@ export const RANGE_PIXELS = 3;
 export const POSE_HZ_MAX = 20;
 /** The most hellos a ROOM admits per second (AUDIT ONLINE A6: a reconnect storm is 2N frames a cycle for everyone). */
 export const HELLO_HZ_MAX = 10;
+/** GATE-DOOR (2026-10-18; bible/11-Multiplayer/Scale-Arc.md THE PLAN PAST 1,000, GATE-DOOR): THE HELLOS A GATE'S COURT
+ *  ADMITS A SECOND - a court and its copies, its whole crowd at the door in the seconds the gate opens. At HELLO_HZ_MAX a
+ *  court let 256 players arriving within five seconds in over 28 (636 busy refusals, the median player in at 11.9 s), and a
+ *  player whose court said nothing for COURT_SILENT_MS was cast out of it; at this rate the same crowd is in within its
+ *  arrival (none refused), 1,024 arriving over twenty seconds refused 61 times (the client's own retry ladder at the court's
+ *  rate, twenty seeds). A hello costs a court some 1.4 ms at 256 sockets (the real Room on the pins' fake), so a door this
+ *  deep spends some 70 ms of the court's second while the crowd comes in - and nothing once it has. Burst the same: a
+ *  court's opening is a burst. Still spent before the token is read (SCALE5a: a busy refusal leaves it unspent). */
+export const GATE_HELLO_HZ_MAX = 48;
 /** The most sockets one room holds; past it the upgrade is refused. */
 export const SOCKETS_MAX = 256;
 /** AUDIT WB A1: how long a socket may stand open without its hello before a full room takes its seat back. A client
@@ -719,7 +728,7 @@ export const SEAT_ELSEWHERE = 'online in another tab, window or device';
 // close; a realm-era tab knows them (systems/realmSaves.js realmDoorShut) and goes to the Online door with the realm's
 // own. A close reason is at most 123 bytes.
 /** REALM-DOOR: the word a hello is refused with when its token names no realm character of its account. */
-export const REALM_DOOR_WORD = 'this game is out of date - update it to play online (restart the app, or reload the page)';
+export const REALM_DOOR_WORD = 'this game is out of date. Update it to play online (restart the app, or reload the page)';
 /** The hub: the room whose object keeps the social state. The World channel - the one room everyone online is in. */
 export const SOCIAL_ROOM = CHAT_WORLD_ROOM;
 /** Is this key the hub's. */
@@ -1079,6 +1088,18 @@ export const groundRoom = (key) => isLayered(key) || nativePoseRoom(key);
  *  the relay's words for the player ride the error frame before it (server/src/index.js GROUND_OLD_WORDS), which every
  *  build shows as its own (net/online.js). */
 export const GROUND_OLD_REASON = 'old ground';
+/** GRANT-DOOR (2026-10-19, Mac: "Spec + B + A"; bible/11-Multiplayer/Spawn-Grants.md section 20): THE SPAWN GRANTS THIS
+ *  BUILD STANDS ON, by number. A foes room's hello says it (`gv`); the relay keeps it on the socket and vouches for it on
+ *  every foes frame it fans from that socket (`g` 1, server/src/index.js fanOut), so a reader holds such a sender to
+ *  grants from its first frame - a record of its with none is `ungranted` (scenes/grantHost.js). While `grantDoor` is on
+ *  (net/relayCfg.js) a foes room refuses a hello that says less or none (GRANT_OLD_REASON): an older build, or a changed
+ *  one that leaves it off to be read as one - so nobody there is outside the law. */
+export const GRANT_HELLO_LAW = 1;
+/** The most `gv` a hello may say - a later build's number, read; past it, read as none. */
+export const GRANT_HELLO_LAW_WIRE_MAX = 65535;
+/** GRANT-DOOR: the refusal's close reason (a WebSocket close's reason is at most 123 bytes); the words ride the error frame
+ *  before it, GROUND-GATE's own (server/src/index.js GROUND_OLD_WORDS: update the game). */
+export const GRANT_OLD_REASON = 'old grants';
 /** SCALE5d (2026-10-11, Mac's decision 3 - a full city overflows into a layer rather than refusing `room full`;
  *  bible/11-Multiplayer/Scale-Arc.md SCALE5d): A CROWDED PLACE OVERFLOWS INTO LAYERS - copies of the same place, each
  *  an object of its own, whose players do not see each other. A room is still its KEY everywhere (every law that reads
@@ -1211,7 +1232,15 @@ export const FOE_WEAK_MAX = 13;
 export const FOE_BLOWS_MIN = 1000;
 export const FOE_BLOWS_MAX = 4000;
 const bitsOf = (v) => { let n = 0; for (let x = v; x; x &= x - 1) n++; return n; };
-/** One streamed foe record projected: `i` a whole number in [0, FOE_SEQ_MAX]; `t` a whole number in [0, 255] or
+/** DEX1: a foe's kind on the wire - MobileTypes' own space (a u16, None its top), where a mod's enemies join the
+ *  classic 0-42 and 128-146 (Daggerfall Enemy Expansion's 256-290 and 384-398: systems/enemyExpansion/). It was 255, which
+ *  refused every record of a mod's foe whole. A kind no row names lands as one did before: a peer finds no row for it. */
+export const FOE_TYPE_MAX = 0xffff;
+/** DEX4a: a cast's spell on the wire - a standard spell's index (systems/spell/standardSpells.js), SPELLS.STD's bytes and
+ *  a mod's SpellRecords.json beside them (Daggerfall Enemy Expansion's 500-503). It was 255, which refused every record
+ *  of a foe casting a mod's spell whole. */
+export const SPELL_INDEX_MAX = 0xffff;
+/** One streamed foe record projected: `i` a whole number in [0, FOE_SEQ_MAX]; `t` a whole number in [0, FOE_TYPE_MAX] or
  *  absent; `x`, `d`, `m` 0 or 1 or absent; `f` three finite numbers inside the pose's bounds or absent; `y` finite
  *  or absent; `h` finite in [0, FOE_HEALTH_MAX] or absent; `a` a whole number in [0, 2^31) or absent. Null when
  *  any present field is outside its law - a record is refused whole, never half landed. */
@@ -1219,7 +1248,7 @@ export function validFoeRecord(r) {
   if (!r || typeof r !== 'object' || Array.isArray(r)) return null;
   if (!Number.isInteger(r.i) || r.i < 0 || r.i > FOE_SEQ_MAX) return null;
   const out = { i: r.i };
-  if (r.t !== undefined) { if (!Number.isInteger(r.t) || r.t < 0 || r.t > 255) return null; out.t = r.t; }
+  if (r.t !== undefined) { if (!Number.isInteger(r.t) || r.t < 0 || r.t > FOE_TYPE_MAX) return null; out.t = r.t; }
   for (const k of ['x', 'd', 'm', 'z']) if (r[k] !== undefined) { if (r[k] !== 0 && r[k] !== 1) return null; out[k] = r[k]; }   // ELITE FOES: `z` an elite foe (systems/eliteFoes.js)
   if (r.f !== undefined) {
     if (!Array.isArray(r.f) || r.f.length !== 3 || !r.f.every(Number.isFinite)) return null;
@@ -1240,9 +1269,9 @@ export function validFoeRecord(r) {
   // weapon), resolved against MY stats; copied, never rolled (AUDIT WORLD6b B14)
   if (r.l !== undefined) { if (!Number.isInteger(r.l) || r.l < 0 || r.l > FOE_LEVEL_MAX) return null; out.l = r.l; }
   // WORLD6b-iii: the cast rides the record - `c` the cast count, `s` the spell index (WORLD3's spelling for the dungeon)
-  // AUDIT WORLD6b-iii(a) C8: `s` is a SPELLS.STD record index, a u8 (spellsStd.js reads it as one) - bounded as `t` is
+  // AUDIT WORLD6b-iii(a) C8: `s` is a standard spell's index - bounded as `t` is (DEX4a: SPELL_INDEX_MAX, a mod's spells too)
   if (r.c !== undefined) { if (!Number.isInteger(r.c) || r.c < 0 || r.c > 0xffff) return null; out.c = r.c; }
-  if (r.s !== undefined) { if (!Number.isInteger(r.s) || r.s < 0 || r.s > 255) return null; out.s = r.s; }
+  if (r.s !== undefined) { if (!Number.isInteger(r.s) || r.s < 0 || r.s > SPELL_INDEX_MAX) return null; out.s = r.s; }
   // AUDIT WORLD6b-iii(a) A3: the RECIPIENT rides with the count - `u` whom the last cast was at, `b` whom the last blow
   // was at, in `g`'s spelling ('.' the owner, a peer id, '' none): `g` is the LIVE hunt when the frame goes out, and a
   // foe that cast at its owner then turned to a peer inside the frame's 200 ms sent the peer a cast it never made
@@ -1277,6 +1306,9 @@ export function validFoeRecord(r) {
   }
   // AUDIT SET P-M3: `v` the joiner whose blow killed the foe - on a dead foe's record alone (the host's, dungeonContext.js)
   if (r.v !== undefined) { if (typeof r.v !== 'string' || !ID_RE.test(r.v) || r.d !== 1) return null; out.v = r.v; }
+  // DEX5b: `bg` a dead foe's BODY GONE - destroyed by a mod's corpse prefab (scenes/corpseMarker.js - the troll's): 1 taken
+  // away (it rose), 2 burnt to its ash - on a dead foe's record alone, so every copy loses the body its runner did
+  if (r.bg !== undefined) { if ((r.bg !== 1 && r.bg !== 2) || r.d !== 1) return null; out.bg = r.bg; }
   // STRIKE-SHARED: `j` the player whose SOUL TRAP was on the foe as it fell and `q` the trap's chance - on a dead foe's
   // record alone, the two together. The soul is its caster's (mysticism.js attemptSoulTrap: "the soul goes to the player
   // who cast it"), so the owner reads no gem of its own for a peer's trap and the caster rolls it against its own pack
@@ -1373,7 +1405,7 @@ export function validSharedFoe(sf) {
     out[k] = sf[k];
   }
   if (sf.died !== undefined && sf.died !== null) { if (!finite(sf.died)) return null; out.died = sf.died; }
-  if (sf.mobileType !== undefined) { if (!Number.isInteger(sf.mobileType) || sf.mobileType < 0 || sf.mobileType > 255) return null; out.mobileType = sf.mobileType; }
+  if (sf.mobileType !== undefined) { if (!Number.isInteger(sf.mobileType) || sf.mobileType < 0 || sf.mobileType > FOE_TYPE_MAX) return null; out.mobileType = sf.mobileType; }
   if (sf.gender !== undefined && sf.gender !== null) { if (typeof sf.gender !== 'string' || sf.gender.length > 16) return null; out.gender = sf.gender; }
   // RESPAWN1 (2026-09-17, Mac, from a patch he was sent): THE TEAM PAIR IS A
   // STRING, AND THIS ASKED FOR A NUMBER - so every foe record a dungeon ever
@@ -1398,6 +1430,9 @@ export function validSharedFoe(sf) {
     out[k] = sf[k];
   }
   for (const k of ['dead', 'hostile', 'encountered', 'wabbajackActive', 'specialTransformationCompleted']) if (sf[k] !== undefined) out[k] = !!sf[k];
+  // AUDIT DEX D3 (world234, grown in place as world231): a body a mod's corpse prefab destroyed - 1 risen, 2 burnt (validFoeRecord's `bg`, the stream's
+  // word) - kept by the room's memory too, so an arrival lays no body for a troll the room saw rise or burn (a dead record's alone)
+  if (sf.bg !== undefined) { if ((sf.bg !== 1 && sf.bg !== 2) || !sf.dead) return null; out.bg = sf.bg; }
   if (sf.anchor !== undefined) out.anchor = sf.anchor;   // REVIEW 2026-09-05's stamp: read for its presence alone
   // The effect bundles ride as they are - `patchFoe` copies them shallowly and the effect spine reads them by name -
   // but the LIST is bounded, because it is the one field a memory's foe can grow without bound.
@@ -1470,6 +1505,15 @@ export const HEARTBEAT_MS = 20000;
  *  heartbeat so the two cannot be tuned apart: four pings to a pose, which keeps today's five-second on-wire cadence
  *  (the cadence intermediaries and phones were already proven against) while the object sleeps between poses. */
 export const PING_MS = HEARTBEAT_MS / 4;
+/** WORLD2: how often the stream carries EVERY layout foe, not the changed alone - a dropped delta heals within it.
+ *  FIELD BUGS 2026-10-18d SEAT-LIVE: moved here from net/online.js (which re-exports it), because the relay reads the
+ *  seat's staleness below off it - the one home both ends import. */
+export const FOES_FULL_MS = 2000;
+/** AUDIT WORLD2 C5: a seat heard from no more recently than this (its stream, or its word in the welcome) is not a
+ *  live seat - the joiner steps its own foes rather than stand among frozen ones. SEAT-LIVE: and the relay's own word -
+ *  a dungeon room's host that has said no frame for this long, with another socket there to hear it, holds the seat no
+ *  longer (net/seatLive.js seatOf). */
+export const FOES_STALE_MS = 3 * FOES_FULL_MS;
 /** SLAM13 (2026-09-16, AUDIT SLAM A2): A KEEPALIVE IS HEARD BY THE WHOLE CROWD AT MOST THIS OFTEN. SLAM8 fans an
  *  unmoved pose to everyone in range, untiered, because a standing player's heartbeat is the one frame whose whole job
  *  is to be heard - and it assumed that frame comes every HEARTBEAT_MS, which is what the port's client does. A
@@ -1490,7 +1534,26 @@ export const KEEPALIVE_FAN_MS = HEARTBEAT_MS / 2;
  *  is deployed by CI and the relay by hand, so a skew between them is the ordinary state of a release day, and until
  *  now nothing on either end could see it. */
 // Integrated Arena spectator visibility with staff teleport, stable boat identity and private ownership; deploy relay before clients.
-export const RELAY_VERSION = 'world219';   // EG-PERFECT (2026-10-18, world218 on its branch, renumbered past GRANT2's world218 at the merge; bible/11-Multiplayer/Elite-Gates.md section 31's EG-PERFECT records; Mac: "I want to ensure the boss attacks, the design of the halls, and everything is absolutely perfect. Traversing between sections should present a challenge, platforming should be detailed"): the lords' blows fair and whole (the union floor's havens, pools and rings; the Valkynaz' signatures at their second phase; the Lattice a sweep), spec law 10 THE BROKEN WAY (net/eliteGates/egDurable.js EG_LAWS - laws 4 to 9 kept), a fight hall's clocks awaiting its company, the closing's walk, the tube's clock, the void zones, the toll's rooms. Deploy relay before clients (THE DRAIN keeps every live breach on its own law).
+export const RELAY_VERSION = 'world237';   // world237: FIELD BUGS 2026-10-20f (2026-10-20, bible/01-Overview/bugs/Field-Bugs-2026-10-20f.md, from ilovemybonk's word on the Elite Breach in #general; world236 on its branch, renumbered past LONE-HERALD's world236 at the merge; NOT YET DEPLOYED): LANDED-WORD - an Elite Breach's room tells a striker what each of its blows landed (`eland`, to it alone - net/eliteGates/egBrain.js egBlow), and a lord an errand holds at a threshold answers what it lost (net/eliteGates/egLords.js egLordHit), so the word, the recap and a Court's chart count that; FAIR-STILL - the fair trail reads a member's silence from held ground to held ground within the snap as standing still, never blind (net/eliteGates/egFair.js egStillGap); DOOR-WORD - a member at the door on a trail it refuses is told why, once a hall (`efair`, to it alone - egBrain.js doorWord). A page facing a relay before it keeps its claims (EG_LAND_RELAY_MIN); an older page drops both words. Deploy the relay first or with the pages
+// world236: FIELD BUGS 2026-10-20d LONE-HERALD (2026-10-20, a player in the Discord: "I JUST HIT REDOUBT 20 SOLO AND BECAUSE I DID IT WRONG ITS SEEN AS COMPANY"; bible/01-Overview/bugs/Field-Bugs-2026-10-20d.md, audited (AUDIT FB1020d: a company that went without its opener led by its first entrant); world235 on its branch, renumbered past THE WITCHES' FESTIVAL AND ITS STARFALL's world235 at the merge; NOT YET DEPLOYED): a Valkynaz Redoubt's herald news says its company's entrants (`n`, the Descent's count) and leads a company of one with its member's name (net/eliteGates/egBrain.js heraldCompany), the hub's read keeps the size (net/eliteGates/egHerald.js validEgHeraldTell) and its reckoning hands it to the posts, so the tenth Redoubt's post, First of the Spire and a seal lifted say a company of one alone - the room-to-hub tell grows a field; no frame a client reads changes shape, and either end may deploy first (a tell with no size is posted as a company, as it was).
+// world235: THE WITCHES' FESTIVAL AND ITS STARFALL, one release - WITCH1 (2026-10-20, the owner: "develop our first live event"; bible/06-Systems/Witches-Festival.md; world231, world233 then world234 on its branch, renumbered past main's world231 (NAME-WORDS), world232 (GAUNTLET-PLATES), world233 (SD-SEA) and world234 (DEX1) at the merges; NOT YET DEPLOYED) - the token's vocabulary grows: the Witchwarden and Hearthkeeper titles (TITLES), the Witchfire aura (AURAS), and a profile icon worn (`pi`, ICONS - the relay's hello carries it to the room beside the aura), and the Iliac Hand's festival cards and their two emblems (iliacCards.js); an older relay drops `pi` and refuses a token naming a word it does not hold, so client and relay move together. STAR3 (2026-10-20, the owner: "something coming from the sky and crashing into the ground, where people need to defend the objective in a wave based format with a boss topping off the encounter at the end"; bible/11-Multiplayer/Starfall.md sections 5, 9 and 13; world233 on its branch, renumbered past SD-SEA's world233 and DEX1's world234 at the merge, and one release with WITCH1's world235 when the festival's pull request was folded in; NOT YET DEPLOYED): THE STARFALL - a word at a fallen star (`star`) to its cell, which keeps the star's ledger (net/starfall/starfallLaw.js - the gathering, the waves and their breath, the master, the light, who defended), says it to the cell (`st`), mints each earner's receipt at the master's fall (`j1`, net/starfall/starReceipt.js - the gate's one key) and tells the hub (STAR_INTERNAL_HELD), which says the hold to everyone online (`hd`) and keeps the night's held stars (`hds`) and each account's receipts for a hello; STAR8 (bible/11-Multiplayer/Starfall.md section 7): TITLES gains `starwarden` (net/identityToken.js - the Thirteenth of Frostfall's title), so this relay reads a token wearing it. Deploy the relay first: a client says no star word to a relay older than STAR_RELAY_MIN (one would close the socket on it), and an older client drops the `star` frame
+// world234: DEX1 (2026-10-19, Mac: "I want to implement this as our next mod 1:1"; bible/04-Characters/Enemy-Expansion.md; world225 on its branch, renumbered past main's world225-world233 at the merges; NOT YET DEPLOYED): a foe's kind on the wire is MobileTypes' u16 (FOE_TYPE_MAX), so a mod's enemies (Daggerfall Enemy Expansion's 256-398) cross - it was 255; the enemy table the relay reads takes a mod's rows (characters/enemy/customEnemies.js joins the bundle) and carries MobileBehaviour's one home; a mod's monster past 255 throws no class's telegraphed blow (ai/blowShapes.js); the relay's foe bounds hold the mod's classic rows too (net/foeBounds.js, six profiles, no table read) and King's Gambit's roster reads the vanilla rows by name (VANILLA_ENEMY_BASICS). DEX4a (2026-10-20, grown in place): a cast's spell index is a standard spell's to a u16 (SPELL_INDEX_MAX), so a foe casting a mod's spell (Daggerfall Enemy Expansion's 500-503) crosses - it was a u8, SPELLS.STD's. DEX5b (2026-10-20, grown in place): a dead foe's record may say its body GONE (`bg` - 1 risen, 2 burnt to its ash), a mod's corpse prefab's word to every copy (validFoeRecord). AUDIT DEX D3 (2026-10-20, grown in place): and the room's memory keeps it (validSharedFoe), so an arrival lays no body the room saw rise or burn.
+// world233: SD-SEA (FIELD BUGS 2026-10-20b, world226 on its branch, renumbered past world226-world232 at the merges; NOT YET DEPLOYED; bible/01-Overview/bugs/Field-Bugs-2026-10-20b.md; the owner: "Abyss Dungeons dont seem to be spawning anymore"): the Abyss Dungeon's census never chooses a region with no town to rise by (net/superDungeon/sdLaw.js SD_TOWNLESS_REGIONS, pickSdRegion) - the sea's above all, every water pixel's region (High Rock sea coast), whose crowd aboard ships raised Hollows that stood by no city on any client. No frame changes shape. Deploy relay before clients or after: a client of this build stands a record an older relay raised there by the Bay's great cities (scenes/superDungeon/sdHost.js).
+// world232: FIELD BUGS 2026-10-19f GAUNTLET-PLATES (2026-10-19, a player's private report; world224 on its branch, renumbered past main's world224 (LAYERED-GEAR and VOICE2), world225 (GAUNTLET-SLAIN), world226 (LORD-SHARES), world227 (PLAIN-SWEEP), world228 (QL12), world229 (WB14b), world230 (OW-CHASE-RANGE) and world231 (NAME-WORDS) at the merges; bible/01-Overview/bugs/Field-Bugs-2026-10-19f.md, bible/11-Multiplayer/Elite-Gates.md section 8.3; world231 before it; NOT YET DEPLOYED): a Gauntlet's progress word says each plate's state - `silenced`, plate by plate in `spots.pillar`'s order, 1 once its Caster is silenced (net/eliteGates/egBrain.js trialStep, from the wake), so every screen marks the plates still to hold and dims a held one; no hall's bytes move (the objective naming the plates is the screen's own, ui/eliteGates/egHud.js egObjectiveText - net/eliteGates/egLaw.js EG_OBJECTIVES keeps the spec's word). Either end may deploy first: an older client passes the word through egProgress (a short list) and reads nothing from it, and a client facing world231 or older draws every plate the hall lays while a Caster is left
+// world231: NAME-WORDS (2026-10-19, world224 on its branch, renumbered past OW-CHASE-RANGE's world230 at the merge; Mac: "Not sure how the filter didnt catch this", over the handle PROSTITUTE_STRANGLER, then "Yes"; NOT YET DEPLOYED): net/nameFilter.js reads `prostitute` and `strangler` ANYWHERE - a name holding either is refused, a line stars them. world230: OW-CHASE-RANGE (2026-10-19, the owner, of the Overworld's gaps: "4. Fix it"; bible/06-Systems/Travel-View.md OW-CHASE-RANGE; world224 on its branch, renumbered past LAYERED-GEAR's world224 at one merge, then world225 past GAUNTLET-SLAIN's world225, LORD-SHARES's world226, PLAIN-SWEEP's world227, QL12's world228 and WB14b's world229 at the next; NOT YET DEPLOYED; AUDIT OW-REVISITED L4-1, re-hashed in place): a traveller's trav frame carries its chase words BESIDE its mark - `bd` the bands', `sr` the raiders' (TV7b's and OW6's shapes: [[id, x, z, 1|2]], at most TRAV_BANDS_MAX each, a chase within TRAV_CHASE_NEAR_PX of the mark) - checked whole by validTravWords at the door, kept on the attachment with the mark and fanned and welcomed with it; an older relay reads the mark and drops the words (nothing refused), an older client reads the mark and never the words
+// world230: OW-CHASE-RANGE (2026-10-19, the owner, of the Overworld's gaps: "4. Fix it"; bible/06-Systems/Travel-View.md OW-CHASE-RANGE; world224 on its branch, renumbered past LAYERED-GEAR's world224 at one merge, then world225 past GAUNTLET-SLAIN's world225, LORD-SHARES's world226, PLAIN-SWEEP's world227, QL12's world228 and WB14b's world229 at the next; NOT YET DEPLOYED; AUDIT OW-REVISITED L4-1, re-hashed in place): a traveller's trav frame carries its chase words BESIDE its mark - `bd` the bands', `sr` the raiders' (TV7b's and OW6's shapes: [[id, x, z, 1|2]], at most TRAV_BANDS_MAX each, a chase within TRAV_CHASE_NEAR_PX of the mark) - checked whole by validTravWords at the door, kept on the attachment with the mark and fanned and welcomed with it; an older relay reads the mark and drops the words (nothing refused), an older client reads the mark and never the words
+// world229: WB14b (2026-10-19, bible/11-Multiplayer/Breach-Portents.md sections 1, 2 and 10; world222 on its branch, renumbered past GATE-DOOR and COURT-WATCH's world222, then world223 past FOE-BOUNDS and GRANT-DOOR's world223, then world224 past LAYERED-GEAR and VOICE2's world224, then world225 past GAUNTLET-SLAIN's world225, then world226 past LORD-SHARES's world226, then world227 past PLAIN-SWEEP's world227, then world228 past QL12's world228 at the merges; NOT YET DEPLOYED): THE BREACH'S PORTENTS - the relay draws a night's portents with its fight (net/gate/gateLaw.js gatePortentsOf) and says them in every state (`pt`), the crossings by walkway (`xa`, six, a walkway not laid null), GATE_BRAIN_V and GATE_BRAIN_MIN 6 (a game from before is told to reload); WB14a: the Warden's new arsenal - an atk word names its marked by peer id (`pk`), attack ids to GATE_ATK_ID_MAX (31), the relay's judge counts the Wheel down its turn and never a marked blow or the Gaze; WB14c: the Vanguard - its stages in the state (`vg`) and in words (`vgw`), three host kinds more (GATE_HOST_KINDS 6), a blow on one taken from the floor its body stands on, GATE_HZ_MAX 28; WB14d: the Sundering - its halves in the state (`sd`) and in words (`sdh`, `kn`, `kr`, `rj`), the half a blow lands on (`hit`'s `b`) and the Flame's own words (`atk`, `mv`, `ph` with `b` 1), the Sundering and the Rejoining (attacks 17 and 18). WB14e: the Tithe-Imp - a host kind more (GATE_HOST_KINDS 7), its flight (`adie`'s `w` 3, GATE_HOST_GONE 4), and its tithe to its catcher alone (`tithe`). WB14f: the Captive - his gaolers a host kind more (GATE_HOST_KINDS 8), the state's `cp`, his freeing (`cpf`) and the Reckoning his ward takes (`cpw`, the relay's judge sparing it). WB14g: a kill receipt says the night's portents (`p`, net/gate/gateReceipt.js). AUDIT WB14 (bible/01-Overview/audits/Audit-Breach-Portents.md): the brain's fixes, and a Tithe-Imp's tithe paid at its catch, the fight kept before it is said. Deploy the relay with the client.
+// world228: QL12 (2026-10-19, world222 on its branch, renumbered past GATE-DOOR, FOE-BOUNDS, LAYERED-GEAR and VOICE2, GAUNTLET-SLAIN, LORD-SHARES and PLAIN-SWEEP, world222 to world227, at the merges; bible/06-Systems/Questlines-Arc.md section 5.3; NOT YET DEPLOYED): the vocabulary's five new words - THE QUESTLINES' TITLES last of TITLES (net/identityToken.js: doorwarden, covenbane, weirwalker, hourwitness, satakalwitness, in net/questlineClaims.js QL_TITLES' order), which the account service (acct159) lays on a row at a line's last witnessed step. A relay before it refuses a token wearing one, so THE RELAY FIRST, then the account service, then the site (WIKIMAID's order). Nothing else of the relay moves.
+// world227: PLAIN-SWEEP (2026-10-19, world224 on its branch, renumbered past LAYERED-GEAR's world224, GAUNTLET-SLAIN's world225 and LORD-SHARES' world226 at the merges; the owner: "Renove overexplaining text and replace it with proper palatable descriptions"; bible/10-UI/Plain-Words.md PLAIN-SWEEP; NOT YET DEPLOYED): words only - the relay's bundle carries player-facing lines (the Elite Breach's law, the arena's, the duel's, the serpent's herald, the name filter's, the staff commands'), and their plain rewrite is new bytes. No frame, no law and no behaviour moved.
+// world226: FIELD BUGS 2026-10-19e LORD-SHARES (2026-10-19, world225 on its branch, renumbered past GAUNTLET-SLAIN's world225 at the merge; bible/01-Overview/bugs/Field-Bugs-2026-10-19e.md; NOT YET DEPLOYED; a breach's company: "Felt like he wasnt being damaged ... It felt like the moment team died difficulty went down"): a lord of the Spire is stood for the company on its hall's arrival plate and keeps what the fallen leave - net/eliteGates/egLords.js egLordsStand, called by net/eliteGates/egBrain.js standFight once its lords stand, takes out the share of every member not on the plate (a latecomer brings its share at the fraction, as before), and egLordsShare takes no fallen member's share out of a lord awake (EG-ZQ retired it at the fall, so a death cost the company nothing against the lord) - one asleep in its ring still lets it go. No file joins the bundle. Either end may deploy first: no word on the wire changed.
+// world225: GAUNTLET-SLAIN (2026-10-19, world220 on its branch, renumbered past main's world220-world224 at the merge; bible/01-Overview/bugs/Field-Bugs-2026-10-19d.md; the Discord: "can't silence casters after killing them lol"): a Gauntlet's Caster slain is its pillar silenced (net/eliteGates/egBrain.js trialStep's Gauntlet) - a run stuck at a Gauntlet's door finishes on the relay's next beat. Deploy relay before clients (THE DRAIN keeps every live breach on its own law).
+// world224: LAYERED-GEAR and VOICE2 (2026-10-18; world218 in the package, renumbered past GRANT2's world218, EG-PERFECT's world219, FIELD BUGS 2026-10-18d's world220 and 2026-10-18f's world221, GATE-DOOR's world222 and FOE-BOUNDS's world223 at the merge; NOT YET DEPLOYED; the owner: "add a option between those two thats also called On foot Layered Gearing Skin (WIP) Female and Male"; player/eyeOfTheBeholder/layeredArmor.js): validLook keeps a look's `lg` - the On foot Layered Gearing Skin the player chose, 1 female, 2 male, OMITTED when off (`class`'s law) - so a peer is drawn in the armor their items say they wear, in the body they chose; and the voice pass's words in the relay's own text (VOICE1, bible/10-UI/Voice.md). Deploy relay before clients - an older relay drops `lg`, and the player is seen in their set or class, as before.
+// world223: FOE-BOUNDS and GRANT-DOOR (2026-10-19, world219 on its branch, renumbered past EG-PERFECT's world219, FIELD BUGS 2026-10-18d's world220 and 2026-10-18f's world221, and GATE-DOOR's world222, at the merges; Mac: a hand-off spec, "REJECT AND REMOVE INVALID ENEMY HANDOFFS; DO NOT RESCALE", then "Spec + B + A"; bible/11-Multiplayer/Spawn-Grants.md sections 19-21; NOT YET DEPLOYED): a reader's tally takes `stats` - a record whose health no builder could give it (net/foeBounds.js foeStatsRefusal) - and it is a case's reason (net/grantLaw.js GRANT_CASE_REASONS); while `grantStrip` is on the relay drops such a record from a cell's and a world room's own frames and counts it under its own name (net/grantMeasure.js GRANT_RELAY_READER, the worst one's evidence beside it); a foes room's hello says the spawn grants its build stands on (`gv`, GRANT_HELLO_LAW), the relay keeps it on the socket, holds such a socket to grants in its strip, and vouches for it on every foes frame it fans (`g` 1); the setting `grantDoor` (off unset) refuses a foes room's hello that does not say it (GRANT_OLD_REASON, GROUND-GATE's words). A client hands `stats` only to a relay at world220 or later (GRANT_STATS_RELAY_MIN)
+// world222: GATE-DOOR and COURT-WATCH (world218 on its branch, renumbered past GRANT2's world218, EG-PERFECT's world219 and FIELD BUGS 2026-10-18d's world220 and 2026-10-18f's world221 at the merge; NOT YET DEPLOYED; bible/11-Multiplayer/Scale-Arc.md THE PLAN PAST 1,000; from play at a thousand online, "Server is kinda breaking down near oblivion gate cause so many ppl lol"): a gate's court and its copies admit GATE_HELLO_HZ_MAX hellos a second, its opening's crowd, where every room admitted HELLO_HZ_MAX - still spent before the token is read, a busy refusal leaving it unspent; and COURT-WATCH (bible/11-Multiplayer/World-Bosses.md section 24): the answer to an `in` that seats a fighter says so (`me`), so a client the full court kept as its watcher knows when it fights. Deploy relay before clients (a client from before it waits at a deeper door, and a full court still casts it out, as it did).
+// world221: FIELD BUGS 2026-10-18f (bible/01-Overview/bugs/Field-Bugs-2026-10-18f.md TURNED-BLOW; bible/01-Overview/audits/Audit-Field-Bugs-2026-10-18f.md L3; world219 on its branch, renumbered past EG-PERFECT's world219 and FIELD BUGS 2026-10-18d's world220 at the merge; NOT YET DEPLOYED): THE STRIKE RULE ONE LAW ON BOTH ENDS - the relay's refusal of a blow struck from traversal ground (net/eliteGates/egBodies.js egStruckOff) is the one the screen asks, and the storey (egStoreyApart) the same; a woken lord's first phase said in the beat that wakes it (`eph`, egLordsWake), so no screen holds it asleep until the fight's next whole word; each body's radius said beside its row (`ead` and `efs` carry `r`, net/eliteGates/egBodies.js egRadiusWire - outside the 19-element row, so a client before it drops the field and keeps the word, and a client after it with an older relay judges as it did). Either end may deploy first.
+// world220: FIELD BUGS 2026-10-18d (bible/01-Overview/bugs/Field-Bugs-2026-10-18d.md; world219 on its branch, renumbered past EG-PERFECT's world219 at the merge - world218 the live relay's when it was written, GRANT2 deployed with #1018's merge). TWIN-REKINDLE: net/eliteGates/egBrain.js sapperReach - a Sapper reaching a fallen lord burns out against the body, never feeds it: a Twin fed at nought stood again un-hittable with its fall's flag on, threw blows, and its pair's raise never came. BANNER-SHAFT (Boar: "Big bugs of the spires"; bible/11-Multiplayer/Elite-Gates.md sections 13.3 and 13.4, Elite-Gates-Ascent.md section 2): a member's shaft or spell on an Elite Breach body of another storey lands through open air, refused only where the two stand stacked (net/eliteGates/egWalkGraph.js egStacked; a swing still reaches its own storey alone), so Valkynaz Ilthys's banners on the Rotunda's balconies are shot from the court. DUEL-RING: the Last Armsmaster's Challenge met in the open at n = 1 says so, called and ended (`challenge`'s and `challengeend`'s `t`, EG_DUEL_OPEN - a client before it reads the ring's words, as ever). SEAT-LIVE (the same drop; FIELD BUGS 2026-10-18d, FloopZe's 'Castle Daggerfall guards loot duping'): A DUNGEON ROOM'S SEAT IS A LIVE SOCKET'S - net/seatLive.js joins the bundle; the host is the eldest socket that has said a frame (a hello, a pose, its stream, its own lane, its memory - never a ping) within FOES_STALE_MS (moved here from net/online.js) of another being there to hear it, the change said to the room as a leave's is, and a socket back from silence a joiner, told the seat and stamped after it (Room _hostOf, _leads, _seatHeard, _seatKeep); a building's room keeps the eldest. The welcome carries no new field: a page reads world220 as the relay to ask (net/seatLive.js SEAT_RELAY_MIN), and an older page meets the same frames
+// world219: EG-PERFECT (2026-10-18, world218 on its branch, renumbered past GRANT2's world218 at the merge; bible/11-Multiplayer/Elite-Gates.md section 31's EG-PERFECT records; Mac: "I want to ensure the boss attacks, the design of the halls, and everything is absolutely perfect. Traversing between sections should present a challenge, platforming should be detailed"): the lords' blows fair and whole (the union floor's havens, pools and rings; the Valkynaz' signatures at their second phase; the Lattice a sweep), spec law 10 THE BROKEN WAY (net/eliteGates/egDurable.js EG_LAWS - laws 4 to 9 kept), a fight hall's clocks awaiting its company, the closing's walk, the tube's clock, the void zones, the toll's rooms. Deploy relay before clients (THE DRAIN keeps every live breach on its own law).
+// world218: GRANT2 (2026-10-18, Mac: "Lets build the plan"; bible/11-Multiplayer/Spawn-Grants.md section 12; deployed 2026-10-18): THE SPAWN GRANTS, MEASURED - a cell takes `{t:'grant', k:'mint', id, kind, n}` from a socket whose pose stands in it (net/grantLaw.js validGrantAsk, on grantGate's bucket) and answers `{t:'grant', k:'ok', id, gr}` - a grant made out to the asker, its cell and account, the pixel and the world minute, its signed level and Renown, a seed and the elite and champion marks it rolls, ten minutes' life, signed with GATE_SIGNING_KEY (net/grantLaw.js grantBytes, `spawn-grant1`); the gate (an account's bucket per kind, the cell's ceiling) is counted on every ask, and said (`no`) only while the relay setting `grantMode` enforces - it measures from this deploy (unset: measure), and `off` answers `off`; a cell's welcome says the mode (`gm`). Each cell posts its window of asks, signed, to the account service's GRANT_FEED_URL (net/grantMeasure.js, `grant-measure1`; acct155 keeps it). A client before it never asks; a client asks only a relay at world218 or later (GRANT_RELAY_MIN), which an older one would close the socket on. GRANT3-GRANT9 (sections 13-16, the same drop): the renewal, free, carry, heir and tally asks; a world room's own lane asks too (no pixel, no open-country kind, carried cell to cell alone); the settings `grantRoll` (an encounter's grant `encr`, its species its seed's) and `grantStrip` (the relay drops a record its grant does not stand), each off unset
 // world217: GROUND-GATE (FIELD BUGS 2026-10-17f, bible/01-Overview/bugs/Field-Bugs-2026-10-17f.md; world216 on its branch, renumbered past PROX-VOICE's world216 - reverted, its row kept so no relay takes it - at the merge; Mac's call on bible/03-World/Landforms.md C2: "Relay turns old builds away"): a ground room's hello says the ground its build stands on (`gl`, GROUND_LAW), and while the relay setting `groundGate` is on (net/relayCfg.js - off until the site serves this build, since the relay deploys first) a hello there that says less or none is refused, before anything is written: the relay's words in the error frame every build shows, and a close reason of its own (GROUND_OLD_REASON) (a close reason is 123 bytes at most). A hello on the ground asks nothing; an old one asks the hub's settings once a TTL, awaited in a cold room. Deploy relay before clients.
 // world215: SAFE (2026-10-17, world214 on its branch - main's WIKIMAID took world214 first, below; Mac: "Lets do every single thing here. I want a full fledged future proof system"; bible/11-Multiplayer/Chat-Safety-Arc.md; NOT YET DEPLOYED): THE CHAT'S SAFETY - every chat line the relay relays carries its stamp (`sg`, net/safety/chatStamp.js: Ed25519 over the tab, the speaker's account, the name, the time and the words, with GATE_SIGNING_KEY), which a report carries to the account service as its proof; a socket wearing the sprout says one public line every NEW_VOICE_GAP_MS (`slowed`); the public channels' lines are batched to the account service's reviewer (MOD_FEED_URL, net/safety/chatFeed.js - signed, never awaited by a line); a BAN order (identityToken.js ORDER_KINDS 'ban', `bn`) taken from a carrier (`{t:'ban', order}`) or through the service's door (SAFE_LAW_PATH, checked by the Worker before the hub is woken), each of the account's sockets silenced and told `banned`; and an order the service pushed handed to its target's own hub sockets (`law`) to carry to every room it holds
 // world214: WIKIMAID (2026-10-17, for SylviaBun: "the WikiMaid title and a purple aura with bunnies"; bible/06-Systems/Accounts-And-Cloud-Saves-Arc.md WIKIMAID; NOT YET DEPLOYED): the vocabulary's three new words - WIKIMAID last of TITLES and of GLYPHS, THE LILAC WARREN last of AURAS (net/identityToken.js), which the relay reads off every hello's token; nothing else in the law moved. Deploy the relay BEFORE the account service (acct150), or every token SylviaBun is signed - the glyph rides it whether or not she wears anything - is refused whole
@@ -1946,7 +2009,12 @@ export function validLook(look) {
   // SKIN2 (2026-09-25): and past the mod's sixteen, Daggerfall's own classes (player/classSkins.js) - the bound is every
   // on-foot skin the build carries.
   const eo = uint(look.eo, FOOT_SKINS - 1);
-  return { race, gender, faceIndex, ...(klass ? { class: klass } : {}), ...(eo != null ? { eo } : {}), items };
+  // LAYERED-GEAR (2026-10-18): `lg` - the On foot Layered Gearing Skin the player chose on the profile (1 female, 2 male;
+  // Graphics.LayeredGear), so a peer is drawn in the helmet, chest and legs armor their items say they wear
+  // (net/peer/peerRiders.js createPeerWalkers). OMITTED when off, `class`'s law. A relay before this one drops it: the
+  // player is then seen in their set or class, as before.
+  const lg = uint(look.lg, 2);
+  return { race, gender, faceIndex, ...(klass ? { class: klass } : {}), ...(eo != null ? { eo } : {}), ...(lg ? { lg } : {}), items };
 }
 /** DISC23-B's `eo` bound, widened by SKIN2: every on-foot skin - Eye Of The Beholder's sixteen sets (archives
  *  112364-112379) and Daggerfall's twenty classes after them. A literal, because the relay imports this file and not the skin table (test/net/skin2_class_skins.test.js pins it equal to
@@ -2026,7 +2094,7 @@ export function inRangeOf(roomKey, from) {
   return (to) => !!to && Math.max(Math.abs(fx - Math.floor(to.x / PIXEL_UNITS)), Math.abs(fy - Math.floor(to.z / PIXEL_UNITS))) <= RANGE_PIXELS;
 }
 
-/** One client frame, parsed and checked: {t:'hello'|'pose'|'ping'|'chat'|'roll'|'say'|'narrate'|'stage'|'mute'|'ban'|'renown'|'guild'|'guildout'|'home'|'world'|'foes'|'own'|'hit'|'act'|'who'|'quest'|'social'|'party'|'trade'|'cast'|'card'|'page'|'duel'|'wed'|'park'|'caravan'|'look'|'gate'|'grant'|'siege'|'arena'|'raid'|'raidtowns'|'rite'|'ow'|'trav'|'amap'|'stp'|'cfg'|'find'|'serpent'|'sd'|'eg'|'wild'|'wdun'|'holdem'|'iliac'|'gambit', ...}
+/** One client frame, parsed and checked: {t:'hello'|'pose'|'ping'|'chat'|'roll'|'say'|'narrate'|'stage'|'mute'|'ban'|'renown'|'guild'|'guildout'|'home'|'world'|'foes'|'own'|'hit'|'act'|'who'|'quest'|'social'|'party'|'trade'|'cast'|'card'|'page'|'duel'|'wed'|'park'|'caravan'|'look'|'gate'|'grant'|'siege'|'arena'|'raid'|'raidtowns'|'rite'|'star'|'ow'|'trav'|'amap'|'stp'|'cfg'|'find'|'serpent'|'sd'|'eg'|'wild'|'wdun'|'holdem'|'iliac'|'gambit', ...}
  *  or {error} - the caller closes on an error. INSPECT1: every arm below, named - this line had fallen seven behind
  *  (test/net/auditworld2.test.js derives the list from the arms now, so it cannot fall behind again - the merge with
  *  main's HCC-PARK was its first catch: the park arm, unnamed). */
@@ -2149,6 +2217,11 @@ export function parseClient(text, { hasHello = false } = {}) {
     const r = validRiteIn(m);
     return r ? { t: 'rite', ...r } : { error: 'bad rite' };
   }
+  if (m.t === 'star') {   // STAR3: a word at a fallen star, to its cell - projected by validStarIn; the cell's ledger (net/starfall/starfallLaw.js) judges where and when
+    if (!hasHello) return { error: 'star before hello' };
+    const r = validStarIn(m);
+    return r ? { t: 'star', ...r } : { error: 'bad star' };
+  }
   if (m.t === 'eg') {   // EG-PLAY: a word on an Elite Breach - the open to the hub, a member's admission, door and blows to its room - projected by validEgIn; the hub and the room's director (net/eliteGates/egBrain.js) judge it
     if (!hasHello) return { error: 'eg before hello' };
     const r = validEgIn(m);
@@ -2245,6 +2318,7 @@ export function parseClient(text, { hasHello = false } = {}) {
     // GROUND-GATE: the ground this build stands on (GROUND_LAW) - any other value read as none, the `w2` law: a ground
     // room's door refuses none while its gate is on, and a later build's number is read as it is
     if (Number.isSafeInteger(m.gl) && m.gl >= 1 && m.gl <= GROUND_LAW_WIRE_MAX) hello.gl = m.gl;
+    if (Number.isSafeInteger(m.gv) && m.gv >= 1 && m.gv <= GRANT_HELLO_LAW_WIRE_MAX) hello.gv = m.gv;   // GRANT-DOOR: the grants this build stands on - read as GROUND-GATE's `gl` is
     return hello;
   }
   if (m.t === 'pose') {
@@ -2384,7 +2458,8 @@ export function parseClient(text, { hasHello = false } = {}) {
     if (!hasHello) return { error: 'trav before hello' };
     if (m.p === null) return { t: 'trav', p: null };
     const p = validTravellerMark(m.p);
-    return p ? { t: 'trav', p } : { error: 'bad trav' };
+    const words = p ? validTravWords(m, p) : null;   // OW-CHASE-RANGE: the chase words beside it, whole or the frame refused
+    return p && words ? { t: 'trav', p, ...words } : { error: 'bad trav' };
   }
   if (m.t === 'party') {   // SOC1: my party pose, to the hub - projected by the pose's own law
     if (!hasHello) return { error: 'party before hello' };
@@ -2652,6 +2727,9 @@ export function badged(row, from) {
   // WB9g: AND THE AURA WORN, by the title's law - off the verified token alone, one of the known or nothing
   const au = from?.au;
   if (typeof au === 'string' && AURAS.includes(au)) row.au = au;
+  // WITCH1: AND THE PROFILE ICON WORN, by the aura's law - off the verified token alone, one of the known or nothing
+  const pi = from?.pi;
+  if (typeof pi === 'string' && ICONS.includes(pi)) row.pi = pi;
   // SEASON1 part two (Seats-Arc 9.1): AND A SEASON'S BANNER RIBBON, by the same law - off the verified token alone, two
   // of the sixteen colours or nothing
   if (ribbonClaimOk(from?.rb)) row.rb = from.rb;
@@ -2673,6 +2751,9 @@ export { readHouse };
 /** WB9g: the aura a row carries, as a client reads it back - `badged`'s other half; null for none, and for a word the
  *  vocabulary does not hold (a stranger's word about themselves). */
 export const readAura = (row) => (typeof row?.au === 'string' && AURAS.includes(row.au) ? row.au : null);
+/** WITCH1: the profile icon a row carries, as a client reads it back - `badged`'s other half; null for none (the face),
+ *  and for a word the vocabulary does not hold (a stranger's word about themselves). */
+export const readIcon = (row) => (typeof row?.pi === 'string' && ICONS.includes(row.pi) ? row.pi : null);
 /** SEASON1 part two: the banner ribbon a row carries, as a client reads it back - `badged`'s other half; null for none,
  *  and for anything but two of the sixteen colours (a stranger's word about themselves). */
 export const readRibbon = (row) => (ribbonClaimOk(row?.rb) ? row.rb : null);
@@ -3145,8 +3226,52 @@ export function validPartyFrame(m) {
   return acct && p ? { t: 'party', acct, p } : null;
 }
 
-/** TV3: the mark's seven keys - and no other: a mark with an eighth is refused whole, so nothing rides it. */
+/** TV3: the mark's seven keys - and no other: a mark with an eighth is refused whole, so nothing rides it. (AUDIT
+ *  OW-REVISITED L4-1: OW-CHASE-RANGE's chase word rode as an eighth key, and every client before it - this law, refusing
+ *  the eighth - dropped the traveller whole from its book for the rest of the session; the words ride BESIDE the mark.) */
 export const TRAV_KEYS = Object.freeze(['px', 'py', 'fx', 'fy', 'h', 'm', 'tv']);
+/** OW-CHASE-RANGE: the most entries a mark's chase word holds - the foes frame's own (systems/travel/travelBands.js
+ *  BANDS_WIRE_MAX, pinned equal: the relay's graph stays flat) - for each of its two words. */
+export const TRAV_BANDS_MAX = 8;
+/** AUDIT OW-REVISITED L4-5: how far from the mark's own pixel a chase it says may run - a band's leash (900 m) and a
+ *  raider's (3 km) and a pixel to spare; past it the word is no chase of this traveller's and is refused. */
+export const TRAV_CHASE_NEAR_PX = 5;
+/** OW-CHASE-RANGE (AUDIT OW-REVISITED L4-1, L4-5, L4-6): A CHASE WORD BESIDE A MARK - `bd` the bands', `sr` the raiders'
+ *  (the cell's foes frame's own two words, each its own TRAV_BANDS_MAX: one shared word let eight spent bands keep every
+ *  raider off it), checked whole: each entry [id, x, z, flag] of the word's own kind (OW_BAND_ID_RE / OW_RAIDER_ID_RE) and
+ *  named once - flag 1 a chase at (x, z), native whole units on the world's pixels within TRAV_CHASE_NEAR_PX of the mark's
+ *  `p` (a chase is about its chaser - a word naming a chase across the region was any traveller spending every band about
+ *  a reader); flag 2 one spent, (0, 0). Null for any entry that is not, or too many. */
+export function validTravWord(v, idRe, p) {
+  if (!Array.isArray(v) || v.length > TRAV_BANDS_MAX || !p) return null;
+  const out = [], seen = new Set();
+  for (const e of v) {
+    if (!Array.isArray(e) || e.length !== 4) return null;
+    const [id, x, z, flag] = e;
+    if (typeof id !== 'string' || !idRe.test(id) || seen.has(id) || (flag !== 1 && flag !== 2)) return null;
+    if (flag === 1) {
+      if (!(Number.isInteger(x) && Number.isInteger(z))) return null;
+      const cx = Math.floor(x / PIXEL_UNITS), cy = 499 - Math.floor(z / PIXEL_UNITS);
+      if (!worldPixelOk(cx) || !worldPixelOk(cy) || Math.max(Math.abs(cx - p.px), Math.abs(cy - p.py)) > TRAV_CHASE_NEAR_PX) return null;
+    }
+    if (flag === 2 && (x !== 0 || z !== 0)) return null;
+    seen.add(id);
+    out.push([id, x, z, flag]);
+  }
+  return out;
+}
+/** The words beside a mark `p`, each checked (validTravWord) and kept only when it says something: `{ bd?, sr? }`, or null
+ *  where one is there and refused. */
+export function validTravWords(m, p) {
+  const out = {};
+  for (const [k, re] of /** @type {Array<[string, RegExp]>} */ ([['bd', OW_BAND_ID_RE], ['sr', OW_RAIDER_ID_RE]])) {
+    if (m?.[k] == null) continue;
+    const w = validTravWord(m[k], re, p);
+    if (!w) return null;
+    if (w.length) out[k] = w;
+  }
+  return out;
+}
 /** TV3: a traveller mark {px, py, fx, fy, h, m, tv}, projected, or null for one that is not - refused WHOLE (the party
  *  pose's law): a pixel off the world (TV-BEYOND: WORLD_PIXEL_BOUND), a byte past 255, a mode past the four, an eighth key. `tv` absent reads 0. */
 export function validTravellerMark(p) {
@@ -3160,15 +3285,17 @@ export function validTravellerMark(p) {
   if (tv == null) return null;
   return { px, py, fx, fy, h, m, tv };
 }
-/** TV3: a traveller's mark from the region room ({t:'trav', id, name, sub?, p} - `p` null when they went indoors, hid,
- *  or the room dropped them), projected with its badge, or null. The name is the relay's, off the verified token. */
+/** TV3: a traveller's mark from the region room ({t:'trav', id, name, sub?, p, bd?, sr?} - `p` null when they went
+ *  indoors, hid, or the room dropped them), projected with its badge, or null. The name is the relay's, off the verified
+ *  token. OW-CHASE-RANGE: the chase words beside the mark (validTravWords) - one refused is dropped, never the mark. */
 export function validTravellerFrame(m) {
   if (!m || typeof m !== 'object' || Array.isArray(m) || m.t !== 'trav') return null;
   const id = idOf(m.id);
   if (!id) return null;
   const p = m.p === null ? null : validTravellerMark(m.p);
   if (m.p !== null && !p) return null;
-  return { t: 'trav', id, name: sanitizeName(m.name), sub: idOf(m.sub), p, ...readBadge(m), lv: readRenown(m), gt: readGuildTag(m), rb: readRibbon(m) };   // OVERWORLD NAMES: and the Renown and the guild's tag the relay stamps (badged) - the name as it reads in play; AUDIT-SEATS: and a Season's banner ribbon
+  const words = p ? (validTravWords(m, p) ?? {}) : {};
+  return { t: 'trav', id, name: sanitizeName(m.name), sub: idOf(m.sub), p, ...words, ...readBadge(m), lv: readRenown(m), gt: readGuildTag(m), rb: readRibbon(m) };   // OVERWORLD NAMES: and the Renown and the guild's tag the relay stamps (badged) - the name as it reads in play; AUDIT-SEATS: and a Season's banner ribbon
 }
 
 /** QUEST1: a quest shared by a party member, from the hub ({t:'quest', acct, name, quest:{questName, displayName,
@@ -4484,11 +4611,16 @@ export const GATE_KINDS = Object.freeze(['in', 'hit', 'spent', 'site', 'xhit', '
  *  cannot see, never break a crystal, and read the Reckoning's landing as a miss. 5 is WB11's Legion-Lord: his host
  *  (net/gate/gateBrain.js HOST_KINDS) and the nine-trial rotation of marks (net/gate/gateLaw.js) - a client that knows neither would
  *  stand in an Imp's bite, never see an Atronach walking, fight a ward it cannot break, and name tonight's marks wrong. */
-export const GATE_BRAIN_V = 5;
-export const GATE_BRAIN_MIN = 5;
+//  6 is WB14's (bible/11-Multiplayer/Breach-Portents.md): the night's portents and its floor plan (the Vanguard's platforms,
+//  the Rift Way, the Pen), the Warden's new arsenal (the Chains, the Brand, the Torment, the Wheel, the Gaze, the
+//  Unmaking), his halves under the Sundering, the Vanguard's and the Captive's host, the Tithe-Imp - a client that knows
+//  none of it would stand in a Brand it cannot see, strike a half it cannot name and walk onto a platform the floor law
+//  refuses.
+export const GATE_BRAIN_V = 6;
+export const GATE_BRAIN_MIN = 6;
 /** What the room says back (the client drops any other kind). WB8b: `fed` - a fallen challenger fed a Soul-Hungry
  *  Warden (their name, his health after). */
-export const GATE_OUT_KINDS = Object.freeze(['st', 'mv', 'atk', 'hp', 'ph', 'wrath', 'fell', 'rcpt', 'no', 'fed', 'cx', 'cxh', 'cxb', 'stun', 'ad', 'amv', 'aatk', 'ah', 'adie', 'bd']);   // INT11: `bd` - the relay's count has fallen me (enforced)   // WB9c: the crystals grown, their health, one broken, the Reckoning broken and he stunned; WB11b: his host risen, walking, striking, its health, gone
+export const GATE_OUT_KINDS = Object.freeze(['st', 'mv', 'atk', 'hp', 'ph', 'wrath', 'fell', 'rcpt', 'no', 'fed', 'cx', 'cxh', 'cxb', 'stun', 'ad', 'amv', 'aatk', 'ah', 'adie', 'bd', 'vgw', 'sdh', 'kn', 'kr', 'rj', 'tithe', 'cpf', 'cpw']);   // WB14f: the Captive freed, and his ward given a Reckoning; WB14e: a Tithe-Imp's tithe, to its catcher alone; WB14d: the Sundering's - the halves' pools, a kneel, a rising, the Rejoining   // WB14c: `vgw` - a stage of the Vanguard   // INT11: `bd` - the relay's count has fallen me (enforced)   // WB9c: the crystals grown, their health, one broken, the Reckoning broken and he stunned; WB11b: his host risen, walking, striking, its health, gone
 /** A level claim on the wire - the brain clamps it to its own 1..60; past this it is not a level at all. */
 export const GATE_LV_WIRE_MAX = 999;
 /** One blow's claimed damage on the wire - the brain caps a blow far lower (HIT_CAP_X); past this it is no blow. */
@@ -4497,8 +4629,10 @@ export const GATE_DMG_WIRE_MAX = 100_000;
 export const GATE_SEQ_MAX = 0x7fffffff;
 /** The gate frames' own bucket: blows at the brain's GATE_HIT_HZ_MAX (4), the `in`, and slack for a spell's burst.
  *  AUDIT WB11 W3: a blow is a frame a BODY it met (one `q` - net/gate/gateBrain.js BLOW_GROUP_MS), and a swing through a
- *  pack of his host is six of them: 16, two such blows a second (8 refused the sixth frame of the second swing). */
-export const GATE_HZ_MAX = 16;
+ *  pack of his host is six of them: 16, two such blows a second (8 refused the sixth frame of the second swing). WB14c:
+ *  the Vanguard stands twelve (net/gate/gateBrain.js VG_STANDING_MAX) - two swings a second through all of them and him,
+ *  and two frames' slack: 28. The brain's hand still charges a blow once (GATE_HIT_HZ_MAX, BLOW_BODIES_MAX). */
+export const GATE_HZ_MAX = 28;
 /** INT11: a body's (or a hull's) share in its own word (`vt` - the gate's, the Abyss Dungeon's, the serpent's), in
  *  thousandths of the whole (net/bossBody.js bodySaid reads v / 1000). */
 export const BODY_WORD_MAX = 1000;
@@ -4537,6 +4671,19 @@ export const relaySupportsGateSite = (v) => { const m = /^world(\d+)$/.exec(type
  *  whole number of points under GATE_HEAL_WIRE_MAX. */
 export const GATE_HEAL_RELAY_MIN = 140;   // world140 - WB11's and GATE-HEAL's (world138 on their branch; main's HERALD and LOOT7 took world138 and world139)
 export const relaySupportsGateHeal = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= GATE_HEAL_RELAY_MIN; };
+/** COURT-WATCH (bible/11-Multiplayer/World-Bosses.md section 24; AUDIT PLAN-1000 G3): the first relay whose answer to an `in`
+ *  that seats a fighter says so (`me`). A client the full court keeps as its watcher on an older relay would be seated by
+ *  that relay's next `in` and never told - in the census and the boss's health, striking nothing - so before it a full
+ *  court refuses as it did. */
+export const COURT_WATCH_RELAY_MIN = 222;   // world222 - GATE-DOOR's and COURT-WATCH's (world218 on their branch; main's GRANT2, EG-PERFECT and FIELD BUGS 2026-10-18d and 18f took world218 to world221)
+export const relaySupportsCourtWatch = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= COURT_WATCH_RELAY_MIN; };
+/** AUDIT WB14 (WIRE-1; bible/11-Multiplayer/Breach-Portents.md): THE PORTENTS' RELAY - the first that draws a night's portents
+ *  with its fight. A screen builds a portent night's court by its day (world/gate/gateArena.js planOfDay); an older relay
+ *  fights it plain, on floors that are not the screen's (the Vanguard's Bridgehead a floor it never lays a walkway from: a
+ *  fighter held there till midnight), so before it the gate's door refuses a portent night ("not yet") and a plain night
+ *  is fought as ever. Pinned to the relay version that says WB14b (test/net/gate/audit_wb14_screen.test.js). */
+export const GATE_PORTENTS_RELAY_MIN = 229;   // world229 - WB14's (world222 on its branch, renumbered past GATE-DOOR's, FOE-BOUNDS's, LAYERED-GEAR's, GAUNTLET-SLAIN's, LORD-SHARES's, PLAIN-SWEEP's and QL12's at the merges - GAUNTLET-SLAIN's world225, LORD-SHARES's world226, PLAIN-SWEEP's world227 and QL12's world228 fight a portent night plain)
+export const relaySupportsPortents = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= GATE_PORTENTS_RELAY_MIN; };
 export const GATE_HEAL_ROWS_MAX = 8;
 export const GATE_HEAL_WIRE_MAX = 100_000;
 /** DISCORD-GATES: a gate's place on the wire - "Copperham, Wrothgarian Mountains" (gateSite.js `place`) - and its law:
@@ -4562,13 +4709,18 @@ export const GATE_NO_WORDS = Object.freeze(['the gate is closed', 'the gate is s
 /** A point on the court the room names: metres about its centre - the court is 36 across, and this is its bound with room to spare.
  *  WB9b: about the FIRST court's centre - the third stands some 120 m off it, and this is the three's bound. */
 export const GATE_COURT_BOUND = 160;
+/** WB14b: the most walkways a night's floor plan names (net/gate/gateBrain.js WALKS - pinned equal). */
+export const GATE_WALKS_MAX = 6;
+/** WB14b: the most floors a night's plan stands (net/gate/gateBrain.js COURTS - pinned equal): a court index on the wire is
+ *  under it. */
+export const GATE_FLOORS_MAX = 6;
 /** WB9c: the most crystals one Reckoning grows (net/gate/gateBrain.js RECKON_CRYSTALS - pinned equal). */
 export const GATE_CRYSTALS_MAX = 8;
 /** WB11b: the most of his host one word names (a wave, a beat's walks or blows, its health, the gone, a state's host) -
  *  net/gate/gateBrain.js HOST_STANDING_MAX pinned under it; and the kinds (HOST_KINDS) and the ways one goes (HOST_GONE). */
 export const GATE_HOST_MAX = 16;
-export const GATE_HOST_KINDS = 3;
-export const GATE_HOST_GONE = 3;
+export const GATE_HOST_KINDS = 8;   // WB14c: and the Vanguard's Brute, Caster and Markynaz; WB14e: the Tithe-Imp; WB14f: the Captive's gaolers
+export const GATE_HOST_GONE = 4;   // WB14e: and fled (the Tithe-Imp into the fire)
 /** A health the room names, whole points. */
 export const GATE_HP_MAX = 1e9;
 /** The most points one attack names (Hellfire's two volleys of five), and the most names a kill credits. */
@@ -4586,7 +4738,7 @@ const GATE_RECEIPT_RE = /^r1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/;
 const GATE_BOSS_RE = /^[a-z]{1,16}$/;
 
 /**
- * A client's gate frame, projected: `{k:'in', lv}` or `{k:'hit', q, d, r}` (to a gate's room - WB9c `xhit` on a crystal,
+ * A client's gate frame, projected: `{k:'in', lv}` or `{k:'hit', q, d, r, b?}` (to a gate's room - WB14d `b` 1 his Flame; WB9c `xhit` on a crystal,
  * WB11b `ahit` on one of his host, by its number `i`), `{k:'spent', d}` or
  * `{k:'site', d, px, py, pl}` (to the hub), or null. The fields ride the frame's top
  * level (the design's table), so the projection names each and drops everything else.
@@ -4610,7 +4762,8 @@ export function validGateIn(m) {
   if (m.r !== 0 && m.r !== 1 && m.r !== 2) return null;
   if (m.k === 'xhit') return intIn(m.c, 0, GATE_CRYSTALS_MAX - 1) ? { k: 'xhit', c: m.c, q: m.q, d: m.d, r: m.r } : null;   // WB9c: which crystal
   if (m.k === 'ahit') return Number.isSafeInteger(m.i) && m.i >= 1 && m.i <= GATE_SEQ_MAX ? { k: 'ahit', i: m.i, q: m.q, d: m.d, r: m.r } : null;   // WB11b: which of his host
-  return { k: 'hit', q: m.q, d: m.d, r: m.r };
+  if (m.b !== undefined && m.b !== 0 && m.b !== 1) return null;   // WB14d: the half it lands on
+  return { k: 'hit', q: m.q, d: m.d, r: m.r, ...(m.b === 1 ? { b: 1 } : {}) };
 }
 
 // ─── PVP-REF: A SIEGE'S ROOM (bible/11-Multiplayer/Seats-Arc.md 6.1; net/siege/siegeRef.js) ───
@@ -4771,15 +4924,44 @@ const gateXZ = (v) => finite(v) && Math.abs(v) <= GATE_COURT_BOUND;
 const gateHp = (v) => Number.isSafeInteger(v) && v >= 0 && v <= GATE_HP_MAX;
 const gateMove = (mv) => (mv && typeof mv === 'object' && [mv.x, mv.z, mv.tx, mv.tz].every(gateXZ) && finite(mv.v) && mv.v >= 0 && mv.v <= 20 && gateMs(mv.at)
   ? { x: mv.x, z: mv.z, tx: mv.tx, tz: mv.tz, v: mv.v, at: mv.at } : null);
+/** WB14c: THE VANGUARD ON THE WIRE - its stage (0 the Bridgehead, 1 the Muster, 2 broken) and its waves risen in it (to
+ *  three), as a pair; its words (`vgw`'s `e`) number GATE_VG_WORDS. */
+export const GATE_VG_WORDS = 6;
+const gateVg = (v) => (Array.isArray(v) && v.length === 2 && intIn(v[0], 0, 2) && intIn(v[1], 0, 3) ? [v[0], v[1]] : null);
+/** WB14d: a pair, one a half (the Blade's, the Flame's - net/gate/gateBrain.js HALF), each passing `each`. */
+const gateHalves = (v, each) => Array.isArray(v) && v.length === 2 && v.every(each);
+const gateHalf = (b) => b === 0 || b === 1;
+/** WB14d: THE SUNDERING ON THE WIRE (net/gate/gateBrain.js sunderState) - the layout, each half's whole and pool, each one's
+ *  kneel (its moment, 0 standing) and mending, the Rejoining's moment (0 none yet), and the Flame's body: where, its walk,
+ *  its blow, its ward, its court, its stun. */
+const gateSd = (sd) => {
+  if (!sd || typeof sd !== 'object' || !gateHalf(sd.two) || !gateHp(sd.m) || !gateHalves(sd.h, (h) => gateHp(h) && h <= sd.m)) return null;
+  if (!gateHalves(sd.kn, msOrNone) || !gateHalves(sd.lo, gateHalf) || !msOrNone(sd.rj)) return null;
+  const F = sd.fl;
+  if (!F || typeof F !== 'object' || !gateXZ(F.x) || !gateXZ(F.z) || !finite(F.yw) || Math.abs(F.yw) > 8 || !Number.isSafeInteger(F.sh) || F.sh < 0) return null;
+  if (!intIn(F.ct, 0, GATE_FLOORS_MAX - 1) || !msOrNone(F.su)) return null;
+  const mv = F.mv == null ? null : gateMove(F.mv), atk = F.atk == null ? null : gateAtk(F.atk);
+  if ((F.mv != null && !mv) || (F.atk != null && !atk)) return null;
+  return { two: sd.two, m: sd.m, h: [...sd.h], kn: [...sd.kn], lo: [...sd.lo], rj: sd.rj, fl: { x: F.x, z: F.z, yw: F.yw, mv, atk, sh: F.sh, ct: F.ct, su: F.su } };
+};
+/** WB14f: THE CAPTIVE ON THE WIRE (net/gate/gateBrain.js newCaptive) - when his gaolers rose and how many, when he went free,
+ *  the number of the Reckoning his ward takes and when it landed on it; each 0 until it comes. */
+const gateCp = (c) => (Array.isArray(c) && c.length === 5 && msOrNone(c[0]) && intIn(c[1], 0, GATE_HOST_MAX) && msOrNone(c[2]) && Number.isSafeInteger(c[3]) && c[3] >= 0 && msOrNone(c[4]) ? [...c] : null);
+/** WB14a: the highest attack id a word may name (net/gate/gateBrain.js ATTACKS - the new arsenal's 11 to 16, WB14d's Sundering
+ *  and Rejoining 17 and 18; room to 31). */
+export const GATE_ATK_ID_MAX = 31;
 const gateAtk = (a) => {
-  if (!a || typeof a !== 'object' || !Number.isSafeInteger(a.i) || a.i < 1 || !Number.isInteger(a.a) || a.a < 0 || a.a > 15) return null;
+  if (!a || typeof a !== 'object' || !Number.isSafeInteger(a.i) || a.i < 1 || !Number.isInteger(a.a) || a.a < 0 || a.a > GATE_ATK_ID_MAX) return null;
   if (!gateMs(a.at) || !gateXZ(a.x) || !gateXZ(a.z) || !finite(a.yw) || Math.abs(a.yw) > 8 || !Array.isArray(a.tg) || a.tg.length > GATE_TARGETS_MAX) return null;
   if (!a.tg.every((p) => Array.isArray(p) && p.length === 2 && gateXZ(p[0]) && gateXZ(p[1]))) return null;
-  return { i: a.i, a: a.a, at: a.at, x: a.x, z: a.z, yw: a.yw, tg: a.tg.map((p) => [p[0], p[1]]) };
+  // WB14a: the marked, by peer id - one for each of its targets, or none (a relay that named nobody)
+  if (a.pk !== undefined && !(Array.isArray(a.pk) && a.pk.length === a.tg.length && a.pk.length >= 1 && a.pk.every((x) => typeof x === 'string' && ID_RE.test(x)))) return null;
+  return { i: a.i, a: a.a, at: a.at, x: a.x, z: a.z, yw: a.yw, tg: a.tg.map((p) => [p[0], p[1]]), ...(a.pk !== undefined ? { pk: [...a.pk] } : {}) };
 };
 const gateTop = (top) => (Array.isArray(top) ? top.slice(0, GATE_TOP_MAX).filter((n) => typeof n === 'string' && n).map(sanitizeName) : []);
-/** WB9b: the crossings' words - at most two relay moments. */
-const gateXa = (xa) => (xa == null ? [] : Array.isArray(xa) && xa.length <= 2 && xa.every(gateMs) ? [...xa] : undefined);
+/** WB9b: the crossings' words - at most two relay moments. WB14b: by walkway (net/gate/gateBrain.js xaWire) - at most
+ *  GATE_WALKS_MAX, a walkway not laid `null`, the last one a moment. */
+const gateXa = (xa) => (xa == null ? [] : Array.isArray(xa) && xa.length <= GATE_WALKS_MAX && xa.every((t) => t === null || gateMs(t)) && (!xa.length || xa[xa.length - 1] !== null) ? [...xa] : undefined);
 /** WB9c: a Reckoning's crystals - its attack's number, the health each grew with, and each spot (and, in a state, the
  *  health it stands at). */
 const gateCx = (cx, withHp) => {
@@ -4831,20 +5013,39 @@ export function validGateOut(m) {
       if (!Number.isSafeInteger(m.n) || m.n < 0 || m.n > 4096) return null;
       const mv = m.mv == null ? null : gateMove(m.mv), atk = m.atk == null ? null : gateAtk(m.atk), fell = m.fell == null ? null : gateFell(m.fell);
       const md = validGateMods(m.md);   // WB8b: his marks - known words, one aspect at most, or none
-      if ((m.mv != null && !mv) || (m.atk != null && !atk) || (m.fell != null && !fell) || (m.wrath != null && !gateMs(m.wrath)) || md === undefined) return null;
+      const pt = validGatePortents(m.pt);   // WB14b: the night's portents - known words, one or the Dire Breach's two, or none
+      if ((m.mv != null && !mv) || (m.atk != null && !atk) || (m.fell != null && !fell) || (m.wrath != null && !gateMs(m.wrath)) || md === undefined || pt === undefined) return null;
       // WB9b/c: the court he fights in, the walkways laid, the crystals standing, the stun and the next Reckoning
       const xa = gateXa(m.xa), cx = m.cx == null ? null : gateCx(m.cx, true);
-      if (xa === undefined || (m.cx != null && !cx) || (m.ct != null && !intIn(m.ct, 0, 2))) return null;
+      if (xa === undefined || (m.cx != null && !cx) || (m.ct != null && !intIn(m.ct, 0, GATE_FLOORS_MAX - 1))) return null;   // WB14b: any floor of the plan
       if ((m.su != null && !(m.su === 0 || gateMs(m.su))) || (m.rk != null && !(m.rk === 0 || gateMs(m.rk)))) return null;
       const lg = m.lg == null ? null : gateHostState(m.lg);   // WB11b: his host standing - said only under the Legion-Lord
       if (m.lg != null && !lg) return null;
       if (m.op != null && !(m.op === 0 || gateMs(m.op))) return null;   // WB13e: the opening's end (none from an older relay)
-      return { k: 'st', d: m.d, b: m.b, ph: m.ph, h: m.h, m: m.m, x: m.x, z: m.z, yw: m.yw, mv, atk, sh: m.sh, wr: m.wr, n: m.n, fell, wrath: m.wrath ?? null, md, ct: m.ct ?? 0, xa, cx, su: m.su ?? 0, rk: m.rk ?? 0, op: m.op ?? 0, ...(lg ? { lg } : {}) };
+      const vg = m.vg == null ? null : gateVg(m.vg);   // WB14c: the Vanguard's stage and its waves risen
+      if (m.vg != null && !vg) return null;
+      const sd = m.sd == null ? null : gateSd(m.sd);   // WB14d: the halves, while he is sundered
+      if (m.sd != null && !sd) return null;
+      const cp = m.cp == null ? null : gateCp(m.cp);   // WB14f: the Captive, on his night
+      if (m.cp != null && !cp) return null;
+      return { k: 'st', d: m.d, b: m.b, ph: m.ph, h: m.h, m: m.m, x: m.x, z: m.z, yw: m.yw, mv, atk, sh: m.sh, wr: m.wr, n: m.n, fell, wrath: m.wrath ?? null, md, ct: m.ct ?? 0, xa, cx, su: m.su ?? 0, rk: m.rk ?? 0, op: m.op ?? 0, ...(lg ? { lg } : {}), ...(pt ? { pt } : {}), ...(vg ? { vg } : {}), ...(sd ? { sd } : {}), ...(cp ? { cp } : {}), ...(m.me === 1 ? { me: 1 } : {}) };   // COURT-WATCH: `me` the answer to my own `in` - the seat mine
     }
-    case 'mv': { const mv = gateMove(m); return mv ? { k: 'mv', ...mv } : null; }
-    case 'atk': { const a = gateAtk(m); return a ? { k: 'atk', ...a } : null; }
+    // WB14d: a walk, a blow and a ward of his Flame's (`b` 1) - none, his own (the Blade's, sundered)
+    case 'mv': { const mv = gateMove(m); return mv && (m.b === undefined || m.b === 1) ? { k: 'mv', ...mv, ...(m.b === 1 ? { b: 1 } : {}) } : null; }
+    case 'atk': { const a = gateAtk(m); return a && (m.b === undefined || m.b === 1) ? { k: 'atk', ...a, ...(m.b === 1 ? { b: 1 } : {}) } : null; }
     case 'hp': return gateHp(m.h) && gateHp(m.m) && m.h <= m.m ? { k: 'hp', h: m.h, m: m.m } : null;
-    case 'ph': return Number.isInteger(m.n) && m.n >= 2 && m.n <= 3 && gateMs(m.until) ? { k: 'ph', n: m.n, until: m.until } : null;
+    case 'ph': return Number.isInteger(m.n) && m.n >= 2 && m.n <= 3 && gateMs(m.until) && (m.b === undefined || m.b === 1) ? { k: 'ph', n: m.n, until: m.until, ...(m.b === 1 ? { b: 1 } : {}) } : null;
+    // WB14d: THE SUNDERING - the halves' pools (each, and the whole each began at), a half knelt, a half risen with its pool,
+    // and the halves gone to rejoin
+    case 'sdh': return gateHalves(m.h, gateHp) && gateHp(m.m) && m.h.every((h) => h <= m.m) ? { k: 'sdh', h: [...m.h], m: m.m } : null;
+    case 'kn': return gateHalf(m.b) && gateMs(m.at) ? { k: 'kn', b: m.b, at: m.at } : null;
+    case 'kr': return gateHalf(m.b) && gateHp(m.h) && gateMs(m.at) ? { k: 'kr', b: m.b, h: m.h, at: m.at } : null;
+    case 'rj': return gateMs(m.at) ? { k: 'rj', at: m.at } : null;
+    // WB14e: A TITHE-IMP'S TITHE - its seed (32 bits of the relay's own), to the account that struck it
+    case 'tithe': return Number.isSafeInteger(m.c) && m.c >= 0 && m.c <= 0xffffffff && gateMs(m.at) ? { k: 'tithe', c: m.c, at: m.at } : null;
+    // WB14f: THE CAPTIVE freed (the last gaoler down), and the Reckoning his ward takes (its attack's number)
+    case 'cpf': return gateMs(m.at) ? { k: 'cpf', at: m.at } : null;
+    case 'cpw': return Number.isSafeInteger(m.i) && m.i >= 1 && gateMs(m.at) ? { k: 'cpw', i: m.i, at: m.at } : null;
     case 'wrath': return gateMs(m.at) ? { k: 'wrath', at: m.at } : null;
     case 'fell': {
       const f = gateFell(m);
@@ -4857,6 +5058,8 @@ export function validGateOut(m) {
     case 'cxh': return Number.isSafeInteger(m.i) && m.i >= 1 && Array.isArray(m.h) && m.h.length >= 1 && m.h.length <= GATE_CRYSTALS_MAX && m.h.every(gateHp) ? { k: 'cxh', i: m.i, h: [...m.h] } : null;
     case 'cxb': return Number.isSafeInteger(m.i) && m.i >= 1 && intIn(m.c, 0, GATE_CRYSTALS_MAX - 1) && typeof m.n === 'string' && gateMs(m.at) ? { k: 'cxb', i: m.i, c: m.c, n: sanitizeName(m.n), at: m.at } : null;
     case 'stun': return gateMs(m.until) && gateMs(m.at) && m.until > m.at ? { k: 'stun', until: m.until, at: m.at } : null;
+    // WB14c: a stage of the Vanguard - its word (net/gate/gateBrain.js VG_WORD), its stage and waves, and the walkway a clearing lays
+    case 'vgw': return intIn(m.e, 0, GATE_VG_WORDS - 1) && gateVg([m.s, m.w]) && (m.x === undefined || intIn(m.x, 0, GATE_WALKS_MAX - 1)) && gateMs(m.at) ? { k: 'vgw', e: m.e, s: m.s, w: m.w, ...(m.x !== undefined ? { x: m.x } : {}), at: m.at } : null;
     case 'fed': return Array.isArray(m.ns) && m.ns.length >= 1 && m.ns.length <= GATE_FEEDS_MAX && m.ns.every((n) => typeof n === 'string') && gateHp(m.h) && gateHp(m.m) && m.h <= m.m && gateMs(m.at) ? { k: 'fed', ns: m.ns.map(sanitizeName), h: m.h, m: m.m, at: m.at } : null;   // WB8b; AUDIT PRE-MERGE 0929 W1-3: the beat's feedings, every name (at most the trial's)
     // WB11b: HIS HOST - a wave risen (its kind, the health each, each one's number and spot), the beat's walks, the beat's
     // blows (which body, when it lands, the disc's centre), its health, and the gone (slain by a name; drunk by him, his
@@ -5059,6 +5262,120 @@ export const RITE_HUB_CIRCLES_MAX = 8;
  *  this long for the answer at the kill (the last answer stands when it does not come). */
 export const RITE_ASK_EVERY_MS = 15_000;
 export const RITE_ASK_TIMEOUT_MS = 2_000;
+
+// ═══ STAR3: THE STARFALL ═════════════════════════════════════════════════════════════════════════════════════════════
+//
+// (2026-10-20, the owner: "something coming from the sky and crashing into the ground, where people need to defend the
+// objective in a wave based format with a boss topping off the encounter at the end" - bible/11-Multiplayer/Starfall.md
+// sections 5 and 9.) A player at a fallen star says the star's word (`star`) to the star's CELL - the raid's and the
+// rite's law: on its own bucket, believed from a pose at the star (net/starfall/starfallLaw.js starNear) inside the
+// star's life. The cell keeps the star's ledger (the gathering, the waves and their breath, the master, the light, who
+// defended - starfallLaw.js foldStarWord), says it to the cell as it moves (`st`), and at the master's fall mints each
+// earner's receipt (`j1`, net/starfall/starReceipt.js), says the star held (`hd`), hands the receipts (`rc`) and tells the
+// hub, which says it to everyone online and keeps the night's held stars (`hds`) and each account's receipts for a hello.
+// This module imports no law (the law imports it), so the law's bounds below are written again and pinned equal.
+/** The first relay that keeps a star. An older one CLOSES the socket on the frame, so a client says none to it. */
+export const STAR_RELAY_MIN = 235;
+export const relaySupportsStar = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= STAR_RELAY_MIN; };
+/** The star's own bucket: a word every STAR_WORD_MS (2 s), one at a change, and a second's slack. */
+export const STAR_HZ_MAX = 2;
+export const starGate = (bucket, nowMs) => tokenGate(bucket, nowMs, STAR_HZ_MAX);
+/** The relay's bucket is DEEPER than the client's - the same rate, twice the burst (the rite's AUDIT WB12d L4). */
+export const STAR_RELAY_BURST = 4;
+export const starRelayGate = (bucket, nowMs) => tokenGate(bucket, nowMs, STAR_HZ_MAX, STAR_RELAY_BURST);
+/** The law's bounds, pinned equal (starfallLaw.js STAR_PER_NIGHT, STAR_WAVES, STAR_LEVEL_MAX, STAR_KILLS_WIRE_MAX,
+ *  STAR_BLOWS_WIRE_MAX, STAR_TOP_MAX, STAR_ACCOUNTS_MAX, STAR_LIGHT and the phases' count). */
+export const STAR_STARS_MAX = 3;
+export const STAR_WAVES_MAX = 4;
+export const STAR_LEVEL_WIRE_MAX = 60;
+export const STAR_KILLS_MAX = 99;
+export const STAR_BLOWS_MAX = 9999;
+export const STAR_TOP_WIRE_MAX = 3;
+export const STAR_COUNT_MAX = 64;
+export const STAR_LIGHT_MAX = 100;
+export const STAR_PHASE_MAX = 6;
+/** A night's bound: an hour's index of the relay's clock - far past any date this game will see. */
+const STAR_NIGHT_MAX = 2 ** 31;
+const nightOk = (n) => Number.isSafeInteger(n) && n > 0 && n < STAR_NIGHT_MAX;
+const flag = (v) => v === 0 || v === 1;
+/**
+ * A client's star word, projected: `{n, k, px, py, lv, s, o, kw, kn, wc, hb, mf}` - the night and the star, its pixel,
+ * the speaker's level, 1 once it struck one of the star's foes, 1 while it owns them, the wave its deaths belong to (0
+ * none) and the deaths it saw of it, the wave it saw cleared (0 none), the blows its foes have landed on the star, 1 once
+ * it saw the master fall - or null.
+ */
+export function validStarIn(m) {
+  if (!m || typeof m !== 'object' || !nightOk(m.n) || !intIn(m.k, 0, STAR_STARS_MAX - 1)) return null;
+  if (!intIn(m.px, 0, 999) || !intIn(m.py, 0, 499) || !intIn(m.lv, 1, STAR_LEVEL_WIRE_MAX)) return null;
+  if (!flag(m.s) || !flag(m.o) || !flag(m.mf) || !intIn(m.kw, 0, STAR_WAVES_MAX) || !intIn(m.kn, 0, STAR_KILLS_MAX) || !intIn(m.wc, 0, STAR_WAVES_MAX) || !intIn(m.hb, 0, STAR_BLOWS_MAX)) return null;
+  return { n: m.n, k: m.k, px: m.px, py: m.py, lv: m.lv, s: m.s, o: m.o, kw: m.kw, kn: m.kn, wc: m.wc, hb: m.hb, mf: m.mf };
+}
+/** What a cell or the hub says of a star: `st` its ledger, `hd` held, `rc` an earner's receipt, `hds` the night's held. */
+export const STAR_OUT_KINDS = Object.freeze(['st', 'hd', 'rc', 'hds']);
+/** A receipt's bound on the wire and its shape (net/starfall/starReceipt.js STAR_RECEIPT_MAX, STAR_RECEIPT_V - pinned equal). */
+export const STAR_RECEIPT_WIRE_MAX = 400;
+const STAR_RECEIPT_RE = /^j1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/;
+/** The held stars the hub keeps and says at a hello - a night's and the night before's, three each, and room. */
+export const STAR_HELD_MAX = 12;
+const starWhere = (m) => nightOk(m.n) && intIn(m.s, 0, STAR_STARS_MAX - 1) && intIn(m.px, 0, 999) && intIn(m.py, 0, 499);
+const msOk = (v) => Number.isSafeInteger(v) && v >= 0;
+/** The names a held star carries, junk never hiding one (the rite's AUDIT WB12d L8). */
+const starTopOf = (top) => (Array.isArray(top) ? top.filter((x) => typeof x === 'string' && x).slice(0, STAR_TOP_WIRE_MAX).map(sanitizeName) : []);
+/**
+ * A cell's or the hub's star word, projected for the client - or null:
+ *   `{k:'st', n, s, px, py, p, w, wz, kn, wl, lt, nd, b, ow, hc, hd, lo, why, hm?}` the ledger (starfallLaw.js
+ *   starLedgerState) - `hm`, to the socket that spoke alone, its own account's credited blows;
+ *   `{k:'hd', n, s, px, py, at, top, c}` held, by whom (the first few named, `c` how many);
+ *   `{k:'rc', r}` an earner's receipt; `{k:'hds', l: [[n, s, px, py, at], ...]}` the held stars the hub keeps.
+ */
+export function validStarOut(m) {
+  if (!m || typeof m !== 'object' || !STAR_OUT_KINDS.includes(m.k)) return null;
+  if (m.k === 'rc') return typeof m.r === 'string' && m.r.length <= STAR_RECEIPT_WIRE_MAX && STAR_RECEIPT_RE.test(m.r) ? { k: 'rc', r: m.r } : null;
+  if (m.k === 'hds') {
+    if (!Array.isArray(m.l)) return null;
+    const l = m.l.slice(0, STAR_HELD_MAX).filter((e) => Array.isArray(e) && e.length === 5 && starWhere({ n: e[0], s: e[1], px: e[2], py: e[3] }) && msOk(e[4]) && e[4] > 0);
+    return { k: 'hds', l: l.map((e) => [e[0], e[1], e[2], e[3], e[4]]) };
+  }
+  if (!starWhere(m)) return null;
+  if (m.k === 'hd') {
+    if (!msOk(m.at) || m.at <= 0) return null;
+    const top = starTopOf(m.top);
+    return { k: 'hd', n: m.n, s: m.s, px: m.px, py: m.py, at: m.at, top, c: intIn(m.c, top.length, STAR_COUNT_MAX) ? m.c : top.length };
+  }
+  if (!intIn(m.p, 0, STAR_PHASE_MAX) || !intIn(m.w, 0, STAR_WAVES_MAX) || !intIn(m.wz, 0, 9) || !intIn(m.kn, 0, STAR_KILLS_MAX)) return null;
+  if (!(Number.isSafeInteger(m.wl) && m.wl >= -1) || !intIn(m.lt, 0, STAR_LIGHT_MAX) || !intIn(m.nd, 0, STAR_COUNT_MAX) || !intIn(m.b, 1, 3)) return null;
+  if (!flag(m.ow) || !intIn(m.hc, 0, STAR_BLOWS_MAX) || !msOk(m.hd) || !msOk(m.lo) || !intIn(m.why, 0, 2)) return null;
+  if (m.hm !== undefined && !intIn(m.hm, 0, STAR_BLOWS_MAX)) return null;
+  const st = { k: 'st', n: m.n, s: m.s, px: m.px, py: m.py, p: m.p, w: m.w, wz: m.wz, kn: m.kn, wl: m.wl, lt: m.lt, nd: m.nd, b: m.b, ow: m.ow, hc: m.hc, hd: m.hd, lo: m.lo, why: m.why };
+  return m.hm === undefined ? st : { ...st, hm: m.hm };
+}
+/** The door from a star's cell to the hub: a star held, its earners' receipts riding it (the raid's door). */
+export const STAR_INTERNAL_HELD = '/internal/star/held';
+/** How soon a cell whose hub did not answer tells it again (the raid's number). */
+export const STAR_TELL_RETRY_MS = 5000;
+/** Where a cell keeps its stars' ledgers (never `world:` or `raid:` - those prefixes are swept), and how many LIVE at once:
+ *  a cell is sixteen pixels square, and a night's three stars may fall in one. A star over costs no place (starfallLaw.js
+ *  starPlaceFor, which bounds what is kept). */
+export const STAR_LEDGER_PREFIX = 'star:';
+export const starLedgerKey = (id) => `${STAR_LEDGER_PREFIX}${id}`;
+export const STAR_LEDGERS_MAX = 4;
+/** One account makes at most this many of a cell's live ledgers at once (the raid's RAID_LEDGERS_BY_MAX): the star it
+ *  stands at and the next, never every place a cell has. Its stars over count to nothing - a night's third is its own. */
+export const STAR_LEDGERS_BY_MAX = 2;
+/** An account stands at the star its last word in the cell came from for this long after it (starfallLaw.js
+ *  starStoodAt). A full cell gives a new ledger the place of a live one nobody stands at - never one somebody does. */
+export const STAR_IDLE_MS = 60_000;
+/** A word that moves nothing but its speaker's moment is written at most this often (the raid's RAID_SAVE_MS). */
+export const STAR_SAVE_MS = 5_000;
+/** A ledger outlives its star this long past its deadline - its receipts handed again to an account that comes back. */
+export const STAR_KEEP_MS = 10 * 60 * 1000;
+/** Where the hub keeps the held stars, and each account's star receipts - the newest STAR_RC_KEEP, each for
+ *  STAR_RC_KEEP_MS (the raid's law: an earner whose link dropped at the hold is handed them at its next hello). */
+export const STAR_HELD_KEY = 'starheld';
+export const STAR_RC_PREFIX = 'starrc:';
+export const starReceiptKeyOf = (acct) => `${STAR_RC_PREFIX}${acct}`;
+export const STAR_RC_KEEP = 9;
+export const STAR_RC_KEEP_MS = 24 * 60 * 60 * 1000;
 
 // ═══ OW6L: THE OVERWORLD'S LEDGER, KEPT BY THE RELAY ═════════════════════════════════════════════
 //
@@ -5785,7 +6102,10 @@ export const EG_FIGHT_KINDS = Object.freeze(['efs', 'ead', 'emv', 'ehp', 'edie',
  *  pinned under it: wire.js imports no law of the Spire's), and the most gaps a hall's chain numbers. */
 export const EG_SB_WIRE_MS = 10_000;
 export const EG_GAP_WIRE_MAX = 999;
-export const EG_RUN_KINDS = Object.freeze(['offer', 'ask', 'asked', 'tally', 'egot', 'run', 'rise', 'eping', 'pz', 'eheal', 'toll']);   // EG-ZI: `toll` the pull's toll, to its member
+export const EG_RUN_KINDS = Object.freeze(['offer', 'ask', 'asked', 'tally', 'egot', 'run', 'rise', 'eping', 'pz', 'eheal', 'toll', 'eland', 'efair']);   // EG-ZI: `toll` the pull's toll, to its member; FIELD BUGS 2026-10-20f: `eland` what a blow landed and `efair` why the door will not take me, each to its member
+/** FIELD BUGS 2026-10-20f DOOR-WORD: the door's words to a member it will not take (net/eliteGates/egFair.js EG_FAIR_WORDS, pinned
+ *  equal: wire.js imports no law of the Spire's). */
+export const EG_FAIR_WIRE_WORDS = Object.freeze(['blind', 'speed', 'air', 'void']);
 /** EG-ZI (Elite-Gates.md section 10.6): the most quarters a pull's toll says (net/eliteGates/egLaw.js EG_TOLL_QUARTERS - pinned equal:
  *  wire.js imports no law of the Spire's). */
 export const EG_TOLL_WIRE_MAX = 4;
@@ -5842,6 +6162,11 @@ export const EG_HUB_KINDS = Object.freeze(['open', 'void', 'claimed']);
  *  believed it could open, and the relay closed the socket on the `eg`. */
 export const EG_RELAY_MIN = 213;
 export const relaySupportsEg = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= EG_RELAY_MIN; };
+/** FIELD BUGS 2026-10-20f LANDED-WORD: the first relay that tells a striker what each blow on a breach's body landed (`eland`) - a
+ *  page facing an older one keeps showing its claims (a page that waited for a word an older relay never says would show none).
+ *  `world237` - `world236` on its branch until the merge past LONE-HERALD's world236, which says no `eland`. */
+export const EG_LAND_RELAY_MIN = 237;
+export const relaySupportsEgLand = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= EG_LAND_RELAY_MIN; };
 /** The door the hub opens a breach's room through (HCC-PARK's doors' law - the public worker forwards /room/<key> alone). */
 export const EG_INTERNAL_OPEN = '/internal/eg/open';
 /** Where a breach's room keeps its breach, and where the hub keeps an account's live call (AUDIT EG IV, lane3 #9: swept by
@@ -5925,6 +6250,10 @@ function egBody(t) {
   return [...t];
 }
 const egBodies = (a, max = EG_WIRE_BODIES_MAX) => { if (!Array.isArray(a) || a.length > max) return null; const out = a.map(egBody); return out.every(Boolean) ? out : null; };
+/** AUDIT FB1018f L3-4: each body's radius beside its row (net/eliteGates/egBodies.js egRadiusWire - metres, hundredths; one a row,
+ *  in its order) - or none, a relay's before it (the screen then judges as it did). Beside the rows, not in them: a build before it
+ *  drops the field and keeps the word. Answers the list (a copy), undefined for none, null for a malformed one. */
+const egRadii = (r, n) => (r === undefined ? undefined : Array.isArray(r) && r.length === n && r.every((v) => finite(v) && v >= 0 && v <= EG_XZ_MAX) ? [...r] : null);
 /** A blow (net/eliteGates/egShape.js egBlowOf): its number, thrower, stamps, landing, wind-up, share, points, element, name, CHECK,
  *  push, span. THE ASCENT (LAW 9; Elite-Gates-Ascent.md section 2): `y`, the height it lands at (a hall that judges by height
  *  says it - net/eliteGates/egBodies.js egAim; a coordinate's bound), so every screen draws and judges it on its own storey; none
@@ -6097,9 +6426,10 @@ export function validEgOut(m) {
     // ── the fight ──
     case 'efs': {
       const b = egBodies(m.b), bl = egList(m.bl ?? [], egBlowW, EG_WIRE_BLOWS_MAX), tx = egList(m.tx ?? [], egTether), mk = egList(m.mk ?? [], egMarkW), zs = egList(m.zs ?? [], egZone);   // EG-ZJ: the live zones (section 22 - a joiner's)
-      return b && bl && tx && mk && zs && intIn(m.h, 1, EG_HALL_WIRE_MAX) && egMs(m.wk) ? { k: 'efs', h: m.h, wk: m.wk, b, bl, tx, mk, pg: egProgress(m.pg), zs } : null;
+      const r = b ? egRadii(m.r, b.length) : null;   // AUDIT FB1018f L3-4: the bodies' radii beside them
+      return b && r !== null && bl && tx && mk && zs && intIn(m.h, 1, EG_HALL_WIRE_MAX) && egMs(m.wk) ? { k: 'efs', h: m.h, wk: m.wk, b, ...(r ? { r } : {}), bl, tx, mk, pg: egProgress(m.pg), zs } : null;
     }
-    case 'ead': { const a = egBodies(m.a, 24); return a && gateMs(m.at) ? { k: 'ead', a, at: m.at } : null; }
+    case 'ead': { const a = egBodies(m.a, 24), r = a ? egRadii(m.r, a.length) : null; return a && r !== null && gateMs(m.at) ? { k: 'ead', a, ...(r ? { r } : {}), at: m.at } : null; }   // AUDIT FB1018f L3-4: and their radii
     case 'emv': { const mv = egList(m.m, (t) => (Array.isArray(t) && t.length === 10 && intIn(t[0], 1, 1e9) && egXZ(t[1]) && egXZ(t[2]) && egXZ(t[3]) && egXZ(t[4]) && finite(t[5]) && t[5] >= 0 && t[5] <= 30 && gateMs(t[6]) && egXZ(t[7]) && egXZ(t[8]) && egYaw(t[9]) ? [...t] : null), EG_WIRE_BODIES_MAX); return mv ? { k: 'emv', m: mv } : null; }   // EG-ZJ: each walk's height and its end's; AUDIT EG V (lane1 #7): its facing
     case 'ehp': { const h = egList(m.h, (t) => (Array.isArray(t) && t.length === 2 && intIn(t[0], 1, 1e9) && intIn(t[1], 0, EG_HP_MAX) ? [...t] : null), EG_WIRE_BODIES_MAX); return h ? { k: 'ehp', h } : null; }
     case 'edie': return Array.isArray(m.is) && m.is.length >= 1 && m.is.length <= EG_WIRE_BODIES_MAX && m.is.every((i) => intIn(i, 1, 1e9)) && intIn(m.w, 0, 2) && gateMs(m.at) ? { k: 'edie', is: [...m.is], w: m.w, n: egText(m.n ?? '', 48) ?? '', at: m.at } : null;
@@ -6136,6 +6466,9 @@ export function validEgOut(m) {
     case 'pz': return Array.isArray(m.st) && m.st.length === 6 && m.st.every((h) => intIn(h, 0, 11)) && intIn(m.f, 0, 99) && intIn(m.lit, 0, 6) ? { k: 'pz', st: [...m.st], f: m.f, lit: m.lit, ok: m.ok === 1 ? 1 : 0, x: m.x === 1 ? 1 : 0, by: egText(m.by ?? '', 48) ?? '' } : null;
     case 'eheal': return finite(m.p) && m.p >= -1 && m.p <= 1 ? { k: 'eheal', p: m.p, why: typeof m.why === 'string' && /^[a-z]{0,12}$/.test(m.why) ? m.why : '' } : null;
     case 'toll': return intIn(m.q, 1, EG_TOLL_WIRE_MAX) && intIn(m.h, 1, EG_HALL_WIRE_MAX) ? { k: 'toll', q: m.q, h: m.h } : null;   // EG-ZI: the pull's toll - its quarters of the road, the hall it was taken from
+    // FIELD BUGS 2026-10-20f LANDED-WORD: what my blow on body `i` landed - the room's whole points, never past a body's health
+    case 'eland': return intIn(m.i, 1, 1e9) && intIn(m.d, 0, EG_HP_MAX) ? { k: 'eland', i: m.i, d: m.d } : null;
+    case 'efair': return EG_FAIR_WIRE_WORDS.includes(m.w) ? { k: 'efair', w: m.w } : null;   // FIELD BUGS 2026-10-20f DOOR-WORD
     default: return null;
   }
 }

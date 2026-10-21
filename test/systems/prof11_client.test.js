@@ -129,7 +129,7 @@ test('PROF11 DONE WHEN: Rough Stone cut with a clean chisel at a General Store\'
     cutQty.oninput();
     page.button('Cut').onclick();
     assert.equal(page.lines().length, CHISEL_ACT.lines, 'the stone\'s five lines');
-    assert.match(page.text(), /The chisel \(Cut Stone, 5 times\) - strike the marked line, 4 strikes/);
+    assert.match(page.text(), /The chisel \(Cut Stone, 5 times\): strike the marked line 4 times/);
     strikes(page, 4);
     await settled();
     assert.equal(book.held('stone:cut'), 5);
@@ -153,9 +153,9 @@ test('PROF11 DONE WHEN: Rough Stone cut with a clean chisel at a General Store\'
     page.draw();
     page.buttons().find((b) => b.textContent.startsWith('Stone Column')).onclick();
     assert.match(page.text(), /Stone Column - a Sculptor's/);
-    assert.match(page.text(), /margin 90: Fine 40 \| Superior 52 \| Masterwork 8\. A clean chisel is a step better\./);
+    assert.match(page.text(), /Quality chances: Fine 40% \| Superior 52% \| Masterwork 8%\. They get better the further your rank \(100\) is above the recipe's \(10\)\. Hit the marked line with every strike to raise the result one quality\./);   // PIN MOVED (PLAIN-ODDS): the odds said in plain words
     page.button('Craft').onclick();
-    assert.match(page.text(), /The chisel \(Stone Column\) - strike the marked line, 7 strikes/);
+    assert.match(page.text(), /The chisel \(Stone Column\): strike the marked line 7 times/);
     const realRandom = globalThis.crypto.getRandomValues.bind(globalThis.crypto);
     globalThis.crypto.getRandomValues = (arr) => (arr.byteLength === 4 ? (new Uint8Array(arr.buffer, arr.byteOffset, 4).fill(0xff), arr) : realRandom(arr));
     try {
@@ -169,7 +169,7 @@ test('PROF11 DONE WHEN: Rough Stone cut with a clean chisel at a General Store\'
     assert.equal(column.value, Math.round(150 * 1.3), 'its worth its quality\'s');
     assert.deepEqual([book.held('stone:cut'), book.held('stone:mortar')], [0, 7], 'twelve Cut Stone and three Mortar');
     assert.equal(player.gold, 850, 'two works and the carving paid the mason');
-    assert.match(page.text(), /You made Silverthorn's Stone Column - it waits among your things for a room to stand in/);
+    assert.match(page.text(), /You made Silverthorn's Stone Column\. It waits in your things until you place it in a room/);
   } finally { page.done(); setProfessionsPages(null); }
   // DECOR lists it among "Your things" - its one model, no look to choose
   const column = player.furnishings[0];
@@ -363,7 +363,7 @@ test('PROF11 pages: the chisel\'s keys - the arrows move it a line, a digit sets
     both.button('Craft').onclick();
     assert.ok(_loomForTests().act, 'the stitch under way');
     both.draw();
-    assert.match(both.text(), /Your hands are at the loom - finish there first\./);
+    assert.match(both.text(), /Your hands are at the loom\. Finish there first\./);
     assert.equal(both.button('Cut').disabled, true);
     setDownProfAct();
     // and the other way: the chisel under way holds the loom
@@ -371,7 +371,7 @@ test('PROF11 pages: the chisel\'s keys - the arrows move it a line, a digit sets
     both.button('Cut').onclick();
     assert.ok(_masonForTests().act);
     both.draw();
-    assert.match(both.text(), /Your hands are at the mason's bench - finish there first\./);
+    assert.match(both.text(), /Your hands are at the mason's bench\. Finish there first\./);
     setDownProfAct();
   } finally { both.done(); setProfessionsPages(null); }
 });
@@ -380,7 +380,7 @@ test('PROF11 pages: the Sculptor\'s stone decor - shut to all but a Sculptor ("a
   stubPages({ rank: 100, specs: { 50: 'quarryman', 100: 'fortifier' }, held: { 'stone:cut': 20, 'stone:mortar': 5 } });
   const shut = pageOf();
   try {
-    assert.match(shut.text(), /Stone decor - a column, a bench, a font, a statue plinth - is carved by a Sculptor \(Masonry's choice at 100\)\./);
+    assert.match(shut.text(), /Stone decor, such as columns, benches, fonts and statue plinths, is carved by a Sculptor \(a Masonry choice at 100\)\./);
     const col = shut.buttons().find((b) => b.textContent.startsWith('Stone Column'));
     assert.match(col.textContent, /a Sculptor's/);
     col.onclick();
@@ -396,7 +396,7 @@ test('PROF11 pages: the Sculptor\'s stone decor - shut to all but a Sculptor ("a
     ]);
     open.buttons().find((b) => b.textContent.startsWith('Stone Font')).onclick();
     assert.match(open.text(), /Stone Font - a Sculptor'sstone:cut 10 \/ 10 \(20 stored\)stone:mortar 3 \/ 3 \(5 stored\)/);
-    assert.match(open.text(), /Stone decor goes among your things, to set down in a room of your own \(Decorate\)\./);
+    assert.match(open.text(), /Stone decor goes to your things\. Place it in a room of your own with Decorate\./);
     open.button('Craft').onclick();
     assert.equal(_masonForTests().act.state.need, 7, 'a carving\'s seven');
     strikes(open, 7);
@@ -410,7 +410,7 @@ test('PROF11 pages: the Sculptor\'s stone decor - shut to all but a Sculptor ("a
   const short = pageOf();
   try {
     short.buttons().find((b) => b.textContent.startsWith('Stone Column')).onclick();
-    assert.match(short.text(), /Stone Columnwants its inputs/);
+    assert.match(short.text(), /Stone Columnneeds materials/);
     assert.equal(short.button('Craft').disabled, true);
   } finally { short.done(); }
   // the Professions page
@@ -422,7 +422,7 @@ test('PROF11 pages: the Sculptor\'s stone decor - shut to all but a Sculptor ("a
   drawProfessionsPage(root, () => {}, kit);
   const text = root.textContent;
   try {
-    assert.doesNotMatch(text, /not practised/);
+    assert.doesNotMatch(text, /not practiced/);
     const cards = [...root.querySelectorAll('button')].filter((b) => b.className.includes('prof-spec'));
     const card = (name) => cards.find((b) => b.textContent.startsWith(name));
     // PIN MOVED (CRAFT3): Building's four a rank, Carpentry's two and Masonry's, each card naming its discipline
@@ -461,7 +461,7 @@ test('PROF11 items: Mortar withdraws as 675 - "Mortar", Lodestone\'s lump undyed
   const fine = mintPiece({ recipe: 'plinth:stone', quality: MASTERWORK, seed: 3, maker: 'Silverthorn' }, PROV);
   assert.deepEqual([fine.value, itemLongName(fine)], [Math.round(60 * 1.3), 'Silverthorn\'s Statue Plinth']);
   assert.equal(mintPiece({ recipe: 'plinth:stone', quality: 2, seed: 3, maker: 'Silverthorn', marked: true }, PROV).marked, true, 'the record\'s mark kept');
-  assert.equal(craftedText([plain]), 'You made a Standard Stone Bench - it waits among your things for a room to stand in');
+  assert.equal(craftedText([plain]), 'You made a Standard Stone Bench. It waits in your things until you place it in a room');
   // DECOR: its one model, no look to choose; DFU's own furniture still chooses its look
   assert.equal(furnishingKinds(plain), null);
   assert.deepEqual(furnishingLooks(plain, [{ key: 'm41100', model: 41100, kind: 'furniture' }]), []);
@@ -473,7 +473,7 @@ test('PROF11 items: Mortar withdraws as 675 - "Mortar", Lodestone\'s lump undyed
   assert.deepEqual([696, 697, 698, 699].map((t) => decorFurnishingEntry({ group: 'Furniture', templateIndex: t, stackCount: 1 }, 0)?.model), [62315, 62322, 41220, 74091]);
   assert.equal(isFurnishing({ group: 'UselessItems2', templateIndex: 696 }), false, 'only in DFU\'s Furniture group');
   assert.equal(recipeById('column:stone').kind, 'furniture');
-  assert.match(MASON_KEPT_TEXT, /The last chip fell, but no word came back/);
+  assert.match(MASON_KEPT_TEXT, /The last chip fell, but the realm has not answered yet/);
 });
 
 // ─── THE BOOK AND THE DOOR ───────────────────────────────────────────
@@ -500,7 +500,7 @@ test('PROF11 book: a mason\'s work carries the chisel\'s report to the door - `c
 test('PROF11 wiring: the mason\'s bench a General Store\'s (open for trade) or a home\'s station; the world asks a carving and a work at it, the chisel\'s band off STR and END, its report through the book, the XP said as the work\'s profession; the service\'s route reads the report and the refusal\'s status; the pages draw the bench beside the loom', () => {
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /if \(interiorBuilding\.buildingType === BUILDING_TYPES\.GeneralStore\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: MASON_FEE \};/);
-  assert.match(m, /if \(decorOwnerHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'mason'\)\) return \{ kind: 'home', fee: 0 \};/);
+  assert.match(m, /if \(stationOwnerHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'mason'\)\) return \{ kind: 'home', fee: 0 \};/);   // PIN MOVED (FB1018D HOME-BENCH, test/scenes/fb1018d_homebench.test.js): a home's stations serve its owner's account
   assert.match(m, /if \(hallMemberHere\(\) && interiorDecor\.list\(\)\.some\(\(p\) => p\?\.station === 'mason'\)\) return \{ kind: 'home', fee: 0 \};/);
   const w = src('src/scenes/world.js');
   assert.match(w, /: profession === 'masonry'[^\n]*\n\s*\? \{ here: \(\) => modes\?\.masonHere\?\.\(\) \?\? null, a: 'a mason\\'s bench', who: 'mason', noun: 'mason\\'s bench', kept: MASON_KEPT_TEXT, xp: professionName\('masonry'\) \}/);   // PIN MOVED (AUDIT PROF-541 R2-C2): no station's own busy word; PIN MOVED (CRAFT3): the XP said as the track's name ("Building")

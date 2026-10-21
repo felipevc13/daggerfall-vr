@@ -98,6 +98,8 @@ test('TO1: the settings are the mod\'s own modsettings.json, key for key, type f
   // the port's own Enabled in front, then the mod's, section-dot-name
   assert.equal(Object.keys(ours)[0], 'Enabled');
   assert.equal(ours.Enabled.default, true, 'MO1: every vendored mod ships on');
+  // PLAIN-TEXT (2026-10-19): the one shipped key that does nothing here (no Real Grass in the game) says so - its words, exactly
+  const PLAIN = { 'GeneralOptions.AllowRealGrass': 'Has no effect here: Real Grass isn\u2019t included.' };
   let n = 0;
   const shippedNames = new Set();
   for (const section of shipped.Sections) {
@@ -111,7 +113,7 @@ test('TO1: the settings are the mod\'s own modsettings.json, key for key, type f
       // travelRateOf: a journey runs at its ground's rate)
       if (RATE_LAW_RETIRED.includes(key)) { assert.equal(def, undefined, `${key} is retired, never declared`); continue; }
       assert.ok(def, `${key} is declared`);
-      assert.equal(def.description, k.Description, `${key}'s description is the mod's own`);
+      assert.equal(def.description, PLAIN[key] ?? k.Description, `${key}'s description is the mod's own, or its plain rewording`);
       const kind = k.$type.split('.').pop();
       if (kind === 'ToggleKey') {
         // TO-FIELD2 (Mac, 2026-09-18: "travel options instantly
@@ -1696,7 +1698,7 @@ test('AUDIT-TO1 G1/G2/G3/I2/I3/I4/I6/J1/K2/H1/H2: the host seams the sweep found
   assert.match(w, /return loc\?\.name \? discoveredBuildings\(`\$\{summary\.regionIndex\}:\$\{loc\.name\}`\) : \[\];/);
   assert.match(w, /discoveryLocationId: \(\) => `\$\{_questLoc\(\)\?\.regionIndex \?\? -1\}:\$\{_questLoc\(\)\?\.name \?\? ''\}`,/, 'the writer\'s own key shape');
   // J1: the two switches have readers
-  assert.match(w, /\} else if \(precipShown && precip\) \{[\s\S]{0,2500}?if \((?:\(!_travelWeatherOff \|\| tvf\)|!_travelWeatherOff)(?: && !_dwPrecipOff)?\) \{\s*\n\s*precip\.draw\(precipShown, proj, view/, 'the rain (the branch literal is W1/WX2/WEATHER2d\'s; the switch wraps the draw; DW-D: and the sea\'s own stand-down beside it)');
+  assert.match(w, /\} else if \(precipShown && precip\) \{[\s\S]{0,2500}?if \((?:\(!_travelWeatherOff \|\| tvf\)|!_travelWeatherOff)(?: && !_dwPrecipOff)?\) \{\s*\n\s*precip\.drawFall\(precipShown, proj, view/, 'the rain (the branch literal is W1/WX2/WEATHER2d\'s; the switch wraps the draw; DW-D: and the sea\'s own stand-down beside it; PRECIP1: the draw at the air\'s snow share)');
   assert.match(w, /const _step = _travelSoundsOff (?:\|\| _csaFootstepsOff )?\? null : footsteps\.update\(player\.pos, \{/, 'the classic stride: the component does not RUN (the one-gate line is BA1/IF1\'s literal; CSA-D\'s helm disables it too)');
   assert.match(w, /paused: _overlayHeld \|\| _seasonHeld \|\| _travelSoundsOff(?: \|\| _csaFootstepsOff)?, entity: playerEntity,/, 'the mod\'s stride (DECK-FIELD: and the helm\'s footsteps-off - test/systems/deckfield.test.js)');
   assert.match(w, /ridingVolumeScale: \(\) => \(_travelSoundsOff \? 0 : 1\),/, 'the riding loop');

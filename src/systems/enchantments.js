@@ -46,7 +46,7 @@
 // spawner), isResting(), allowMagicRepairs (a DFU setting, default
 // false), say(msg).
 
-import { ENEMY_BASICS } from '../characters/enemy/enemyBasics.js';
+import { ENEMY_BASICS, isClassEnemyId } from '../characters/enemy/enemyBasics.js';
 import { equipTableOf, lowerCondition, setEnchantmentHooks } from './equip.js';
 import { MINUTES_PER_DAY } from './gameDate.js';   // the canonical home - worldTick re-exports it and imports the pump below, so this leaf must not close the cycle
 import { syntheticTimeIncrease } from './effectBroker.js';   // AUDIT 63 F13: EntityEffectBroker.SyntheticTimeIncrease - a LEAF, for the same reason
@@ -66,6 +66,7 @@ import { regenBarred } from './courtRules.js';   // WBX6: the Burning Court keep
 import { ITEM_TEMPLATES, templateByIndex, mendOrder, mintCondition, TRANSPORT_HORSE, TRANSPORT_SMALL_CART } from './item/itemTemplates.js';   // MEND-WORN: the mend order's one home, and the smith's refusal
 import { WEAPONS } from '../characters/weapons.js';   // MEND-WORN / MEND-ARMOUR: a tick is the classic Dagger's share
 import { repoolWeapon } from './conditionRepair.js';   // MEND-WORN: a weapon on its row's pool moves before a mend on the pool, as before a wear
+import { creditOwnMend } from './item/foundMark.js';   // MEND-THIRD: the ring's mend credited past a found piece's mark
 export { ENCHANTMENT_TYPES };
 
 /** EnchantmentSettings.ClassicType (DaggerfallUnityItem.cs:1316-1320).
@@ -350,7 +351,7 @@ function enchantLowerCondition(item, amount, entity, ctx, collection = null) {
 // (128+) are Human in DFU's table.
 const AFFINITY_PARAM = Object.freeze({ Undead: 0, Daedra: 1, Humanoid: 2, Animals: 3 });
 export function mobileAffinityMatches(mobileType, paramType) {
-  const affinity = mobileType >= 128 ? 'Human' : (ENEMY_BASICS[mobileType]?.affinity ?? 'None');
+  const affinity = isClassEnemyId(mobileType) ? 'Human' : (ENEMY_BASICS[mobileType]?.affinity ?? 'None');
   return (paramType === AFFINITY_PARAM.Undead && affinity === 'Undead')
     || (paramType === AFFINITY_PARAM.Daedra && affinity === 'Daedra')
     || (paramType === AFFINITY_PARAM.Humanoid && affinity === 'Human')
@@ -500,7 +501,10 @@ const REGISTRY = new Map([
   [T.CastWhenStrikes, {
     flags: PAYLOAD.Strikes,
     strikes({ param, entity, target, damage, ctx }) {
-      if (!target || damage === 0) return null;
+      // AUDIT FB1018f L3-2: a blow its referee turns whole (a stand-in `warded` - the Warden's ward, the Remnant shut, the
+      // Spire's turned blows) DEALT nothing, and the class's own sourceDamage == 0 guard casts nothing and wears nothing for
+      // it (VAMPIRIC-WARD's reading, below) - its spell met the same turned body and landed nothing either
+      if (!target || damage === 0 || target.warded) return null;
       const record = ctx?.spellsByIndex?.()?.get?.(param);
       if (record) ctx?.applySpellToTarget?.(record, entity, target);
       return { durabilityLoss: DURABILITY_LOSS_ON_STRIKE };
@@ -555,8 +559,13 @@ const REGISTRY = new Map([
         entity.health = Math.min(entity.maxHealth, entity.health + 1);
       }
     },
-    strikes({ param, entity, damage }) {
-      if (param !== 1) return null;
+    strikes({ param, entity, damage, target }) {
+      // FIELD BUGS 2026-10-18f VAMPIRIC-WARD (Low_Poly_Gaming: "an exploit for heals if you have a vampiric weapon"): the damage
+      // DEALT - a blow a referee's ward turns whole (a stand-in `warded`: the Warden's ward, the Remnant shut, the Spire's turned
+      // blows - scenes/eliteGates/egFight.js turnStandIn) dealt nothing, and heals nothing, as the leech's own rule says
+      // (systems/loot/lootPowers.js lootStrike, AUDIT WORLD-REWARDS B3). DFU never meets one - its target is always the entity
+      // whose health the blow then takes - so this is VampiricEffect.cs's own law told what the blow dealt, no departure.
+      if (param !== 1 || target?.warded) return null;
       entity.health = Math.min(entity.maxHealth, entity.health + damage);
       return null;
     },
@@ -582,7 +591,9 @@ const REGISTRY = new Map([
       const it = repairsObjectsTarget(entity.items, { allowMagicRepairs: ctx?.allowMagicRepairs ?? false });
       if (!it) return;
       repoolWeapon(it);
+      const was = it.currentCondition;
       it.currentCondition = Math.min(it.maxCondition, it.currentCondition + repairsObjectsMend(it));
+      creditOwnMend(it, was);   // MEND-THIRD: the ring is its wearer's own mend - a third of it past a found piece's mark sells
     },
   }],
   /** AbsorbsSpells.cs - Held constant: IsAbsorbingSpells. */
@@ -780,6 +791,16 @@ const REGISTRY = new Map([
   }],
 ]);
 
+/** HELD-BASE (FIELD BUGS 2026-10-18f): WHETHER A POWER WORKS OFF THE BODY - its row answers the Used payload, the one a
+ *  piece in the pack fires (useItem.js's doItemEnchantmentPayloads(PAYLOAD.Used)). The rest are read on a worn piece
+ *  (Equipped, Held: computeEnchantmentMods walks equippedEnchantedItems) or on the blow it strikes - save the two that
+ *  weigh the piece itself (Feather Weight, Extra Weight: Enchanted, read wherever it lies), and Health Leech answers
+ *  Used as a cost, not a power (AUDIT FB1018f L1-4: latent - every regular MAGIC.DEF row is one power of six kinds, Cast
+ *  When Used, Held or Strikes, Vampiric, Absorbs Spells, Enhances Skill; a piece with ANY row this answers false for
+ *  takes a base a slot takes - loot.js powersNeedWearing). A piece no slot takes carries a worn power for nothing
+ *  (loot.js createRegularMagicItem). */
+export const worksUnworn = (e) => ((REGISTRY.get(e?.type)?.flags ?? 0) & PAYLOAD.Used) !== 0;
+
 function applyRepMod(entity, param, amount) {
   if (!entity.isPlayer) return;
   // AUDIT 63 F6: the ARRAY is eleven (PlayerEntity.cs:128-129); the
@@ -971,6 +992,9 @@ export function enchantmentMagicRound(entity, round, { nowMinutes = 0, ctx = nul
   // payload if the item is still equipped, restamping the clock).
   // ENCHANT-LOAD: the strip is the ITEM's, once, before every row
   // recasts (:2012-2021) - not each row's, which kept only the last.
+  // HELD-CONCEAL: a pin a blow ENDED still counts - DFU keeps the bundle
+  // while its item is worn (:1739-1742) and schedules it all the same, so
+  // a broken Invisibility comes back here (concealment.js).
   if (entity.isPlayer && entity.activeEffects?.length) {
     for (const item of items) {
       if (!entity.activeEffects.some((a) => a.heldItem === item)) continue;

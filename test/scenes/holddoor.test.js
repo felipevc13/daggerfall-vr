@@ -1,7 +1,7 @@
 // CARGO-ANYWHERE (2026-10-17, the owner: "Cargo should be able to be accessed at any time. Currently it cannot be";
 // bible/03-World/Naval-Refit.md CARGO-ANYWHERE) - THE HOLD'S DOOR over Come Sail Away's real runtime and the Fleet's
 // real ledger and host: the ship at hand (her helm, her deck, her cabin); any ship of mine by her number wherever she lies
-// (afloat here or far, laid up, packed - her parts weighed again as the window shuts); the hold's key falling back to my
+// (afloat here or far, laid up, packed - her parts her timbers' weight alone, PARTS-WEIGHT); the hold's key falling back to my
 // last helm, then my fleet's first; a Rowboat refused; the hold opened TWO-WAY on the Enhanced skins under its own name;
 // the Fleet page's Hold and the helm's Hold; the key on F4; and the world host's wiring. tools/mutants/holddoor.json.
 import '../modsOff.js';
@@ -40,9 +40,9 @@ function world() {
   const w = { opened: [], said: [], deck: null, cabin: null };
   const door = createHoldDoor({
     csa: () => s.rt, aboard: () => w.deck, cabin: () => w.cabin,
-    partsOf: (u) => pack.find((it) => it?.templateIndex === BOAT_PARTS_TEMPLATE && it.UID === u) ?? null,
+    partsOf: (u) => pack.find((it) => it?.templateIndex === BOAT_PARTS_TEMPLATE && it.UID === u) ?? null, toPack: (it) => pack.push(it),
     openHold: (loot) => { w.opened.push(loot); return true; },
-    nameOf: (u) => (u === 1 ? 'Sea Wolf' : ''), weigh: kg, say: (text) => w.said.push(text),
+    nameOf: (u) => (u === 1 ? 'Sea Wolf' : ''), say: (text) => w.said.push(text),
   });
   const ship = (u, hull, at = AT) => { titleDeed(mintDeed(hull, 0, u, 1000)); return s.rt.SummonBoat(u, titleOf(u), fleetBook(), at, DIR, s.terrains[0]); };
   return { s, w, door, pack, ship };
@@ -83,7 +83,7 @@ test('CARGO-ANYWHERE a standing boat\'s hold opens TWO-WAY under her name - the 
   assert.equal(w.said.at(-1), 'Rowboats have no hold.');
 });
 
-test('CARGO-ANYWHERE any ship of mine by her number, wherever she lies: afloat far off (her boat\'s own hold), laid up (Come Sail Away\'s PackedCargoes under her number - the list her placing takes back aboard), packed (the same list, her parts weighed again as the window shuts, as PackBoat weighs them) - and a ship not mine said so (mutants: the laid-up hold, the parts unweighed)', () => {
+test('CARGO-ANYWHERE any ship of mine by her number, wherever she lies: afloat far off (her boat\'s own hold), laid up (Come Sail Away\'s PackedCargoes under her number - the list her placing takes back aboard), packed (the same list, her parts her timbers alone whatever is stowed - PARTS-WEIGHT - and her parts stored in her own hold back in the pack as it shuts) - and a ship not mine said so (mutants: the laid-up hold, the parts left in her hold)', () => {
   const { s, w, door, ship, pack } = world();
   const far = ship(1, 2, [5000, 34, 200]);
   far.MapPixel = { X: 13, Y: 16 }; far.GameObject.activeSelf = false;
@@ -100,20 +100,23 @@ test('CARGO-ANYWHERE any ship of mine by her number, wherever she lies: afloat f
   assert.equal(laid.storage, true);
   laid.items().push({ name: 'iron', weightInKg: 12 });
   // placed again, what was put in her laid-up hold comes aboard
-  // packed: her parts carry her hold's weight
+  // packed: her parts weigh her timbers alone (PARTS-WEIGHT) - nothing stowed or taken weighs on them
   const pk = ship(3, 3, [700, 34, 200]);
   pk.Cargo.Items.push({ name: 'wine', weightInKg: 10 });
   assert.equal(s.rt.PackBoat(pk, true), true);
   const parts = pack.find((it) => it.templateIndex === BOAT_PARTS_TEMPLATE && it.UID === 3);
-  assert.equal(parts.weightInKg, Math.fround(packedHullWeight(3) + 10));
+  assert.equal(parts.weightInKg, packedHullWeight(3));
   assert.equal(door.openShip(3), true);
   const packed = w.opened.at(-1);
-  packed.items().push({ name: 'grain', weightInKg: 10 });
+  packed.items().push({ name: 'grain', weightInKg: 5000 });
   packed.onClose();
-  assert.equal(parts.weightInKg, Math.fround(packedHullWeight(3) + 20), 'weighed again as the window shuts');
-  packed.items().length = 0;
+  assert.equal(parts.weightInKg, packedHullWeight(3), 'a stow weighs nothing on her parts');
+  assert.equal(kg(packed.items()), 5010, 'her hold holds it');
+  // her parts stored into her own hold come back to the pack as it shuts
+  pack.splice(pack.indexOf(parts), 1);
+  packed.items().push(parts);
   packed.onClose();
-  assert.equal(parts.weightInKg, Math.fround(packedHullWeight(3)));
+  assert.ok(pack.includes(parts) && !packed.items().includes(parts), 'back in the pack');
   assert.equal(laid.onClose, undefined, 'a laid-up ship has no parts to weigh');
   const n = w.opened.length;
   assert.equal(door.openShip(99), false);

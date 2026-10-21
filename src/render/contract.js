@@ -66,6 +66,7 @@
  * @property {ArrayLike<number>|null} [_scales]       LPT1: each flat's share of the batch's size (null: all whole), kept for a move
  * @property {object|null} [lptProto]                 LPT1: the low-poly tree a far picture stands for (its handle) - it gives way to the tree near the eye (renderer setLowPolyTrees)
  * @property {number} [farH]                          LPT1: the height MAC1's far-ring rule reads in place of size.h (a far picture's classic flat's)
+ * @property {number} [sunLift]                       AUDIT BANTHA1 TREE-2: the share of its height its sun is read at (a jungle tree's crown; none, its root)
  * @property {boolean} [_dyn]                         BLOOD1b: born DYNAMIC_DRAW, because its centres move every frame
  * @property {object|null} [_arena]                   PERF-ARENA: a still batch's arena (renderer _bbArenaFor) - its VAO and buffers the arena's; null for one with its own (dynamic), or freed
  * @property {number} [_q0]                           PERF-ARENA: the first of its arena's quads it holds
@@ -74,6 +75,7 @@
  * @property {Float32Array} [_moveScratch]            BLOOD1b: the move's own vertex staging, kept rather than re-minted each frame
  * @property {number[]} [_box]                        EV3: the host's cull box [minX, minY, minZ, maxX, maxY, maxZ] (flatBatchAabb)
  * @property {boolean} [noShadow]                     F2: a thing lying on the ground casts nothing (a loot pile)
+ * @property {boolean} [ghost]                        DEX2: wears the ghost shader though its archive is no classic ghost's (characters/enemy/foeLook.js - a Spectral row, or a mod's word)
  * @property {boolean} [selfCard]                     DISC24-C: the player's own body card - it casts as drawn
  * @property {boolean} [castOnly]                     MWNPC5b: a foe standing in its Morrowind body - the billboard draws nothing (MWNPC16: nor casts - the body casts its own shape)
  * @property {boolean} [_dead]                        EL2: freed - a shadow record from the last frame may still hold it

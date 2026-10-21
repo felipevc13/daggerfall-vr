@@ -29,6 +29,7 @@
 // that reorders a list you are looking at is a worse answer than the
 // order being right.
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
+import { repaintKeepingScroll } from '../domRepaint.js';   // FB1018f SPELL-SCROLL: a pick keeps the list where it was
 import { closeOnOutsideTap } from './enhancedOverlays.js';   // OT1
 import { overlayAction, eventMeans } from '../input.js';   // KB1: and the registry's answer for the book's own key
 import {
@@ -47,9 +48,9 @@ const SPELL_DRAG_BOX = 38;
 // HB1: the hotbar. With it chosen over the diamond, the book is where a
 // spell goes onto it - dragged off the rail, or by the button that stood
 // for the diamond's spell slot.
-import { hotbarSlotOf } from '../../systems/quickslots.js';
 import { setHotbarDropMode, hotbarAcceptsDrops, beginHotbarDrag, takeHotbarDragClick, hotbarMode, toggleHotbarSpell,
-  spellSigil, spellInitials } from './enhancedHotbar.js';   // PX23b: the classic's OWN words for the two icons
+  spellSigil, spellInitials,   // PX23b: the classic's OWN words for the two icons
+  hotbarShownSlotOf, setHotbarPick } from './enhancedHotbar.js';   // DIAMOND-HB: shown-slot lookup; hover + key to slot
 
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -166,7 +167,20 @@ function pxDivider(word) {
   return d;
 }
 
+/** FB1018f SPELL-SCROLL (FIELD BUGS 2026-10-18f; cmagoun on the Discord: "Clicking a spell returns you to the top of a
+ *  spell list ... Save the scroll position when you click a spell"): every press draws the book again from nothing, and a
+ *  list drawn from nothing stands at its top - a pick put the list back at its first spell, and lit whichever row then
+ *  stood under the pointer.
+ *  DFU's book never moves on a pick: ListBox.MouseClick (ListBox.cs:465-504) sets the selection and raises OnSelectItem,
+ *  and SpellsListBox_OnSelectItem -> UpdateSelection (DaggerfallSpellBookWindow.cs:507-512, :765-768) sets the scroll
+ *  bar FROM the list's own ScrollIndex - the classic book here keeps that law (spellbookWindow.js:"this.selectedIndex = index;          // MouseClick").
+ *  So the book is drawn through the house's one repaint (ui/domRepaint.js, A REPAINT MUST NOT MOVE THE PAGE UNDER THE
+ *  PLAYER): every scrolled pane is read, the book drawn, and each given back. */
 function render() {
+  if (host) repaintKeepingScroll(host, paint);
+}
+
+function paint() {
   if (!host) return;
   host.innerHTML = '';
   const shell = el('div', 'px-home px-over sb-shell');
@@ -205,6 +219,7 @@ function render() {
     const b = el('button', `px-qrow sb-row${r.i === picked ? ' on' : ''}`);
     b.append(el('span', 'px-c', '\u25c6'), document.createTextNode(r.name));
     b.append(el('span', 'sb-cost', String(r.cost)));
+    b._hotbarSpell = r.spell;   // DIAMOND-HB: point at it and press a hotbar key
     // HB1: a rail row DRAGS onto the hotbar under the window. A mouse
     // crosses at 4px, a finger on a hold, so a click is still a pick.
     b.onpointerdown = (e) => {
@@ -223,6 +238,12 @@ function render() {
 
   const sel = rows[picked];
   const detail = el('div', 'px-qdetail');
+  // FB1018f SPELL-SCROLL: another spell's page starts at its top; the list keeps its place. AUDIT FB1018f L2-2: THE KEY
+  // IS THE SPELL, NOT ITS ROW - it was `picked`, and a delete keeps `picked` (confirmDelete: the row gone, the next spell
+  // takes its place), so the spell after a deleted one opened at the deleted one's offset. The spell's index is the port's
+  // name for a spell, the one the quickslot and the hotbar key it by (systems/quickslots.js keyedSpell): a rename or an
+  // icon keeps the page (editBookSpell writes a new record under the same index), another spell in the row misses
+  detail.setAttribute('data-scroll-key', `spell ${sel.spell?.index}`);
   const name = el('div', 'px-qname');
   name.append(el('span', 'px-qwing'), el('h3', null, sel.name), el('span', 'px-qwing px-flip'));
   detail.append(name);
@@ -231,7 +252,7 @@ function render() {
   // with. The classic answers it only by failing at the cast.
   const short = Number.isFinite(magicka) && sel.cost > magicka;
   meta.append(el('span', `px-qtimer${short ? ' urgent' : ''}`,
-    short ? `${sel.cost} spell points - not enough magicka` : `${sel.cost} spell points`));
+    short ? `${sel.cost} spell points. Not enough magicka` : `${sel.cost} spell points`));
   detail.append(meta);
   // THE TWO ICONS THE CLASSIC DRAWS, as the words they mean. This
   // window reads no ARENA2, and the classic only tells you these on
@@ -282,7 +303,7 @@ function render() {
   if (hotbarMode()) {
     // HB1: the hotbar's button in the diamond's place - on the bar comes
     // off, else it goes on the first free slot. Dragging picks the slot.
-    const at = hotbarSlotOf(sel.spell, { spell: true });
+    const at = hotbarShownSlotOf(sel.spell, { spell: true });   // DIAMOND-HB
     const hb = el('button', `act sb-slot${at >= 0 ? ' on' : ''}`, at >= 0 ? `Off hotbar ${at + 1}` : 'Add to hotbar');
     hb.onclick = () => { notice = toggleHotbarSpell(sel.spell); render(); };
     acts.append(hb);
@@ -291,7 +312,7 @@ function render() {
     const slot = el('button', `act sb-slot${inSlot ? ' on' : ''}`, inSlot ? 'Unslot' : 'Quickslot');
     slot.onclick = () => {
       if (inSlot) clearSpellQuickslot(); else setSpellQuickslot(sel.spell);
-      notice = inSlot ? 'Taken out of the quickslot.' : 'In the quickslot - press its key to ready it, hold to cycle the book.';
+      notice = inSlot ? 'Taken out of the quickslot.' : 'In the quickslot. Press its key to ready it, or hold the key to cycle through your spells.';
       render();
     };
     acts.append(slot);
@@ -498,6 +519,11 @@ export function mountEnhancedSpellbook(hostEl, d = {}) {
   render();
   window.addEventListener('keydown', onKey, true);
   setHotbarDropMode('book', true, d.entity ?? null);   // HB1: the bar comes up under the book as a drop target
+  // DIAMOND-HB: a hotbar key pressed while hovering a spell (or else the selected spell) puts it on that slot
+  setHotbarPick('book', {
+    selected: () => { const sp = host && deleting === null ? bookModel(deps.spells?.() ?? [], deps.castCost)[picked]?.spell : null; return sp ? { kind: 'spell', spell: sp } : null; },
+    changed: () => { if (host) render(); },
+  });
   return {
     render,
     destroy() {

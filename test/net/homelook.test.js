@@ -152,7 +152,7 @@ test('HOME-LOOK the painter, in the yard\'s panel: "Exterior" lists the four par
   for (let i = 0; i < 6; i++) { r2.frame({ overlayUp: true }); await settle(); }
   const root = () => r2.doc.body.children.find((c) => c.className === 'dfdecor');
   const chips = () => all(root(), 'dfdecor-chip');
-  assert.deepEqual(chips().slice(0, 3).map((c) => c.textContent), ['Catalogue', 'In this yard (0)', 'Exterior'], 'a yard\'s tabs');
+  assert.deepEqual(chips().slice(0, 3).map((c) => c.textContent), ['Catalog', 'In this yard (0)', 'Exterior'], 'a yard\'s tabs');   // PIN MOVED (VOICE2): American spelling (Voice.md rule 8)
   chips().find((c) => c.textContent === 'Exterior').fire('click');
   r2.frame({ overlayUp: true });
   const rows = all(root(), 'dfdecor-row');
@@ -184,7 +184,8 @@ test('HOME-LOOK the world host by source: a town\'s homes are asked before its b
   // AUDIT: a town heard before is never waited for again (a rebuild stalled a second and a half)
   assert.match(w, /if \(onlineHomes\.known\(homeTown\)\) onlineHomes\.ensure\(homeTown\)\.catch\(\(\) => \{\}\);\n\s*else \{ try \{ await onlineHomes\.waitFor\(homeTown, HOME_LOOK_BUILD_WAIT_MS\); \}/);
   // AUDIT: only a painted home, or this account's, leaves the merge - and an unpainted one draws with the pixel's table
-  assert.match(w, /if \(homeRow && \(homeLook \|\| homeRow\.mine \|\| homeRow\.keeper\)\) \{[\s\S]{0,300}entry\.texRemap = homeLook \? await homeLookRemap\(gpu\.subMeshes, texRemap, homeLook, host\.season, pipeline\) : null;[\s\S]{0,80}\}\n\s*models\.push\(entry\);\n\s*if \(!entry\._home && !isCityGate/, 'a painted home stays out of the merge');
+  // (PIN MOVED, PRECIP4: in the pixel's own season - the snow at its middle on the snow lane)
+  assert.match(w, /if \(homeRow && \(homeLook \|\| homeRow\.mine \|\| homeRow\.keeper\)\) \{[\s\S]{0,300}entry\.texRemap = homeLook \? await homeLookRemap\(gpu\.subMeshes, texRemap, homeLook, pixelSeason, pipeline\) : null;[\s\S]{0,80}\}\n\s*models\.push\(entry\);\n\s*if \(!entry\._home && !isCityGate/, 'a painted home stays out of the merge');
   // AUDIT: each pixel from the registry as its build read it, the publish asking for a refresh; a merged home rebuilds
   // its pixel for a look written or its becoming this account's, never for the painter's preview
   assert.match(w, /homeLookRead = onlineHomes\.version\(\) \* 1024 \+ host\._lookPreviewGen;/);

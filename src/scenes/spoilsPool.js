@@ -131,17 +131,19 @@ export const SPOILS_TEXT = Object.freeze({
  * WB12d: `claims`, the receipt's - the faithful's rite alone (`x` 'rite') pays its ember and nothing else; the rite
  * broken too (`r`) an ember more, after the first. A receipt with neither is what it always was, piece for piece.
  * Pure.
- * @param {number} seed @param {number} level @param {{ x?: string, r?: number }|null} [claims]
+ * WB14g: a portent night's (`p`) one more piece for each portent, its picture drawn after every other's.
+ * @param {number} seed @param {number} level @param {{ x?: string, r?: number, p?: number }|null} [claims]
  */
 export function spoilsList(seed, level, claims = null) {
   const look = seededRng((seed ^ 0x5eed) >>> 0);
   const flat = () => RANDOM_TREASURE_ICONS[Math.floor(look() * RANDOM_TREASURE_ICONS.length)];
   if (claims?.x === 'rite') return [{ kind: 'item', item: sigilStone(), tier: SIGIL_TIER, record: flat() }];
-  const s = rollSpoils(seed, level);
+  const s = rollSpoils(seed, level, claims?.p ?? 0);   // WB14g: a portent night's pieces more
   // AUDIT WORLD-REWARDS A1: the Dragonfire Oath's picture is drawn LAST of all (below) - drawn in its place among the pieces,
   // it moved every picture after it (the ember's, the gold's, the card's, the gems') off what the seed gave them, in
   // every spoils it came in. It still leaves among the pieces, its glow's line in the frame's first eight.
-  const pieces = s.pieces.map((p) => ({ kind: 'item', item: p.item, tier: p.tier, record: p.tier === 'gilded' ? null : flat() }));
+  const firstPortent = s.pieces.length - (s.portent ?? 0);   // WB14g: a portent's piece's picture drawn last too, as the Oath's
+  const pieces = s.pieces.map((p, i) => ({ kind: 'item', item: p.item, tier: p.tier, record: p.tier === 'gilded' || i >= firstPortent ? null : flat() }));
   const ember = { kind: 'item', item: s.sigil, tier: SIGIL_TIER, record: flat() };
   const gold = { kind: 'gold', gold: s.gold, tier: 'common', record: flat() };
   // AUDIT CARDS-6 A8: the card's picture is drawn LAST, after the gold's - drawn between the ember's and the gold's, it
@@ -165,6 +167,12 @@ export function spoilsList(seed, level, claims = null) {
  *  record store; a store that throws or answers junk is a record never kept. AUDIT WB A6: a write the storage refuses
  *  (a full quota, a private window) is kept in this session's memory instead and read back from there - the session
  *  still knows its spent receipts and its records, and a later write that lands takes over. */
+/** AUDIT WBX S4: the spoils given outside a court, one tab at a time - two tabs of one account on one device each checked
+ *  the store before the other had written it, and both gave them (the Web Locks API; without it, at once). One lock for
+ *  every pool's grant: the gate's, the raids', the serpent's, the Hour's, the stars' (STAR7 moved it here from the world
+ *  host, so each pool's host takes the same one). */
+export const spoilsLock = (fn) => { const locks = globalThis.navigator?.locks; return locks?.request ? locks.request('wb5.spoils', () => fn()) : Promise.resolve().then(fn); };
+
 export function spoilsStore(storage) {
   const mem = new Map();
   return {
@@ -425,6 +433,9 @@ export function createSpoilsPool({
   }
 
   return {
+    /** WB14e: a piece straight into the pack by this pool's own door (`take`, the host's takeGateSpoil) - a Tithe-Imp's
+     *  tithe, which never lies on the floor. */
+    take(piece) { take(piece); },
     /**
      * THE BURST: the spoils of `day` for this player (the receipt's `seed`, the player's `level`) leave his chest `at`
      * (the dungeon's frame) toward `bearing` (the angle from him to the player). Once a day, on this device: a day
@@ -459,7 +470,8 @@ export function createSpoilsPool({
     /** AUDIT WB A2: THE SPOILS WITH NO FLOOR - a receipt that came while its court was not this player's to stand in
      *  (cast out before the kill, gone, told by the hub's next hello): the same pieces, straight into the pack, said
      *  once. Once a receipt, as the burst is; answers whether they were given. RAID4b: `roll` answers the pieces instead
-     *  (a town's thanks - raidSpoils.js raidSpoilsList), asked only for a receipt not yet spent, and `text` is said. */
+     *  (a town's thanks - raidSpoils.js raidSpoilsList), asked only for a receipt not yet spent, and `text` is said.
+     *  @param {{ day: any, seed?: number, level?: number, acct?: string, roll?: (() => any[]) | null, text?: string, owner?: any, kept?: string | null, claims?: any }} o */
     grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted, owner = undefined, kept = null, claims = null }) {
       if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day, acct); return false; }   // AUDIT WBX S1: spent - said so again
       const list = typeof roll === 'function' ? roll() : spoilsList(seed >>> 0, Math.max(1, level | 0), claims);   // RAID4b: a town's thanks roll their own; WB12d: the receipt's rite
