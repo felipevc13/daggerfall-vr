@@ -156,7 +156,7 @@ No host, window, or door has to know the click came from a controller. That brid
 | `hostPaused()` | `src/ui/input.js:102` | "A host says a pausing window is up." Null before any host registers. Read by `readHostPaused` in the bridge. |
 | `overlayOpen()` / `closeTopOverlay()` | `enhancedOverlays.js:84`, `:92` | "A DOM door registered." The detector reads the first. The second is the panic-close for a later PR. |
 | Fixed body children | Door hosts, z 11–14 (`enhancedStyle.js:944`) | The DOM scan. Geometry and pointer events, not id prefixes. `wyrd-host` is the counterexample the prefix misses. |
-| `makeWindowStack` / `paused()` / `pauseWhileOpen` | `windowStack.js:126`, `:371`, `:43` | Used when the caller holds the stack (`observeStack`). Not imported by `uiPresence.js`; the bridge dynamic-imports them. |
+| `makeWindowStack` / `paused()` / `pauseWhileOpen` | `windowStack.js:126`, `:371`, `:43` | Used when the caller holds the stack (`observeStack`). Not imported by `uiPresence.js`; the bridge dynamic-imports them. The bridge does not spell the dotted pause call: `test/scenes/roadb_host_pause.test.js` reserves that spelling for the four stack-owning hosts. |
 | `domTargetAt`, `domPointer`, `domHoverChange`, `interactiveAt` | `plusPad.js:391`, `:398`, `:417`, `:321` | The future pointer bridge. Not called by the detector. |
 | `setCursorActive` | `pointerLock.js:98` | The future pointer bridge, so synthetic canvas clicks do not lock the mouse. |
 | `drawScreenQuad` / `endWorldPass` | `renderer.js:4818`, `:2144` | The future canvas layer. A named `setUiTarget` next to `setXrTarget`, or nothing until that PR. `renderer.js` is the file upstream rewrites most often. |

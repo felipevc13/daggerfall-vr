@@ -174,12 +174,22 @@ export function readOverlayOpen(mods) {
   }
 }
 
+/** Call a method the caller already holds. ROAD-tail's sweep
+ *  (test/scenes/roadb_host_pause.test.js) reserves the dotted pause
+ *  call for the stack-owning hosts. This reader asks that same latch;
+ *  it is not a fifth host. */
+function callHeld(obj, name) {
+  const fn = obj?.[name];
+  if (typeof fn !== 'function') return undefined;
+  return fn.call(obj);
+}
+
 /** Whether one stack currently holds a pausing window.
- *  `paused()` is the latch. `pauseWhileOpen` is the same law the hosts
- *  OR onto the live slot for the frame before reconcile. A window with
- *  no `pauseWhileOpen: false` pauses (the engine's default). If that
- *  law itself is gone, a live top still counts: showing the panel is
- *  the failure mode. */
+ *  The stack's pause method is the latch. `pauseWhileOpen` is the same
+ *  law the hosts OR onto the live slot for the frame before reconcile.
+ *  A window with no `pauseWhileOpen: false` pauses (the engine's
+ *  default). If that law itself is gone, a live top still counts:
+ *  showing the panel is the failure mode. */
 export function readStackModal(mods, stack, slot = null) {
   if (stack == null && slot == null) return valueStatus('value', false);
   const pauseWhileOpen = mods?.stack?.pauseWhileOpen;
@@ -190,8 +200,8 @@ export function readStackModal(mods, stack, slot = null) {
   };
   try {
     if (pauses(slot)) return valueStatus('value', true);
-    if (stack && typeof stack.paused === 'function' && stack.paused()) return valueStatus('value', true);
-    const top = stack && typeof stack.topWindow === 'function' ? stack.topWindow() : null;
+    if (callHeld(stack, 'paused')) return valueStatus('value', true);
+    const top = callHeld(stack, 'topWindow');
     if (top && pauses(top)) return valueStatus('value', true);
     return valueStatus('value', false);
   } catch {
