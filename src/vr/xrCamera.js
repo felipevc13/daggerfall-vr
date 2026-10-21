@@ -11,12 +11,14 @@
 //
 // `lookAt` and `perspective` are RIGHT-handed (world/mat4.js), and the world
 // DATA is Daggerfall Unity's - LEFT-handed, x east, y up, z north (mat4's
-// HANDEDNESS LAW). The mirror at the projection is the one correction that
-// makes the left-handed data read the right way round. This module keeps that
-// exact convention: it builds an eye, a forward and an up from the XR pose
-// and hands them to the SAME lookAt / perspective / mirrorProjectionX, so
-// every shader and every state flag (frontFace CW, cull BACK) sees what it
-// always saw. It adds no camera of its own.
+// HANDEDNESS LAW). The flat lens's one correction is mirrorProjectionX,
+// which negates proj[0] and proj[8]. proj[8] is 0 for that symmetric
+// perspective, so the second negation does nothing there. This module keeps
+// the same lookAt. It does not run an XR matrix through mirrorProjectionX:
+// a Quest eye's proj[8] is the lens centre, and negating it parks a point
+// straight ahead on the outer side of each lens. Only the horizontal scale
+// is negated, so world +x stays screen-right and the centre stays where
+// the runtime put it. It adds no camera of its own.
 //
 // WHAT IS NEW HERE (and only here):
 //   - WebXR is RIGHT-handed, +x right, +y up, -z forward. The game's frame is
@@ -34,7 +36,7 @@
 //     (the body), never the head.
 
 import { gameMat4, offCenterProjection } from './engineBridge.js';
-const { lookAt, mirrorProjectionX } = gameMat4;
+const { lookAt } = gameMat4;
 
 const DEG = Math.PI / 180;
 
@@ -100,32 +102,41 @@ export function viewMatrix(view, rig) {
   return lookAt(eye, [eye[0] + forward[0], eye[1] + forward[1], eye[2] + forward[2]], up);
 }
 
+/** VR1: negate the horizontal scale and leave the lens centre. mirrorProjectionX
+ *  also negates proj[8]. That term is 0 on the flat symmetric lens. On a Quest
+ *  eye it is the optical centre (~±0.17 NDC). Negating it sends a point
+ *  straight ahead to the outer side of each framebuffer, and the two pictures
+ *  do not fuse. World +x still lands screen-right, because only proj[0] flips. */
+function mirrorXrScale(m) {
+  if (!m) return null;
+  m[0] = -m[0];
+  return m;
+}
+
 /**
  * THE PROJECTION MATRIX for one XR view: the eye's own asymmetric frustum (the
- * `fov` a headset reports is not centred - that is what a lens does), mirrored
- * exactly as the flat projection is (mat4's HANDEDNESS LAW). `near`/`far` are
- * the host's own, so a VR frame keeps the scene's depth range.
+ * `fov` a headset reports is not centred - that is what a lens does). The
+ * runtime matrix is copied and only its horizontal scale is mirrored. The fov
+ * fallback builds the same frustum and applies that same scale mirror.
+ * `near`/`far` are the host's own on that fallback. The runtime matrix already
+ * carries the session's depth range.
  */
 export function projectionMatrix(view, near, far) {
   if (view?.projectionMatrix) {
-    // The same mirror the flat lens uses. Negating only [0] leaves the
-    // asymmetric centre [8] on the other side of the eye, and the two
-    // optical centres diverge.
     const out = new Float32Array(view.projectionMatrix);
-    return mirrorProjectionX(out);
+    return mirrorXrScale(out);
   }
-  // Fallback for legacy WebVR or test harnesses that supply view.fov
+  // Fallback for legacy WebVR or test harnesses that supply view.fov.
+  // leftDegrees and downDegrees are positive extents; the minus is applied here.
   if (view?.fov) {
     const f = view.fov;
     const l = -near * Math.tan(f.leftDegrees * DEG);
     const r = near * Math.tan(f.rightDegrees * DEG);
     const b = -near * Math.tan(f.downDegrees * DEG);
     const t = near * Math.tan(f.upDegrees * DEG);
-    const raw = offCenterProjection(l, r, b, t, near, far);
-    return raw ? mirrorProjectionX(raw) : null;
+    return mirrorXrScale(offCenterProjection(l, r, b, t, near, far));
   }
-  const raw = offCenterProjection(-0.04, 0.04, -0.04, 0.04, near ?? 0.05, far ?? 300);
-  return raw ? mirrorProjectionX(raw) : null;
+  return mirrorXrScale(offCenterProjection(-0.04, 0.04, -0.04, 0.04, near ?? 0.05, far ?? 300));
 }
 
 /** VR1: the same XR view with its translation replaced by the move since the

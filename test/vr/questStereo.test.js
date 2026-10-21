@@ -1,7 +1,8 @@
 // VR1: Quest 3 numbers for the dungeon eyes. Identity head is level.
-// A 30 degree look up looks up. The two eyes are a real IPD apart, the
-// asymmetric centre is mirrored with the scale, and the world image is
-// the eye's own size so the horizon is not cropped off the bottom.
+// A 30 degree look up looks up. The two eyes are a real IPD apart, not
+// twice that. The horizontal scale is mirrored and the lens centre
+// (proj[8]) is left as the runtime matrix, so a point 2 m ahead matches
+// the raw WebXR NDC. The world image is the eye's own size.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -116,16 +117,21 @@ test('a level head looks level, and looking up looks up', () => {
   assert.ok(Math.abs(det3(left.right, left.up, left.forward) - 1) < 1e-6);
 });
 
-test('Quest eyes mirror the off-centre term, and a point ahead sits near both optical centres', () => {
+test('Quest eyes keep the lens centre and mirror only the scale', () => {
   const head = [0, HEAD_Y, 0];
   const left = questEye(-1, LEVEL, head);
   const right = questEye(1, LEVEL, head);
   for (const eye of [left, right]) {
     const proj = projectionMatrix(eye.view, NEAR, FAR);
     assert.ok(Math.abs(proj[0] + eye.raw[0]) < 1e-6, proj[0]);
-    assert.ok(Math.abs(proj[8] + eye.raw[8]) < 1e-6, proj[8]);
+    assert.ok(Math.abs(proj[8] - eye.raw[8]) < 1e-6, proj[8]);
     assert.ok(Math.abs(eye.raw[8]) > 0.05, 'the Quest frustum is off centre');
   }
+  const fov = projectionMatrix({
+    fov: { leftDegrees: 52, rightDegrees: 42, upDegrees: 48, downDegrees: 53 },
+  }, NEAR, FAR);
+  assert.ok(Math.abs(fov[0] + left.raw[0]) < 1e-5, fov[0]);
+  assert.ok(Math.abs(fov[8] - left.raw[8]) < 1e-5, fov[8]);
   const L = shotFor(left, head);
   const R = shotFor(right, head);
   const ahead = [game.pos[0], game.pos[1], game.pos[2] + 4];
@@ -148,6 +154,65 @@ test('Quest eyes mirror the off-centre term, and a point ahead sits near both op
   assert.ok(screenRight !== 0);
   assert.ok((dL[0] - dR[0]) * screenRight > 0, [dL[0], dR[0], screenRight].join(','));
   assert.ok(Math.abs(dL[0] - dR[0]) < 0.08, Math.abs(dL[0] - dR[0]));
+});
+
+/** Rigid pose (column-major) to the raw WebXR view matrix. No game conversion. */
+function invertPose(m) {
+  const v = new Float32Array(16);
+  v[0] = m[0]; v[1] = m[4]; v[2] = m[8];
+  v[4] = m[1]; v[5] = m[5]; v[6] = m[9];
+  v[8] = m[2]; v[9] = m[6]; v[10] = m[10];
+  const tx = m[12], ty = m[13], tz = m[14];
+  v[12] = -(m[0] * tx + m[1] * ty + m[2] * tz);
+  v[13] = -(m[4] * tx + m[5] * ty + m[6] * tz);
+  v[14] = -(m[8] * tx + m[9] * ty + m[10] * tz);
+  v[15] = 1;
+  return v;
+}
+
+test('a point 2 m ahead matches the raw WebXR disparity, and the campfire is one world point', () => {
+  const head = [0, HEAD_Y, 0];
+  const left = questEye(-1, LEVEL, head);
+  const right = questEye(1, LEVEL, head);
+  // Straight ahead of the head, in the runtime's frame: 2 m down -Z.
+  const xrPoint = [0, HEAD_Y, -2];
+  const rawL = ndc(left.raw, invertPose(left.view.transform.matrix), xrPoint);
+  const rawR = ndc(right.raw, invertPose(right.view.transform.matrix), xrPoint);
+  const rawDisp = rawL[0] - rawR[0];
+  // The same point in the game: the head centre, 2 m along +Z. One position
+  // for both eyes. A billboard is not shifted again per eye.
+  const campfire = [game.pos[0], game.pos[1], game.pos[2] + 2];
+  const L = shotFor(left, head);
+  const R = shotFor(right, head);
+  const gL = ndc(L.proj, L.view, campfire);
+  const gR = ndc(R.proj, R.view, campfire);
+  assert.ok(Math.abs(gL[0] - rawL[0]) < 1e-4, [gL[0], rawL[0]].join(','));
+  assert.ok(Math.abs(gR[0] - rawR[0]) < 1e-4, [gR[0], rawR[0]].join(','));
+  assert.ok(Math.abs(gL[1] - rawL[1]) < 1e-4 && Math.abs(gR[1] - rawR[1]) < 1e-4);
+  const gameDisp = gL[0] - gR[0];
+  assert.ok(Math.abs(gameDisp - rawDisp) < 1e-4, [gameDisp, rawDisp].join(','));
+  assert.ok(gL[0] > gR[0], [gL[0], gR[0]].join(','));
+  // Absolute NDC differs by the lens inset. The disparity that has to fuse
+  // is each eye measured from its own optical centre (NDC of x_eye = 0 is
+  // -proj[8] on the unmirrored matrix). That gap is the IPD at 2 m, small.
+  const rel = (gL[0] - (-left.raw[8])) - (gR[0] - (-right.raw[8]));
+  const rawRel = (rawL[0] - (-left.raw[8])) - (rawR[0] - (-right.raw[8]));
+  assert.ok(Math.abs(rel - rawRel) < 1e-4, [rel, rawRel].join(','));
+  assert.ok(rel > 0.02 && rel < 0.05, rel);
+  const a = camOf(L.view), b = camOf(R.view);
+  const sep = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  assert.ok(Math.abs(sep - IPD) < 1e-6, sep);
+  assert.ok(Math.abs(sep - 2 * IPD) > 0.05, sep);
+  assert.ok(a[0] < b[0], [a[0], b[0]].join(','));
+  // The resolve samples the eye image with vUV. Adding eye 1's viewport x
+  // would slide that sample by a whole eye. The colour tap does not.
+  const uv = (x) => (x + 1) / 2;
+  assert.ok(Math.abs((uv(gR[0]) + right.vp.x / right.vp.width) - uv(gR[0])) >= 1);
+  const dungeon = read('src/scenes/dungeon.js');
+  assert.match(dungeon, /const camRight = new Float32Array\(\[Math\.cos\(cam\.yaw\), 0, -Math\.sin\(cam\.yaw\)\]\)/);
+  assert.match(dungeon, /drawBillboards\(\[\.\.\.ctx\.billboardBatches, \.\.\.ctx\.campBatches\(\), \.\.\.ctx\.torchBatches\(\)\], camRight, UP_Y\)/);
+  const replay = read('src/scenes/dungeonEyeReplay.js');
+  assert.match(replay, /Level flats are drawn by the host, facing the body yaw/);
 });
 
 test('the two eyes views differ by the Quest IPD, and claiming skips the copy', () => {
@@ -193,12 +258,18 @@ test('the two eyes views differ by the Quest IPD, and claiming skips the copy', 
     views: [left, right].map((eye) => ({ view: eye.view, x: eye.vp.x, y: eye.vp.y, width: eye.vp.width, height: eye.vp.height })),
   };
   const seen = [];
-  const stereo = createDungeonStereo(() => true);
+  const aimed = [];
+  const stereo = createDungeonStereo((fb, vp) => { aimed.push(vp); return true; });
   const clock = { eyePack: () => pack, claimed: false, claimStereo() { this.claimed = true; } };
-  assert.equal(stereo.paint(clock, (shot) => seen.push(shot.view), { eye: game.pos, yaw: 0 }), true);
+  assert.equal(stereo.paint(clock, (shot) => seen.push(shot), { eye: game.pos, yaw: 0 }), true);
   assert.equal(clock.claimed, true);
   assert.equal(seen.length, 2);
-  const sa = camOf(seen[0]), sb = camOf(seen[1]);
+  assert.equal(aimed[0].x, 0);
+  assert.equal(aimed[1].x, EYE_VP.width);
+  assert.equal(seen[0].vp.x, 0);
+  assert.equal(seen[1].vp.x, EYE_VP.width);
+  const sa = camOf(seen[0].view), sb = camOf(seen[1].view);
+  assert.ok(sa[0] < sb[0], [sa[0], sb[0]].join(','));
   assert.ok(Math.abs(Math.hypot(sb[0] - sa[0], sb[1] - sa[1], sb[2] - sa[2]) - IPD) < 1e-6);
 
   const mirrors = [];
@@ -235,9 +306,11 @@ test('the eye image is the eye viewport, not the window, so the horizon stays in
   const stretched = aspectScale(WINDOW.width, WINDOW.height, EYE_VP.width, EYE_VP.height);
   assert.ok(stretched < 0.6, stretched);
   const air = read('src/render/airPass.js');
-  assert.match(air, /texture\(uFrame, vUV\)/);
+  assert.match(air, /vUV = aPos \* 0\.5 \+ 0\.5/);
+  assert.match(air, /vec3 c = airDecode\(texture\(uFrame, vUV\)\.rgb\)/);
   assert.match(air, /gl\.viewport\(_vp\.x, _vp\.y, _vp\.width, _vp\.height\)/);
   const src = read('src/render/renderer.js');
+  assert.match(src, /return \[0, 0, v\.width, v\.height\]/);
   assert.match(src, /xrWorldImageSize\(this\._xrTarget\?\.vp, retro,/);
   assert.match(src, /if \(xrWorld && this\._frameFbo && this\._xrTarget\?\.vp\)/);
   assert.match(src, /gl\.viewport\(0, 0, v\.width, v\.height\)/);

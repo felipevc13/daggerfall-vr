@@ -72,7 +72,7 @@ Also open `http://localhost:5173/play/` and https://daggerfalljs.dev/play/ and c
 - ESM, hand-rolled WebGL2, no framework. Match the file you are editing.
 - VR files may be in Portuguese or English. Docs for this fork are English. PR text for Felipe is Portuguese (pt-BR).
 - Comments name the hook (`VR1`) and why a flat frame is unchanged.
-- Do not add a second camera. Eyes go through `gameMat4.lookAt` and `gameMat4.mirrorProjectionX` from `engineBridge.js`. Do not re-export those mat4 names; each stays declared once, in `src/world/mat4.js`. The off-centre frustum is `offCenterProjection`, which returns null when upstream drops `perspectiveOffCenter`.
+- Do not add a second camera. Eyes go through `gameMat4.lookAt` from `engineBridge.js`. An XR projection negates only `proj[0]`. Do not pass it through `mirrorProjectionX`: that also negates `proj[8]`, which is 0 on the flat symmetric lens and is the Quest lens centre. Do not re-export those mat4 names; each stays declared once, in `src/world/mat4.js`. The off-centre frustum is `offCenterProjection`, which returns null when upstream drops `perspectiveOffCenter`.
 - Daggerfall Unity is the reference for game rules, not a tree to copy. `bible/01-Overview/Port-Doctrine.md` says when that applies. VR presentation is this mod's, and it should still say where it departs.
 - Hosts do not grow. See `CLAUDE.md`.
 
