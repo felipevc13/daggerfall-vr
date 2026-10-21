@@ -292,7 +292,7 @@ For each family in the inventory, on both skins, opened from the controller and 
 4. **DOM raster fidelity.** Fonts, `backdrop-filter`, CSS animation, and child canvases. E and D are the mitigations.
 5. **`isTrusted === false`.** **[V]** A few sites ignore untrusted events: chat (`src/ui/chatPanel.js` checks `isTrusted`), a real Escape in `pointerLock.js:174`, and at least one minigame. File pickers and a native `<select>` need a real gesture. **[S]** The select popup will not appear inside a raster. The escape hatch is the way through those screens.
 6. **Quest viewport during the session.** **[S]** `innerWidth` and `innerHeight` during an immersive session still have to be measured on a headset. The old `?vrui` log went away with the demo page.
-7. **Buttons already mean something.** `xrInput.toMotorInput` maps A to jump, B to crouch, and the left thumb click to run. X, Y, and the triggers are polled and not mapped. The pointer bridge needs one written map and the stale-edge rule, and it has to share that map with the motor wiring.
+7. **Buttons already mean something.** The dungeon motor maps A to jump, B to a crouch toggle, the left thumb click to run, the right trigger to swing, and the left trigger or X to activate. Y and the grips are still unmapped. `xrInput.toMotorInput` is the lab's shorter bag (jump, crouch, run) and is not what the dungeon reads. The pointer bridge needs one written map and the stale-edge rule, and it has to share that map with this one.
 8. **Chat and the quick-loot plaque.** Chat matches the DOM rule today, so the detector reports it open. That is fail-open. A passive mode that leaves chat on a smaller panel, or hides it, belongs with the HUD question below.
 
 ## Questions for Felipe

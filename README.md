@@ -2,7 +2,7 @@
 
 A VR mod for [DFO](https://daggerfalljs.dev/), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a player who does not pass `?vr` never loads the VR module.
 
-**Status:** The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press keeps the session open. `/play/?dungeon&class=16&vr` draws each eye in Privateer's Hold as a Warrior. The world and interiors still share one picture. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button. Quest sticks are not wired into the player yet.
+**Status:** The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press keeps the session open. `/play/?dungeon&class=16&vr` draws each eye in Privateer's Hold as a Warrior, and the Quest controllers walk that player. The world and interiors still share one picture, and the sticks do not walk there yet. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button.
 
 Play it: https://daggerfalljs.dev/
 
@@ -40,7 +40,7 @@ Players can step into Privateer's Hold through the Quest Browser without PCVR or
 
 ### Core VR Features:
 - **Headset stereo**: Each eye uses that eye's WebXR pose and its own asymmetric projection. The horizontal scale is mirrored (`proj[0]`). The lens centre (`proj[8]`) stays where the runtime put it. One game metre is one headset metre, and the eye offset is the pose's own.
-- **Quest sticks, not yet on the player**: `src/vr/xrInput.js` reads the thumbsticks, snap turn, and face buttons. The empty-room lab calls it. `/play/?vr` does not, so the real game still walks from the keyboard.
+- **Quest sticks on the dungeon player**: `src/vr/xrInput.js` reads the thumbsticks, snap turn, and face buttons. The dungeon host feeds them to the player motor while a session is presenting. The mapping and the headset checklist are in [docs/TESTING-ON-QUEST.md](docs/TESTING-ON-QUEST.md). The world and interiors still walk from the keyboard. A flat page with no session is unchanged.
 - **Real-Time Remote Telemetry**: On a `?shot` boot, Quest 3 browser logs and exceptions stream to the development server at `/api/vr-log` and are saved into `.quest-vr.log`. The same shot gate covers the frame counter.
 
 ---
@@ -61,7 +61,7 @@ Upstream engine (do not treat as the mod): `src/characters`, `src/world`, `src/r
 | [`src/vr/xrSession.js`](src/vr/xrSession.js) | Session and the Enter VR button. |
 | [`src/vr/xrFrameLoop.js`](src/vr/xrFrameLoop.js) | Moves the page frame clock onto the headset, and back on exit. |
 | [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | Eye matrices. The headset's own pose and frustum. Horizontal scale mirrored; lens centre kept. |
-| [`src/vr/xrInput.js`](src/vr/xrInput.js) | Sticks, snap turn, buttons, haptics. Used by the empty-room lab. Not yet by `/play/?vr`. |
+| [`src/vr/xrInput.js`](src/vr/xrInput.js) | Sticks, snap turn, buttons, haptics. The frame clock polls them. The dungeon host feeds the motor. The lab still moves its own rig. |
 | [`src/vr/xrLog.js`](src/vr/xrLog.js) | On a `?shot` boot, posts logs to `/api/vr-log` on the dev server. |
 | [`vr.html`](vr.html), [`src/tools/vrLab.js`](src/tools/vrLab.js) | Empty-room lab. |
 

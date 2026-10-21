@@ -1,9 +1,10 @@
 // VR1 / VR2 - THE WEBXR INPUT SYSTEM FOR QUEST STANDALONE
 //
 // Kept when the Privateer's Hold page (vr-dungeon.html) was removed.
-// The empty-room lab still calls poll and updateLocomotion. /play/?vr
-// does not: the real hosts read the keyboard in ui/input.js. toMotorInput
-// is the bag the next wiring should hand the motor.
+// The empty-room lab still calls poll and updateLocomotion, which moves
+// that lab's own rig. The real dungeon does not: the frame clock polls
+// once a frame and publishes questSampleOf. The host feeds that to the
+// motor. updateLocomotion stays the lab's path.
 //
 // Reads Quest 2/3/Pro controllers (thumbsticks, triggers, grips, buttons)
 // and handles:
@@ -13,6 +14,63 @@
 //   4. Direct translation into Daggerfall's motor.js input format.
 
 const DEADZONE = 0.15;
+const TRIGGER = 0.5;
+
+function freshHand(side) {
+  const hand = {
+    stick: { x: 0, y: 0 },
+    trigger: 0,
+    grip: 0,
+    thumbClick: false,
+    pose: null,
+    source: null,
+  };
+  if (side === 'left') {
+    hand.xBtn = false;
+    hand.yBtn = false;
+  } else {
+    hand.aBtn = false;
+    hand.bBtn = false;
+  }
+  return hand;
+}
+
+/** Tracking-space yaw of a viewer matrix. Pitch does not change it: a look
+ *  up or down rotates about the head's right, and this reads that axis.
+ *  The dungeon view then turns the head by the body yaw, so this angle is
+ *  the head's offset from the body. Null when the axis has no length. */
+export function trackingYawOf(matrix) {
+  if (!matrix || matrix.length < 3) return null;
+  const x = Number(matrix[0]);
+  const z = Number(matrix[2]);
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
+  if (x * x + z * z < 1e-8) return null;
+  return Math.atan2(z, x);
+}
+
+function triggerDown(hand) {
+  return (Number(hand?.trigger) || 0) >= TRIGGER;
+}
+
+/** One frame of Quest input for the motor. Sticks are already deadzoned.
+ *  headYaw stays null when the pose did not give a finite angle. A resting
+ *  stick is +0, so a later strict compare does not see a negated zero. */
+export function questSampleOf(state, headYaw) {
+  const left = state?.left ?? {};
+  const right = state?.right ?? {};
+  const yaw = Number(headYaw);
+  return {
+    strafe: Number(left.stick?.x) || 0,
+    forward: -(Number(left.stick?.y) || 0) || 0,
+    turn: Number(right.stick?.x) || 0,
+    jump: !!right.aBtn,
+    run: !!left.thumbClick,
+    crouch: !!right.bBtn,
+    attack: triggerDown(right),
+    activate: triggerDown(left) || !!left.xBtn,
+    headYaw: headYaw == null || !Number.isFinite(yaw) ? null : yaw,
+  };
+}
 
 /** Applies a radial deadzone and normalizes the stick vector. */
 function applyDeadzone(x, y, deadzone = DEADZONE) {
@@ -48,6 +106,9 @@ export class XrInputManager {
    */
   poll(session, refSpace, frame) {
     if (!session || !session.inputSources) return this.state;
+    // A hand that left the session must not keep its last stick.
+    this.state.left = freshHand('left');
+    this.state.right = freshHand('right');
 
     for (const source of session.inputSources) {
       const handedness = source.handedness; // 'left' | 'right'
