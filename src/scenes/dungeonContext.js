@@ -7319,8 +7319,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       waterColor: DUNGEON_WATER_COLOR, waterScroll: WATER_SCROLL_TILES_PER_SEC,
       weaponRig, paralyzed: entityIsParalyzed(playerEntity),
       drawWater: () => {
+        // The drawFoes call stays the one the water pins measure. This eye only repeats it.
         if (waterQuads?.length && _waterArchive != null) {
-          renderer.drawWater(waterQuads, DUNGEON_WATER_COLOR, renderer.textures.get(`${_waterArchive}_0`), _waterT * WATER_SCROLL_TILES_PER_SEC);
+          const quads = waterQuads;
+          const color = DUNGEON_WATER_COLOR;
+          renderer.drawWater(quads, color, renderer.textures.get(`${_waterArchive}_0`), _waterT * WATER_SCROLL_TILES_PER_SEC);
         }
       },
       drawFx: () => magic.drawFx?.(),
