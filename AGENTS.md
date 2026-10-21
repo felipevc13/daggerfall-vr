@@ -13,7 +13,7 @@ Upstream license is MIT (`LICENSE`, copyright Lattymoy, plus Daggerfall Unity's 
 ## Boundary
 
 - New VR behavior goes in `src/vr/`. `src/vr/engineBridge.js` is the only file in that folder that imports `src/world/mat4.js`. Call `guardedSetXrTarget` instead of `renderer.setXrTarget`. Call `probeVrEngineHooks()` before offering Enter VR. If it returns `ok: false`, skip the session. Do not throw into the flat frame.
-- `makeEnterVrButton` in `src/vr/xrSession.js` is the entry point. It returns null when the browser cannot do `immersive-vr`.
+- `makeEnterVrButton` in `src/vr/xrSession.js` is the entry point. It returns null when the browser cannot do `immersive-vr`. On `/play/?vr`, `installVr` keeps the session up by moving the page clock in `src/vr/xrFrameLoop.js`. Hosts still call `requestAnimationFrame`. Exit restores the window clock.
 - Do not import `src/vr` from `src/main.js` or `src/scenes/` with a static import. The plug is a dynamic `import('./vr/installVr.js')` after the renderer exists, gated on `params.has('vr')`, as `docs/repo-map.md` describes. Do not grow `bootWorld`, `createWorldModes`, `buildDungeonContext`, `bootExterior`, or the other hosts named in `CLAUDE.md`.
 - The two inherited edits the headset needs are `Renderer.setXrTarget` / `_frameTarget` / `xrCompatible: true` in `src/render/renderer.js`, and `perspectiveOffCenter` in `src/world/mat4.js`. Touch them only to keep those hooks alive, and name the touch in the PR. Any other engine edit has to be justified the same way and covered by `test/vr/engineContract.test.js`.
 - `vrDungeon.js` still imports the dungeon pipeline directly. That list is the next adapter (`docs/repo-map.md`). Do not pretend the bridge already wraps it.
