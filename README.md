@@ -1,8 +1,8 @@
 # Daggerfall VR
 
-A VR mod for [DFO](https://daggerfalljs.dev/), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a monitor player never loads the VR module.
+A VR mod for [DFO](https://daggerfalljs.dev/), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a player who does not pass `?vr` never loads the VR module.
 
-**Status:** a single-dungeon demo. Privateer's Hold can be entered in VR from `vr-dungeon.html`. The online flow (`/play/`, and the live site) does not offer Enter VR yet. That button is the integration this repo is aiming at. Non-VR players are unaffected because `src/main.js` does not import `src/vr`.
+**Status:** Privateer's Hold can be entered in VR from `vr-dungeon.html`. The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press opens a session and ends it; the stereo frame loop is the next step. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button.
 
 Play it: https://daggerfalljs.dev/
 

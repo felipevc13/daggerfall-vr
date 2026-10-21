@@ -97,7 +97,12 @@ export function requestFrame(session, cb) {
 /** VR1: end the session. Idempotent; every host also listens for `end` so a
  *  headset's own exit (taken off, the menu key) runs the same unwind. */
 export function endVrSession(session) {
-  try { session?.end?.(); } catch { /* already ending */ }
+  try {
+    const done = session?.end?.();
+    // A rejecting end() must not surface as an unhandled rejection on a flat page.
+    if (done && typeof done.then === 'function') return done.then(() => {}, () => {});
+    return done;
+  } catch { /* already ending */ }
 }
 
 /**
@@ -124,7 +129,8 @@ export async function makeEnterVrButton({ gl, canvas = null, label = 'Enter VR',
     try {
       const opened = await enterVrSession({ gl, canvas, depthNear, depthFar, optionalFeatures, domOverlayRoot });
       button.style.display = 'none';
-      onEnter?.(opened);
+      // The host's onEnter may end the session (the /play/ plug does, until a frame loop exists). Awaiting it keeps that promise from becoming an unhandled rejection; a sync host is unchanged.
+      await onEnter?.(opened);
     } catch (err) {
       button.disabled = false;
       onError?.(err);

@@ -3,7 +3,8 @@
 // Product shape: this repository is a VR mod for DFO
 // (https://daggerfalljs.dev/, upstream https://github.com/Lattymoy/daggerfall-js-source).
 // The flat game must keep booting when this module is absent or when an
-// upstream merge drops a hook. src/main.js does not import src/vr. Pages that
+// upstream merge drops a hook. src/main.js reaches this folder only by a
+// dynamic import of installVr.js, and only when the URL has ?vr. Pages that
 // do import it ask this file whether the hooks are still there, and skip
 // "Enter VR" when they are not.
 //

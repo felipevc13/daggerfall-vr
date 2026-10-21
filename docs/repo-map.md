@@ -2,7 +2,7 @@
 
 This repository is Felipe's VR mod for [DFO](https://daggerfalljs.dev/), the browser game at [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The live site is upstream. This fork adds a WebXR layer for the Meta Quest Browser and keeps the inherited engine, the online services, and their workflows.
 
-The VR layer is meant to be a module a player can turn on. A person on a monitor never loads it. Today that split is already true of the flat game: `play/index.html` boots `src/main.js`, and `src/main.js` does not import `src/vr`. The headset demos are separate pages. Mounting an **Enter VR** button on the real game, including the hosted one, is the integration still to do. The recommendations are at the bottom. This change does not refactor that path.
+The VR layer is a module a player turns on. `play/index.html` boots `src/main.js`. That file dynamic-imports `src/vr/installVr.js` only when the URL has `?vr` (`params.has('vr')` on the boot's one `URLSearchParams`). Without the flag, no file under `src/vr/` is fetched. The headset demos are still separate pages. The button on `/play/?vr` opens an immersive session and ends it: the host frame loop is the next step. https://daggerfalljs.dev/play/ does not have this door. The recommendations for that loop are at the bottom.
 
 License: MIT, copyright Lattymoy, with Daggerfall Unity's MIT notice. See `LICENSE`. The Elder Scrolls and Daggerfall are trademarks of ZeniMax Media Inc. This is an unofficial fan project. Original game files (`arena2/`, `ARENA2/`) are never committed.
 
@@ -32,7 +32,7 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 | Page | Role |
 | --- | --- |
 | `index.html` | Upstream landing page. |
-| `play/index.html` | The game. Boots `src/main.js`. No VR import. |
+| `play/index.html` | The game. Boots `src/main.js`. That file reaches `src/vr/installVr.js` only by a dynamic import, and only when the URL has `?vr`. |
 | `terms/index.html`, `privacy/index.html` | Upstream legal pages. |
 | `vr-dungeon.html` | VR demo. Privateer's Hold. Loads `src/vr/vrDungeon.js` and `src/vr/xrLog.js`. Needs the player's ARENA2. |
 | `vr.html` | VR lab. A made room, no game data. Loads `src/tools/vrLab.js`. `tools/vrProbe.mjs` drives it. |
@@ -48,6 +48,7 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 
 | File | Job |
 | --- | --- |
+| `src/vr/installVr.js` | The only file the game calls. Probes the engine hooks, asks `isSessionSupported('immersive-vr')`, and mounts `makeEnterVrButton`. The press opens a session, logs that the frame loop is not wired, and ends the session. |
 | `src/vr/xrSession.js` | `immersive-vr` session, `local-floor`, `XRWebGLLayer`, and `makeEnterVrButton`. Returns null when the browser has no headset, so a flat page shows nothing. |
 | `src/vr/xrCamera.js` | One eye: WebXR pose into the engine's `lookAt` / mirrored projection. Preset 5 (`VR_EYE_X`, `IPD_SCALE`, `proj[0] = -proj[0]`). |
 | `src/vr/xrInput.js` | Sticks, snap turn, buttons, haptics, `ctx.collider.move`. |
@@ -59,7 +60,7 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 | `src/vr/vrDungeon.js` | Demo host. Not the online game. |
 | `src/vr/engineBridge.js` | Feature detection, the `gameMat4` namespace, and `offCenterProjection`. |
 
-`makeEnterVrButton` is the entry point a future game host should call. It already no-ops without WebXR. Non-VR players are unaffected because the game entry never calls it.
+`makeEnterVrButton` is the button `installVr` mounts. It returns null when the browser has no headset. A player who opens `/play/` without `?vr` never calls it, and the module is not downloaded.
 
 ## Current coupling
 
@@ -97,7 +98,7 @@ Through `engineBridge.js`: `gameMat4` (lookAt, perspective, mirrorProjectionX, i
 
 `xrSkeleton.js` still imports `formats/textureFile.js`, `formats/dfPalette.js`, and `fetchBytes`.
 
-`src/tools/vrLab.js` still imports `Renderer` and `mat4` for the flat preview of the made room, and calls `guardedSetXrTarget` for the eyes. It is allowed to import `src/vr`. Nothing under `src/scenes` or `src/main.js` is.
+`src/tools/vrLab.js` still imports `Renderer` and `mat4` for the flat preview of the made room, and calls `guardedSetXrTarget` for the eyes. It is allowed to import `src/vr`. `src/main.js` dynamic-imports `installVr.js` only when the URL has `?vr`. Nothing under `src/scenes` imports `src/vr`.
 
 `src/buildTag.js` differs from that upstream commit only by a build stamp (`BUILD_TAG` / `UPDATE`). It is rewritten by `prebuild` and restored by `postbuild`. It is not a VR hook.
 
@@ -154,14 +155,14 @@ The same test can be run against a fresh merge without a local conflict dance: A
 
 ## Making it a drop-in module
 
-Not done in this change. The shape that stays mergeable:
+The door is in. The frame loop is not. The shape that stays mergeable:
 
-1. Add `src/vr/installVr.js` as the only file the game calls. After `new Renderer` in `src/main.js`, dynamic-import it (`import('./vr/installVr.js')`). `test/scenes/boot1.test.js` forbids a static import of a host from `main.js`; a dynamic import of the VR installer is the same door the hosts already use, and it must stay dynamic so a broken VR module cannot throw while the flat game evaluates.
-2. `installVr` awaits `probeVrEngineHooks()`. If `ok` is false, it returns. If `immersiveVrSupported()` is false, it returns. Otherwise it mounts `makeEnterVrButton`. Flat players get no button and no VR frame.
+1. Done. `src/vr/installVr.js` is the only file the game calls. `src/main.js` dynamic-imports it (`import('./vr/installVr.js')`) when `params.has('vr')`, on the boot's one `URLSearchParams`. It cannot sit between `new Renderer` and `onPageGone`: `test/ui/ink/fb1003_glleak.test.js` pins that pair, and `test/systems/perfurl_doors.test.js` pins the one parse. `test/scenes/boot1.test.js` still forbids a static import of a host from `main.js`. The import stays dynamic so a broken VR module cannot throw while the flat game evaluates, and the call's `.catch` is the second net.
+2. Done. `installVr` awaits `probeVrEngineHooks()`. If `ok` is false, it returns. If `immersiveVrSupported()` is false, it returns. Otherwise it mounts `makeEnterVrButton`. The press opens the session, `relayVrLog` records that the frame loop is not wired, and `endVrSession` ends it. A flat `/play/` gets no button and no VR request. Stereo through `guardedSetXrTarget` is the next step, in a module a host wires (`src/scenes/fishHost.js` is the shape), not in a longer `bootWorld`.
 3. On enter, the active host (the four in `CLAUDE.md`: exterior, world, worldModes, dungeon) drives `requestFrame` and calls `guardedSetXrTarget` once per eye, then its existing draw with the matrices from `eyeMatrices`. That call belongs in a module the host wires, not in a longer `bootWorld`. `src/scenes/fishHost.js` is the shape `CLAUDE.md` names.
 4. Move `vrDungeon.js`'s engine imports behind one dynamic loader, for example `src/vr/dungeonAdapter.js`, that returns `{ ok: false, missing }` when a symbol is gone. The demo then shows the missing list instead of a red page. The online game would not use that adapter; it would use the real hosts.
 5. Keep the renderer and mat4 diffs as those named functions so a sync is a re-apply, not a second camera inside the VR folder.
-6. Upstream the module only when (2) and (3) are true and the contract test is green against current `upstream/main`. Until then, https://daggerfalljs.dev/play/ has no Enter VR, which is what a Quest browser shows today.
+6. Upstream the module only when (3) is true and the contract test is green against current `upstream/main`. Until then, https://daggerfalljs.dev/play/ has no Enter VR, which is what a Quest browser shows today. This fork's `/play/?vr` does.
 
 ## Dev helpers that are not the game
 

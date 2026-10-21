@@ -62,6 +62,10 @@ async function boot() {
   renderer.setRetroSource(retroFrameConfig);   // RETRO1: DFU's retro mode - asked once per world frame, so the settings screen's change lands on the next
   renderer.setRenderScaleSource(renderScaleSetting);   // PERF-SCALE: the world's share of the window's pixels - asked once per world frame, and retro wins
   const params = new URLSearchParams(location.search);
+  // VR1: opt-in plug. GL-LEAK keeps onPageGone as the line after `new Renderer`, and PERF-URL
+  // allows only this parse, so the door sits on it. No `vr` flag, the import() is never
+  // evaluated and src/vr is not fetched. A rejection cannot stop the flat boot.
+  if (params.has('vr')) import('./vr/installVr.js').then(({ installVr }) => installVr(renderer)).catch(() => {});
   // L10N1b: THE LANGUAGE FIRST. Every door below - the cinematic, the front door, the classic start, a probe's scene -
   // draws text, so the chosen language's tables are patched in before any of them runs (?lang= for one visit, else
   // the player's choice). A failure leaves English standing; nothing here can stop the game. Loaded behind a door

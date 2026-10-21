@@ -1,6 +1,6 @@
 # Testing on a Meta Quest
 
-The demo that runs in the headset today is the Privateer's Hold page, `vr-dungeon.html`. The online game does not enter VR yet. Both checks are below. The second one is a negative check: confirm the flat game still has no VR button, on the local server and on https://daggerfalljs.dev/play/.
+The demo that runs in the headset today is the Privateer's Hold page, `vr-dungeon.html`. The real game at `/play/` mounts Enter VR only when the URL has `?vr`. That press opens an immersive session and ends it: the frame loop is not wired yet, so the headset does not draw the world. Without `?vr`, `/play/` is the flat game and does not download `src/vr`. https://daggerfalljs.dev/play/ is upstream and has no door. The checks are below.
 
 WebXR is a secure context. These origins can start a session:
 
@@ -54,16 +54,39 @@ Wait until the on-page log stops on the ready line. Then:
 
 Arrow keys and WASD on a desktop move the flat preview. They are not the Quest check. `vr.html` is the empty room (`Enter VR` there too) and does not need ARENA2. `node tools/vrProbe.mjs` checks that room's flat frames and the camera math in headless Chromium. It does not replace the headset.
 
-## The online game, today
+## The real game, with `?vr`
 
-This is a real check, and the expected result is that VR is absent.
+`npm run dev:quest` prints the port (5173 unless that port was taken) and runs `adb reverse` when a headset is plugged in. In the Quest Browser, open exactly:
 
-1. With `npm run dev:quest` still running and `adb reverse` in place, open `http://localhost:5173/play/` in the Quest Browser.
-2. Pick the ARENA2 folder if the page asks. The dev server can also serve `./arena2` without the picker.
-3. Confirm the game draws (menu, or Privateer's Hold if you go through the door) and that there is **no Enter VR button**. `play/index.html` loads `src/main.js` only. `probeVrEngineHooks` is never called. Controllers do not become a sword.
-4. Open https://daggerfalljs.dev/play/ in the Quest Browser. That is upstream DFO, the game this mod is for. It is already HTTPS, so WebXR would be allowed if the module were mounted. It is not mounted. You get the flat game, the same ARENA2 picker, and no Enter VR. Do not expect the local `.quest-vr.log` to receive anything from that origin. The log plugin is the dev server only.
+```text
+http://localhost:5173/play/?vr
+```
 
-When `installVr` from `docs/repo-map.md` is wired, repeat steps 1 and 4 and expect the opposite: a button only if `probeVrEngineHooks` passes and the browser reports `immersive-vr`, stereo through the same `setXrTarget` path, and a monitor player on the same server seeing no button. That wiring is not in the tree yet. Do not treat a failure to enter VR from `/play/` or from daggerfalljs.dev as a regression of this demo.
+Use the printed port if it is not 5173. `localhost` is the headset's localhost. The LAN address will load the page and will not enter VR.
+
+1. Pick the ARENA2 folder if the page asks. The dev server can also serve `./arena2` without the picker.
+2. **Enter VR** appears only when `probeVrEngineHooks()` reports every hook and `navigator.xr.isSessionSupported('immersive-vr')` is true. A desktop browser without a headset, and a page opened without `?vr`, show no button.
+3. Press **Enter VR**. The browser starts an immersive session. The dev terminal and `.quest-vr.log` get one `[INFO]` line: the frame loop is not wired yet. The session then ends and the flat page returns, with the button back. The world is not drawn in the headset. That loop is the next change. Controllers do not become a sword on this page yet.
+4. If the button never appears, the origin is not a secure context, the hooks failed (a `[WARN]` line names the missing one), or the browser reported no immersive device.
+
+## The flat game, without `?vr`
+
+This check still has to pass.
+
+1. With the dev server up, open `http://localhost:5173/play/` (no `?vr`) in the Quest Browser or on a monitor.
+2. Confirm the game draws and that there is **no Enter VR button**. The network panel shows no request for `installVr.js` or any other file under `src/vr/`. `probeVrEngineHooks` is never called.
+3. Open https://daggerfalljs.dev/play/ in the Quest Browser. That is upstream DFO. It has no `installVr` door. You get the flat game and no Enter VR. The local `.quest-vr.log` receives nothing from that origin. The log plugin is the dev server only.
+
+## Desktop: Immersive Web Emulator
+
+USB is the Quest check. A desktop check of the same door:
+
+1. `npm run dev` (localhost is a secure context; `adb reverse` is not involved).
+2. In desktop Chrome, install the Immersive Web Emulator extension and emulate a Quest headset.
+3. Open `http://localhost:5173/play/?vr`.
+4. **Enter VR** should appear. The press starts the emulated session, the terminal logs that the frame loop is not wired, and the session ends. Open `http://localhost:5173/play/` in another tab and confirm that tab never requests `src/vr`.
+
+The extension is not a substitute for the stereo, hands, and collision checks on `vr-dungeon.html`. Those still want the headset.
 
 ## Wireless options
 

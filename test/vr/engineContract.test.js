@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse } from 'acorn';
 import { collectMissingHooks, guardedSetXrTarget, probeVrEngineHooks } from '../../src/vr/engineBridge.js';
 
 const read = (p) => readFileSync(p, 'utf8');
@@ -16,6 +17,60 @@ function jsFiles(dir, acc = []) {
     else if (ent.name.endsWith('.js')) acc.push(p);
   }
   return acc;
+}
+
+/** Every dynamic import in `src`, and whether it sits in the consequent of `params.has('vr')`. */
+function dynamicImports(src) {
+  const ast = parse(src, { ecmaVersion: 'latest', sourceType: 'module' });
+  const out = [];
+  const children = (n, visit) => {
+    for (const k of Object.keys(n)) {
+      if (k === 'loc' || k === 'start' || k === 'end' || k === 'range') continue;
+      const v = n[k];
+      if (Array.isArray(v)) for (const x of v) visit(x);
+      else if (v && typeof v.type === 'string') visit(v);
+    }
+  };
+  const record = (n, underVrIf) => {
+    if (!n || typeof n.type !== 'string') return;
+    if (n.type === 'ImportExpression') {
+      out.push({ source: n.source?.type === 'Literal' ? n.source.value : null, underVrIf });
+      return;
+    }
+    if (n.type === 'IfStatement') { walk(n); return; }
+    children(n, (x) => record(x, underVrIf));
+  };
+  const walk = (n) => {
+    if (!n || typeof n.type !== 'string') return;
+    if (n.type === 'IfStatement') {
+      const test = n.test;
+      const vrFlag = test?.type === 'CallExpression'
+        && test.callee?.type === 'MemberExpression'
+        && test.callee.computed !== true
+        && test.callee.property?.name === 'has'
+        && test.callee.object?.type === 'Identifier'
+        && test.callee.object.name === 'params'
+        && test.arguments?.length === 1
+        && test.arguments[0]?.type === 'Literal'
+        && test.arguments[0].value === 'vr';
+      walk(n.test);
+      record(n.consequent, vrFlag);
+      if (n.alternate) walk(n.alternate);
+      return;
+    }
+    if (n.type === 'ImportExpression') {
+      out.push({ source: n.source?.type === 'Literal' ? n.source.value : null, underVrIf: false });
+      return;
+    }
+    children(n, walk);
+  };
+  walk(ast);
+  return out;
+}
+
+function staticSpecs(src) {
+  const ast = parse(src, { ecmaVersion: 'latest', sourceType: 'module' });
+  return ast.body.filter((n) => n.type === 'ImportDeclaration').map((n) => n.source.value);
 }
 
 test('the engine still exports the hooks the headset draws through', async () => {
@@ -81,6 +136,35 @@ test('vr-dungeon.html is a build input, and the upstream publish workflows stay 
   for (const file of ['.github/workflows/deploy.yml', '.github/workflows/relay-deploy.yml', '.github/workflows/release-desktop.yml']) {
     assert.match(read(file), /github\.repository == 'Lattymoy\/daggerfall-js-source'/, file);
   }
+});
+
+test('main.js imports installVr only dynamically, and only when the URL has ?vr', () => {
+  // A flat /play/ must not fetch src/vr. The door is one literal import() so a
+  // scanner can see it: a concatenated path, a static `from`, or an import
+  // outside `params.has('vr')` fails here. GL-LEAK still owns the line after
+  // `new Renderer`; this door sits on the boot's one URLSearchParams.
+  const main = read('src/main.js');
+  assert.match(main, /const renderer = new Renderer\(canvas\);\n\s*onPageGone\(\(\) => \{ pageGoing = true; loseGlContext\(renderer\.gl\); \}\);/);
+  assert.match(main, /if \(params\.has\('vr'\)\) import\('\.\/vr\/installVr\.js'\)\.then\(\(\{ installVr \}\) => installVr\(renderer\)\)\.catch\(\(\) => \{\}\);/);
+  assert.equal([...main.matchAll(/['"]\.\/vr\/installVr\.js['"]/g)].length, 1);
+
+  const doors = dynamicImports(main);
+  assert.ok(doors.every((d) => typeof d.source === 'string'), 'a dynamic import built at runtime would hide the module from this scan');
+  assert.deepEqual(
+    doors.filter((d) => d.source.includes('/vr/')),
+    [{ source: './vr/installVr.js', underVrIf: true }],
+  );
+  assert.deepEqual(staticSpecs(main).filter((s) => s.includes('/vr/')), []);
+
+  const spec = /(?:from\s+|import\s*\(\s*)['"]([^'"]*\/vr\/[^'"]+)['"]/g;
+  const hits = [];
+  for (const file of jsFiles('src')) {
+    const norm = file.split('\\').join('/');
+    if (norm.startsWith('src/vr/') || norm.endsWith('src/tools/vrLab.js')) continue;
+    for (const m of read(file).matchAll(spec)) hits.push(`${norm} -> ${m[1]}`);
+  }
+  assert.deepEqual(hits, ['src/main.js -> ./vr/installVr.js']);
+  assert.doesNotMatch(read('play/index.html'), /src\/vr\//);
 });
 
 test('the upstream contract workflow is manual, fetches public upstream, and does not publish', () => {
