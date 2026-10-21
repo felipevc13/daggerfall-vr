@@ -25,9 +25,7 @@ export function replayDungeonDraw(bag) {
   bag.drawFx?.();
   npcLane?.drawVeiled?.();
   bag.lateWorldDraw?.();
-  if (bag.waterQuads?.length && bag.waterArchive != null) {
-    renderer.drawWater(bag.waterQuads, bag.waterColor, renderer.textures.get(`${bag.waterArchive}_0`), bag.waterT * bag.waterScroll);
-  }
+  bag.drawWater?.();
   bag.csaDrawParticlesBlended?.();
   if (bag.playerFeet) bag.weaponRig?.draw?.({ paralyzed: !!bag.paralyzed, resume: false });
 }

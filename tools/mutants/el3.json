@@ -283,8 +283,9 @@
   {
     "name": "renderer-composite-no-viewport",
     "file": "src/render/renderer.js",
-    "old": "    this._frameFbo = null;\n    this._lastProgram = null; this._lastVao = null;\n    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);",
+    "old": "    this._frameFbo = null;\n    this._lastProgram = null; this._lastVao = null;\n    if (this._xrTarget?.vp) {\n      const v = this._xrTarget.vp;\n      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this._xrTarget.fb);\n      this.gl.viewport(v.x, v.y, v.width, v.height);\n    } else this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);",
     "new": "    this._frameFbo = null;\n    this._lastProgram = null; this._lastVao = null;",
+    "note": "VR1 re-aimed BY CONTENT: the eye's viewport or the canvas. Same law - the resolve puts a viewport back.",
     "tests": [
       "test/render/el3_air.test.js"
     ]

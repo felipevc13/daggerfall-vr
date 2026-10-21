@@ -7318,6 +7318,11 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       waterQuads, waterArchive: _waterArchive, waterT: _waterT,
       waterColor: DUNGEON_WATER_COLOR, waterScroll: WATER_SCROLL_TILES_PER_SEC,
       weaponRig, paralyzed: entityIsParalyzed(playerEntity),
+      drawWater: () => {
+        if (waterQuads?.length && _waterArchive != null) {
+          renderer.drawWater(waterQuads, DUNGEON_WATER_COLOR, renderer.textures.get(`${_waterArchive}_0`), _waterT * WATER_SCROLL_TILES_PER_SEC);
+        }
+      },
       drawFx: () => magic.drawFx?.(),
       lateWorldDraw: opts.lateWorldDraw,
       csaDrawParticlesBlended: opts.csaDrawParticlesBlended,

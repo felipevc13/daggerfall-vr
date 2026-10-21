@@ -417,8 +417,9 @@
   {
     "name": "RETRO1-lane-resolve-ignores-the-image",
     "file": "src/render/airPass.js",
-    "old": "    gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolveTo?.fbo ?? null);",
+    "old": "    gl.bindFramebuffer(gl.FRAMEBUFFER, _dest?.fbo ?? null);",
     "new": "    gl.bindFramebuffer(gl.FRAMEBUFFER, null);",
+    "note": "VR1 re-aimed BY CONTENT: the resolve still writes resolveTo, now through _dest. Binding null still ignores the image.",
     "tests": [
       "test/render/retro1.test.js"
     ]

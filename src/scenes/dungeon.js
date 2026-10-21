@@ -1171,7 +1171,9 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // and both are DOM under the enhanced skin: they stay painted until
     // told otherwise (AUDIT 64 F37's law). On ?dungeon there is no
     // townTalk drawing a second column behind them either. So the hide
-    // doors ride the branch's own first line, before the return.
+    // doors ride the branch's own first line, before it leaves.
+    // The bodies line above is not this gate. A dozen lines separate them
+    // so that line is not read as the window's own branch.
     if (ctx.uiOverlayActive) {
       ctx.hideHudText?.(); hideWorldPlaque(); ctx.tickOverlay(dt); ctx.drawOverlay(canvas);   // AUDIT-WH H4: the plaque is a DOM node and this return is ABOVE drawFoes, where the hover lives
       // U26: the shot counter advances HERE TOO. This early return
@@ -1184,7 +1186,6 @@ export async function bootDungeon(canvas, renderer, params, status) {
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
       capturePendingScreenshot(canvas);   // SS1: a save armed under an overlay still lands its shot
       deliverOwedShots();   // SHOT1: the PrintScreen shots owed to a drawn frame, read from this one (ui/screenshot.js)
-      frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample
       return;   // U2b/U3: hold gameplay, keep the loop (AUDIT 18 F5: the overlay's own clock still runs - DFU's RestWindow.Update ticks on realtime under timeScale 0)
     }
     if ((index ?? 0) > 0) ctx.replayDungeonView?.(proj, view, cam.pos, player.pos);   // VR1: the picture again, not the sim
@@ -1211,14 +1212,15 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // task's to read).
     capturePendingScreenshot(canvas);
     deliverOwedShots();   // SHOT1: the PrintScreen shots owed to a drawn frame, read from this one (ui/screenshot.js)
-    if ((index ?? 0) === 0) frameEnd();   // PERF1: one sample per frame, on the eye that ran the sim
     }
     if (ctx.uiOverlayActive) {
       paintDungeonFrame(proj, view, 0);   // VR1: a window stays one picture; the clock copies it
+      frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample
       requestAnimationFrame(frame);
       return;
     }
     paintDungeonEyes((shot) => paintDungeonFrame(shot.proj, shot.view, shot.index ?? 0), { proj, view, eye: mwv.eye, yaw: cam.yaw });
+    frameEnd();   // PERF1
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

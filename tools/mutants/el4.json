@@ -156,8 +156,8 @@
   {
     "name": "resolve-frame-kept",
     "file": "src/render/airPass.js",
-    "old": "    gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolveTo?.fbo ?? null);\n    setFrameTarget(null);\n    gl.viewport(0, 0, F.w, F.h);",
-    "new": "    gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolveTo?.fbo ?? null);\n    gl.viewport(0, 0, F.w, F.h);",
+    "old": "    const _dest = this.resolveTo;\n    gl.bindFramebuffer(gl.FRAMEBUFFER, _dest?.fbo ?? null);\n    setFrameTarget(null);\n    const _vp = _dest?.vp;\n    if (_vp && _vp.width > 0 && _vp.height > 0) gl.viewport(_vp.x, _vp.y, _vp.width, _vp.height);\n    else gl.viewport(0, 0, F.w, F.h);",
+    "new": "    const _dest = this.resolveTo;\n    gl.bindFramebuffer(gl.FRAMEBUFFER, _dest?.fbo ?? null);\n    const _vp = _dest?.vp;\n    if (_vp && _vp.width > 0 && _vp.height > 0) gl.viewport(_vp.x, _vp.y, _vp.width, _vp.height);\n    else gl.viewport(0, 0, F.w, F.h);",
     "tests": [
       "test/render/el4_frame.test.js"
     ],

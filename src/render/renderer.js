@@ -3173,8 +3173,8 @@ export class Renderer {
     this._air.setGrade?.(this._sceneGrade); this._sceneGrade = null;   // SD-LOOK: the frame's grade, or the lane's defaults back
     const sc = this._scissor;   // AUDIT RETRO1 F3: a screen scissor live at the first quad is not the passes' - lifted for them and the present, and put back
     if (sc) this.gl.disable(this.gl.SCISSOR_TEST);
-    if (this._air.resolveTo?._vrEye) this._air.resolveTo = null;   // VR1: a resolve that threw must not keep the previous eye
-    this._aimXrResolve();   // VR1: an eye's resolve writes the XR framebuffer. A flat frame and a retro image leave resolveTo alone. Before the air span: VC6d allows one line between the mark and the composite.
+    if (this._air.resolveTo?._vrEye) this._air.resolveTo = null;
+    this._aimXrResolve();
     if (this._perfOpen) this._perf?.mark('air');   // VC6d: the AO, the bloom, the shafts and the resolve - a WORLD frame's (AUDIT RETRO1 J8: a menu's resolve, the meter closed, opened a span nothing closed)
     this._air.setCloudShadow(this._cloudShadow ?? this._deckOwed);   // VC6c: the FRAME's deck - the host sets it after beginFrame, so the shafts can only read it here
     this._air.composite();   // EL4: the resolve - the frame to the canvas
