@@ -9,3 +9,17 @@ This fork's CI runs upstream's suite. Two kinds of red are not the same, and the
 `docs/repo-map.md` and `AGENTS.md` point here. A flat `/play/` does not load `src/vr/`. `/play/?vr` dynamic-imports `installVr.js`. The frame clock is `src/vr/xrFrameLoop.js`. It stands in front of `requestAnimationFrame` only after that import, the same kind of seam as `installFramePacer`, and it does not edit `frameCap.js` or a host. The Enter VR plaque is `z-index` 30, under the asset picker. `_aimXrResolve` in `src/render/renderer.js` is a fork exception: while a headset eye is aimed, the air resolve writes that eye instead of the canvas, and the world image is that eye's viewport (`xrWorldImageSize`). A flat frame does not aim an eye, so the resolve stays the canvas. `test/vr/engineContract.test.js` pins the hook.
 
 The README still carries `Play it: https://daggerfalljs.dev/` because the terms and privacy URLs are derived from that line.
+
+**An upstream bug this fork fixes, and should offer back.** In `src/scenes/dungeon.js`, the `buildDungeonContext` options `foes`, `playerClass`, `playerSpell` and `playerWeapon` were sitting on a line that starts with `// HT1: the torch keys`. A line comment runs to the end of the line, so those four options were never passed. `/play/?dungeon&class=16` opened the character-creation wizard instead of the headless career (`applyHeadlessChargen`), and `?nofoes`, `?spell` and `?weapon` on that host did nothing. `world.js` and `exterior.js` already pass the same four as code. HT1 (`a0570bca`) inserted the `//` in front of options that were live. KB1 (`970ed49117`) wrapped that tail onto its own line and left the `//` there. This fork turns the torch-keys note and the AUDIT 62 F8 note back into comments and leaves the four options as code. The pin is `test/scenes/dungeonparams.test.js`: comments are stripped before the options are read, the same shape as FOE1, because a text match on the raw file stayed green while the options were commented out. Deleting the fix puts the bug back. It is not a fork decision and it is not in `test/fork/overrides.js`.
+
+Note suitable for an upstream issue:
+
+> **`?dungeon` ignores `class`, `nofoes`, `spell` and `weapon`**
+>
+> In `src/scenes/dungeon.js`, inside the `buildDungeonContext(...)` options, `foes`, `playerClass`, `playerSpell` and `playerWeapon` sit on a line that begins with `// HT1: the torch keys /* AUDIT 62 F8 ... */`. The line comment swallows the block comment and the four options, so they are never passed.
+>
+> `/play/?dungeon&class=16` opens the full character-creation wizard instead of `applyHeadlessChargen`. `?nofoes`, `?spell` and `?weapon` on the standalone dungeon host are ignored. `world.js` and `exterior.js` pass the same four options as code.
+>
+> The swallow started in `a0570bca` (HT1), which inserted `// HT1: the torch keys` in front of options that were live. `970ed49117` (KB1) wrapped that tail onto its own line and left the `//` in place.
+>
+> Restore the four options as code and keep both notes as comments. A text match on the raw file stays green while the options are commented out. Strip comments before asserting the properties, as FOE1 does for `worldModes.js`.

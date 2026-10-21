@@ -1,6 +1,6 @@
 # Testing on a Meta Quest
 
-The demo that runs in the headset today is the Privateer's Hold page, `vr-dungeon.html`. The real game at `/play/` mounts Enter VR only when the URL has `?vr`. That press keeps the immersive session open. On `/play/?dungeon&vr` each eye is drawn (Privateer's Hold). On `/play/?vr` alone, and in the world and interiors, both eyes still show the one picture the host drew. Without `?vr`, `/play/` is the flat game and does not download `src/vr`. https://daggerfalljs.dev/play/ is upstream and has no door. The checks are below.
+The demo that runs in the headset today is the Privateer's Hold page, `vr-dungeon.html`. The real game at `/play/` mounts Enter VR only when the URL has `?vr`. That press keeps the immersive session open. On `/play/?dungeon&class=16&vr` each eye is drawn (Privateer's Hold, as a Warrior, with character creation skipped). On `/play/?vr` alone, and in the world and interiors, both eyes still show the one picture the host drew. Without `?vr`, `/play/` is the flat game and does not download `src/vr`. https://daggerfalljs.dev/play/ is upstream and has no door. The checks are below.
 
 WebXR is a secure context. These origins can start a session:
 
@@ -62,20 +62,30 @@ Arrow keys and WASD on a desktop move the flat preview. They are not the Quest c
 http://localhost:5173/play/?vr
 ```
 
-To land in Privateer's Hold instead of the front door:
+The stereo check lands in Privateer's Hold as a Warrior and skips character creation:
+
+```text
+http://localhost:5173/play/?dungeon&class=16&vr
+```
+
+`16` is the Warrior. The careers table is `CLASS_CAREERS` in `src/systems/chargen.js` (Mage is 0, Warrior is 16, Knight is 17). That index is what `?class=` hands the dungeon host, and the host builds the career headless, so the character-creation wizard does not open.
+
+Plain `?dungeon` (no `class`) runs the classic opening: character creation, then Privateer's Hold. `?dungeon` with no value is still that hold, region Daggerfall.
 
 ```text
 http://localhost:5173/play/?dungeon&vr
 ```
 
-`?dungeon` with no value is Privateer's Hold, region Daggerfall. Use the printed port if it is not 5173. `localhost` is the headset's localhost. The LAN address will load the page and will not enter VR.
+Use the printed port if it is not 5173. `localhost` is the headset's localhost. The LAN address will load the page and will not enter VR.
 
-1. Pick the ARENA2 folder if the page asks. The front door itself does not ask. The dev server can also serve `./arena2` without the picker.
+The dev server needs Daggerfall's game files. Put the `ARENA2` folder at `./arena2` in the repo root, or set `ARENA2_PATH` to that folder. Do not commit it. With either one set, this page does not ask for a folder.
+
+1. If `./arena2` and `ARENA2_PATH` are both unset, pick the ARENA2 folder when the page asks. The front door itself does not ask.
 2. **Enter VR** appears only when `probeVrEngineHooks()` reports every hook and `navigator.xr.isSessionSupported('immersive-vr')` is true. A desktop browser without a headset, and a page opened without `?vr`, show no button.
 3. The button is a small dark plaque with a bone label and a grey-gold border, on the **right edge, about a third of the way down**. It sits under the sign-in mark and above the footer, so it does not cover Settings, Overhauls, or Screenshots, and it does not sit on the compass or the vitals. It only takes clicks on itself. During the intro film the film covers it (the film is a later full-screen layer at the same depth). That is expected. The plaque is back when the title menu is up, and it stays up through character creation, the pause menu, and the dungeon. Pressing it while a session is open ends the session. The label then reads Exit.
 4. Press **Enter VR**. The browser starts an immersive session and **leaves it open**. The dev terminal and `.quest-vr.log` get one `[INFO]` line: the frame loop is on the headset, the dungeon draws each eye, and other places still share one picture.
-   - **Quest, stereo:** `http://localhost:5173/play/?dungeon&vr` (the port the script printed). Privateer's Hold. Look straight ahead: the horizon of a level corridor sits at eye height, and the floor is below that line. Look up and the ceiling comes into view. The two eyes fuse. A near door jamb shifts between them, and a door reads about human height (one game metre is one headset metre). Turning your head looks around. Walking still follows the body's facing, not the nose.
-   - **Quest, one picture:** `http://localhost:5173/play/?vr` until you are in the world, and any interior. Both eyes show the same picture. A menu open on `?dungeon&vr` does too.
+   - **Quest, stereo:** `http://localhost:5173/play/?dungeon&class=16&vr` (the port the script printed). Privateer's Hold, Warrior, no character creation. Look straight ahead: the horizon of a level corridor sits at eye height, and the floor is below that line. Look up and the ceiling comes into view. The two eyes fuse. A near door jamb shifts between them, and a door reads about human height (one game metre is one headset metre). Turning your head looks around. Walking still follows the body's facing, not the nose.
+   - **Quest, one picture:** `http://localhost:5173/play/?vr` until you are in the world, and any interior. Both eyes show the same picture. A menu open on `?dungeon&class=16&vr` does too.
    - On `?vr` alone the front door is a DOM menu, so the headset shows that picture only once a world host is drawing frames. Controllers do not become a sword on this page yet.
 5. **Exit.** Press the same plaque (it says Exit), or leave immersive mode from the Quest system menu. The flat page returns, still running, and the plaque says Enter VR again. The window frame loop is back. The terminal logs that. There is not a second loop.
 6. If the button never appears, the origin is not a secure context, the hooks failed (a `[WARN]` line names the missing one), or the browser reported no immersive device. A failure while the session is starting ends the session and returns to the window loop. It does not stop the flat game.
@@ -96,7 +106,7 @@ USB is the Quest check. A desktop check of the same door:
 2. In desktop Chrome, install the Immersive Web Emulator extension and emulate a Quest headset.
 3. Open `http://localhost:5173/play/?vr`.
 4. **Enter VR** should appear on the right edge, under the sign-in mark. It is covered during the intro film and back on the title menu. The press starts the emulated session and **keeps it open**. The terminal logs that the frame loop is on the headset and that the dungeon draws each eye.
-   - Open `http://localhost:5173/play/?dungeon&vr`. The emulator's two views are Privateer's Hold from two eyes. Looking straight, a level corridor's horizon sits near the middle of each view and the floor is below it. A near door jamb shifts between the views, and the two views fuse. Yaw the emulated head and the view turns. The body does not walk toward the nose.
+   - Open `http://localhost:5173/play/?dungeon&class=16&vr`. The emulator's two views are Privateer's Hold from two eyes, with character creation skipped (16 is the Warrior). Looking straight, a level corridor's horizon sits near the middle of each view and the floor is below it. A near door jamb shifts between the views, and the two views fuse. Yaw the emulated head and the view turns. The body does not walk toward the nose. Plain `?dungeon&vr` runs character creation first, then the same hold. The dev server needs `./arena2` or `ARENA2_PATH`.
    - Open `http://localhost:5173/play/?vr` and enter the world, or open an interior. Both emulator views show the same picture.
    - Open `http://localhost:5173/play/` in another tab and confirm that tab never requests `src/vr`.
    Leaving the session from the emulator (or the Exit plaque) returns the window loop, and the terminal logs that the window frame loop is back.
