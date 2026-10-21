@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { collectMissingHooks, guardedSetXrTarget, probeVrEngineHooks } from '../../src/vr/engineBridge.js';
+import { collectMissingHooks, guardedSetXrTarget, probeVrEngineHooks, probeVrUiHooks } from '../../src/vr/engineBridge.js';
 
 const read = (p) => readFileSync(p, 'utf8');
 
@@ -81,6 +81,39 @@ test('vr-dungeon.html is a build input, and the upstream publish workflows stay 
   for (const file of ['.github/workflows/deploy.yml', '.github/workflows/relay-deploy.yml', '.github/workflows/release-desktop.yml']) {
     assert.match(read(file), /github\.repository == 'Lattymoy\/daggerfall-js-source'/, file);
   }
+});
+
+test('UI presence reads the engine only through the bridge, and the hooks are still exported', async () => {
+  const presence = read('src/vr/uiPresence.js');
+  const bridge = read('src/vr/engineBridge.js');
+  assert.match(presence, /from ['"]\.\/engineBridge\.js['"]/);
+  for (const spec of ['../ui/', '../scenes/', '../player/', '../systems/', '../render/', '../world/']) {
+    const body = spec.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    assert.doesNotMatch(presence, new RegExp(`from ['"]${body}`), spec);
+  }
+  assert.doesNotMatch(bridge, /from ['"]\.\.\/ui\//);
+  assert.match(bridge, /import\('\.\.\/ui\/input\.js'\)/);
+  assert.match(bridge, /import\('\.\.\/ui\/enhanced\/enhancedOverlays\.js'\)/);
+  assert.doesNotMatch(bridge, /windowStack/);
+  assert.doesNotMatch(presence, /windowStack/);
+  assert.doesNotMatch(presence, /observeStack/);
+  assert.doesNotMatch(presence, /startsWith\(\s*['"]enhanced-/);
+  for (const file of jsFiles('src/vr')) {
+    const text = read(file);
+    assert.doesNotMatch(text, /\.paused\s*\(/, file);
+    assert.doesNotMatch(text, /\[['"]paused['"]\]/, file);
+  }
+  const probe = await probeVrUiHooks();
+  assert.deepEqual(probe.missing, [], probe.missing.join(', '));
+  assert.equal(probe.ok, true);
+  const dungeon = read('src/vr/vrDungeon.js');
+  assert.doesNotMatch(dungeon, /from ['"]\.\/uiPresence\.js['"]/);
+  assert.doesNotMatch(dungeon, /observeStack/);
+  assert.match(dungeon, /uiOverlayActive/);
+  const flag = dungeon.indexOf("pageHas('vrui')");
+  assert.ok(flag > 0);
+  assert.match(dungeon.slice(flag, flag + 700), /import\('\.\/uiPresence\.js'\)/);
+  assert.match(dungeon.slice(flag, flag + 700), /publishedOpen/);
 });
 
 test('the upstream contract workflow is manual, fetches public upstream, and does not publish', () => {

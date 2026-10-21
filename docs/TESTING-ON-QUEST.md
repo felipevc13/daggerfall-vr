@@ -48,7 +48,7 @@ Wait until the on-page log stops on the ready line. Then:
 3. **Hands.** Move each controller. The right hand holds the sword, the left holds the torch. The torch throws light on the stone.
 4. **Locomotion.** Left stick walks and strafes. You should stop on walls (`ctx.collider.move`), not slide through them. Click the left stick to move faster. Right stick snap-turns 45 degrees.
 5. **Combat.** Swing the sword through the skeletal warrior. The log line should report a hit and the skeleton's HP. The combat slate shows the numbers.
-6. **Menu.** Left **X** or left **Y** toggles the floating menu. Right trigger points the laser. Left grip (hold, then release) records a voice line. On the computer, `.vr-user-request.json` updates and the terminal prints the transcript. `node scripts/aiReply.mjs "reply"` should show the reply on the slate within a few seconds.
+6. **Menu.** Left **X** or left **Y** toggles the floating menu. Right trigger points the laser. Left grip (hold, then release) records a voice line. On the computer, `.vr-user-request.json` updates and the terminal prints the transcript. `node scripts/aiReply.mjs "reply"` should show the reply on the slate within a few seconds. That slate is the demo's own menu (`src/vr/xrMenu.js`), not the game's inventory. Append `?vrui` to the dungeon URL to log when the generic modal detector changes (`[vrui]` in the dev terminal). The flag does not draw a panel. See [docs/vr-menus.md](vr-menus.md).
 7. **Telemetry.** Force a log (the boot lines are enough). The dev terminal prints `[INFO]` lines and `.quest-vr.log` grows. An exception prints `[ERROR]`.
 8. **Exit.** Use the Quest menu to leave immersive mode. The flat page should return, still running. Reload if the canvas stays black.
 

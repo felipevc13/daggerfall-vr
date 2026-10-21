@@ -90,3 +90,82 @@ export function guardedSetXrTarget(renderer, framebuffer, viewport) {
     return false;
   }
 }
+
+// VR1: UI PRESENCE. Read-only questions the menu detector asks so it can
+// tell "a modal is up" without a list of menus. Nothing here is called
+// while a flat frame draws: src/main.js does not import src/vr, and these
+// loaders run only when a headset page asks. Each import is dynamic and
+// the answer is a status, never a throw, so an upstream rename degrades
+// to "missing" and the other signals still answer.
+//
+//   input.hostPaused             the host's pause, once it has handed its
+//                                hooks to an input layer (null before that)
+//   enhancedOverlays.overlayOpen the DOM doors' close-arm stack
+//
+// The four hosts keep their stacks in closures. ROAD-tail
+// (test/scenes/roadb_host_pause.test.js) reserves the stack's pause
+// method for those hosts. This module does not import that module and
+// does not call that method. hostPaused() is the read upstream added
+// for everyone else. The dungeon demo, which never registers a host,
+// passes the context's published uiOverlayActive into the detector.
+
+/** Names probeVrUiHooks reports. Same list the contract test pins. */
+export const VR_UI_HOOKS = Object.freeze([
+  'input.hostPaused',
+  'enhancedOverlays.overlayOpen',
+]);
+
+let uiHooksPromise = null;
+
+/** Load the two UI modules once. A failed import is a missing module. */
+export function loadVrUiHooks() {
+  if (!uiHooksPromise) {
+    uiHooksPromise = (async () => {
+      const out = { input: null, overlays: null };
+      try { out.input = await import('../ui/input.js'); } catch { out.input = null; }
+      try { out.overlays = await import('../ui/enhanced/enhancedOverlays.js'); } catch { out.overlays = null; }
+      return out;
+    })();
+  }
+  return uiHooksPromise;
+}
+
+/** Which UI hooks are still exported. Missing names are not a crash. */
+export async function probeVrUiHooks() {
+  const mods = await loadVrUiHooks();
+  const missing = [];
+  if (typeof mods.input?.hostPaused !== 'function') missing.push('input.hostPaused');
+  if (typeof mods.overlays?.overlayOpen !== 'function') missing.push('enhancedOverlays.overlayOpen');
+  return { ok: missing.length === 0, missing };
+}
+
+/** @param {{ status: 'value', value: boolean } | { status: 'idle' } | { status: 'missing' } | { status: 'threw' }} */
+function valueStatus(status, value) {
+  return value === undefined ? { status } : { status, value };
+}
+
+/** The host's pause. `idle` is "no host has registered yet" (the boot
+ *  menu). `missing` is "upstream dropped the export". `threw` is a read
+ *  that failed — the caller treats that as "show the panel". */
+export function readHostPaused(mods) {
+  const fn = mods?.input?.hostPaused;
+  if (typeof fn !== 'function') return valueStatus('missing');
+  try {
+    const v = fn();
+    if (v == null) return valueStatus('idle');
+    return valueStatus('value', !!v);
+  } catch {
+    return valueStatus('threw');
+  }
+}
+
+/** True when a DOM door has registered a close arm. */
+export function readOverlayOpen(mods) {
+  const fn = mods?.overlays?.overlayOpen;
+  if (typeof fn !== 'function') return valueStatus('missing');
+  try {
+    return valueStatus('value', !!fn());
+  } catch {
+    return valueStatus('threw');
+  }
+}
