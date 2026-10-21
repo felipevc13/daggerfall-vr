@@ -244,6 +244,7 @@ import {
 import { peerHanded, notCarried } from '../systems/peerWord.js';   // SS3: a bound piece in the room's containers, or on a body, never lands; HACKED-GOLD: nor a letter of credit (systems/peerWord.js)
 import { floorLanding, closestDoorTo, dungeonVoidRescue } from '../player/enterExit.js';   // DE1: TransitionDungeonInterior orients away from the door it came through; VOID-DUNGEON: the failsafe's record
 import { trs, multiply, identity, UP_Y } from '../world/mat4.js';
+import { replayDungeonDraw } from './dungeonEyeReplay.js';   // VR1: the second eye redraws; it does not tick
 import { StaticBatchBuilder, keyResolver, SHADOW_CELL_SIZE } from '../render/staticBatch.js';   // PERF5: the level's static models as one mesh; LA-AUDIT A1: with its shadow cells
 import { Collider } from '../player/collider.js';
 import { ActionSystem } from '../world/actionSystem.js';
@@ -2339,6 +2340,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // (or the frame it stops being wanted); `_npcStood` the frame's foes offered to it, whose billboards cast alone once
   // the lane has synced
   let _npcLane = null;
+  let _vrEyeBillboards = null;   // VR1: the foe, drop and spell flats this frame's drawFoes submitted, for the other eye
   const _npcStood = [];
   /** AUDIT MW-NPC II H3: the corpse flats the level's pass drew cast-only this frame (the hosts draw them before drawFoes),
    *  and of them the ones whose body has gone by the sync - drawn on the foes' own pass, so none is a frame unseen. */
@@ -7308,6 +7310,27 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // water sounds. Castle-block detection (doNotPlayInCastle) pends.
   const sceneAmbience = new AmbientEffects(DUNGEON_AMBIENT_WAITS);
   sceneAmbience.setPreset('dungeon');
+  /** VR1: redraw this frame's foe pictures for another eye. The sim stays in drawFoes. */
+  function replayDungeonView(proj, view, eye, playerFeet) {
+    replayDungeonDraw({
+      renderer, canvas: _weaponCanvas, proj, view, eye, up: UP_Y,
+      npcLane: _npcLane, billboards: _vrEyeBillboards, playerFeet,
+      waterQuads, waterArchive: _waterArchive, waterT: _waterT,
+      waterColor: DUNGEON_WATER_COLOR, waterScroll: WATER_SCROLL_TILES_PER_SEC,
+      weaponRig, paralyzed: entityIsParalyzed(playerEntity),
+      drawWater: () => {
+        // The drawFoes call stays the one the water pins measure. This eye only repeats it.
+        if (waterQuads?.length && _waterArchive != null) {
+          const quads = waterQuads;
+          const color = DUNGEON_WATER_COLOR;
+          renderer.drawWater(quads, color, renderer.textures.get(`${_waterArchive}_0`), _waterT * WATER_SCROLL_TILES_PER_SEC);
+        }
+      },
+      drawFx: () => magic.drawFx?.(),
+      lateWorldDraw: opts.lateWorldDraw,
+      csaDrawParticlesBlended: opts.csaDrawParticlesBlended,
+    });
+  }
   function drawFoes(dt, canvas, proj, view, eye, playerFeet, moveHeld = false, playerHeight = CAPSULE_HEIGHT, playerSneaking = false, playerMove = null, playerBobY = 0, playerCrouching = false, playerRenderFeet = null, playerClimb = null, aimView = null) {
     if (_staleChunkNotice) { _staleChunkNotice = false; setMidScreenText(STALE_CHUNK_IN_PLAY_TEXT, STALE_CHUNK_IN_PLAY_SECONDS); }
     grants?.()?.tick();   // GRANT4: my grants' clock underground - renewed, the tally handed on
@@ -8108,6 +8131,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       renderer.drawBillboards([..._mobileBatches, ..._dropBatches, ..._spellBatches],
         new Float32Array([-view[0], -view[4], -view[8]]), UP_Y);
     }
+    _vrEyeBillboards = { mobiles: _mobileBatches, corpses: _corpseLate, drops: _dropBatches, spells: _spellBatches };   // VR1: the other eye redraws these; the ticks above already ran
     magic.drawFx?.();   // IMPACTFX: the spells' landings in light, over their flashes
     // INVIS-LOOK (2026-09-27): the host's concealed peers' bodies, translucent - after the last opaque flat (the foes),
     // before the water and the screen quads that end the world pass (WATER-D1's law, below)
@@ -9275,6 +9299,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     questMarkerMover: (markerID) => sceneMarkerMover(dungeon.blocks, actions, markerID),   // TOTEM-CAGE: the acting marker a quest item rides (AddQuestItem's parenting), or null
     replaceFoe: replaceFoeInPool,   // AUDIT 58 (review): the hosted route's enchant mount routes the Wabbajack here by pool membership
     drawFoes,
+    replayDungeonView,   // VR1: the standalone host's second eye. The world-hosted dungeon does not call it.
     playerAttackInput,
     spellArmed: () => magic.spellArmed(),   // A8: PlayerEffectManager.HasReadySpell, for the host's activate gate
     weaponRig: () => weaponRig,   // AUDIT WORLD C1: the rig the player's hands are in underground, for the pose's arm

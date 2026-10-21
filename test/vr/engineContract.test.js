@@ -200,6 +200,21 @@ test('UI presence reads the engine only through the bridge, and the hooks are st
   assert.match(dungeon.slice(flag, flag + 700), /publishedOpen/);
 });
 
+test('the air resolve follows the eye the bridge aimed, and the dungeon does not import src/vr', () => {
+  const renderer = read('src/render/renderer.js');
+  const air = read('src/render/airPass.js');
+  assert.match(renderer, /_aimXrResolve\(\) \{/);
+  assert.match(renderer, /_vrEye: true/);
+  assert.match(renderer, /if \(this\._xrTarget\?\.vp\)/);
+  assert.match(air, /if \(_vp && _vp\.width > 0 && _vp\.height > 0\) gl\.viewport\(_vp\.x, _vp\.y, _vp\.width, _vp\.height\);/);
+  assert.match(air, /else gl\.viewport\(0, 0, F\.w, F\.h\);/);
+  assert.match(read('src/vr/engineBridge.js'), /_aimXrResolve/);
+  assert.match(read('src/vr/installVr.js'), /clock\.dungeonEyes/);
+  assert.doesNotMatch(read('src/scenes/dungeon.js'), /\/vr\//);
+  assert.doesNotMatch(read('src/scenes/dungeonEyeHost.js'), /\/vr\//);
+  assert.match(read('src/vr/xrFrameLoop.js'), /claimStereo/);
+});
+
 test('the frame clock lives in src/vr and aims the existing eye hook', () => {
   const loop = read('src/vr/xrFrameLoop.js');
   const plug = read('src/vr/installVr.js');

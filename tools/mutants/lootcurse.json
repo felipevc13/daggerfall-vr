@@ -131,7 +131,8 @@
     "tests": [
       "test/scenes/ql_frame.test.js"
     ],
-    "old": "      requestAnimationFrame(frame);\n      return;   // U2b/U3",
-    "new": "      return;   // U2b/U3"
+    "old": "      paintDungeonFrame(proj, view, 0);   // VR1: a window stays one picture; the clock copies it\n      frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample\n      requestAnimationFrame(frame);\n      return;",
+    "new": "      paintDungeonFrame(proj, view, 0);   // VR1: a window stays one picture; the clock copies it\n      frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample\n      return;",
+    "note": "VR1 re-aimed BY CONTENT: the overlay's re-arm moved to frame() with the abort. Dropping it is still the soft-lock."
   }
 ]

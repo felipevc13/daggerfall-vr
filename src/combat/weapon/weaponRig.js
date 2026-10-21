@@ -2012,8 +2012,10 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     paperCorners() { return fpArm.paperCorners(); },
     heldPose() { return fpArm.heldPose(); },
     setHeldPose(spec) { return fpArm.setHeldPose(spec); },
-    draw({ paralyzed = false } = {}) {
+    draw({ paralyzed = false, resume = true } = {}) {
       _armDrewLast = false;
+      // VR1: the other eye redraws the sprite. The swing's coroutine steps once, on the eye that simulated.
+      if (resume === false) return onUiScreen(renderer, cv(), () => drawInner({ paralyzed }));
       try { return onUiScreen(renderer, cv(), () => drawInner({ paralyzed })); } finally { widget.endOfFrame(); twoHands.offWidget.endOfFrame(); shield.endOfFrame(); }   // WW1: WaitForEndOfFrame resumes after the frame's draw (TWO-HANDS: the left hand's clone's too); RETRO-UI: in the pillarbox
     },
     widget,   // WW1: the clone, for the pins

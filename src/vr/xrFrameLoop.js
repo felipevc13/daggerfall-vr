@@ -12,11 +12,12 @@
 //
 // It does not edit a host. The host's callback runs once per XR frame, with
 // the XR timestamp. Before it, the first eye's viewport is handed to setTarget
-// (guardedSetXrTarget, the renderer's existing setXrTarget). The host draws
-// once, its normal camera, into that rectangle. After it, the other eyes get
-// a copy of that color image. Both eyes show the same picture. Per-eye cameras
-// are a later change. syncCanvasToLayer is not called: the flat layout stays
-// the window's size.
+// (guardedSetXrTarget, the renderer's existing setXrTarget). A host that does
+// not ask for more draws once, its normal camera, into that rectangle, and
+// the other eyes get a copy of that color image. The dungeon host can claim
+// the frame after it has drawn each eye itself (`claimStereo`); the copy is
+// then skipped. Every other host keeps the copy. syncCanvasToLayer is not
+// called: the flat layout stays the window's size.
 //
 // /play/ without ?vr never loads this file. A failure logs and falls back to
 // the window clock. Nothing here throws into the caller.
@@ -270,8 +271,37 @@ export function createXrFrameClock({
   let endListener = null;
   let mirrorWarned = false;
   let presentFailed = false;
+  let framePack = null;
+  let stereoClaimed = false;
   const eyeMirror = createEyeMirror(gl);
   const copyEyes = mirror ?? ((fbLayer, views) => eyeMirror.copy(fbLayer, views));
+
+  function rectOf(v) {
+    return { x: v.x, y: v.y, width: v.width, height: v.height };
+  }
+
+  /** The eyes for this frame, with the XRView still attached, or null. */
+  function eyePackOf(xrFrame) {
+    if (!xrFrame || typeof xrFrame.getViewerPose !== 'function' || !refSpace || typeof layer?.getViewport !== 'function') return null;
+    let pose = null;
+    try { pose = xrFrame.getViewerPose(refSpace); } catch { return null; }
+    const list = pose?.views;
+    if (!list || typeof list.length !== 'number' || list.length === 0) return null;
+    const views = [];
+    for (let i = 0; i < list.length; i++) {
+      let vp = null;
+      try { vp = layer.getViewport(list[i]); } catch { return null; }
+      const x = Number(vp?.x);
+      const y = Number(vp?.y);
+      const width = Number(vp?.width);
+      const height = Number(vp?.height);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !(width > 0) || !(height > 0)) return null;
+      views.push({ view: list[i], x, y, width, height });
+    }
+    const hm = pose.transform?.matrix;
+    const head = hm && hm.length >= 15 ? [hm[12], hm[13], hm[14]] : null;
+    return { framebuffer: layer.framebuffer ?? null, views, head, session };
+  }
 
   function tell(err) {
     try {
@@ -323,13 +353,16 @@ export function createXrFrameClock({
 
   function pump(stamp, xrFrame) {
     let views = null;
+    framePack = null;
+    stereoClaimed = false;
     if (mode === 'session') {
       if (xrFrame) {
-        try { views = eyeViewsOf(xrFrame, refSpace, layer); } catch { views = null; }
+        try { framePack = eyePackOf(xrFrame); } catch { framePack = null; }
+        views = framePack?.views ?? null;
       }
       let pointed = false;
       try {
-        if (views?.length) pointed = setTarget(layer?.framebuffer ?? null, views[0]) === true;
+        if (views?.length) pointed = setTarget(layer?.framebuffer ?? null, rectOf(views[0])) === true;
         else setTarget(null, null);
       } catch { pointed = false; }
       // A pose with nowhere to draw it would leave the headset black. One signal,
@@ -344,7 +377,9 @@ export function createXrFrameClock({
     for (const cb of batch) {
       try { cb(stamp); } catch (err) { tell(err); }
     }
-    if (mode !== 'session' || !views || views.length < 2) return;
+    const claimed = stereoClaimed;
+    framePack = null;
+    if (mode !== 'session' || !views || views.length < 2 || claimed) return;
     let copied = false;
     try { copied = copyEyes(layer, views) === true; } catch { copied = false; }
     if (!copied && !mirrorWarned) {
@@ -387,6 +422,8 @@ export function createXrFrameClock({
     session = null;
     layer = null;
     refSpace = null;
+    framePack = null;
+    stereoClaimed = false;
     try { setTarget(null, null); } catch { /* already the canvas */ }
     try { eyeMirror.release(); } catch { /* nothing left to free */ }
     if (listener && ending) {
@@ -466,6 +503,8 @@ export function createXrFrameClock({
     uninstall,
     engage,
     disengage: () => disengage('end'),
+    eyePack: () => framePack,
+    claimStereo: () => { stereoClaimed = true; },
     get installed() { return installed; },
     get presenting() { return mode === 'session'; },
   };

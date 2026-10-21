@@ -4,14 +4,15 @@
 // `vr`. A flat /play/ never evaluates it. Every failure returns; the boot's
 // own .catch is the second net. Entering VR engages the frame clock
 // (xrFrameLoop.js): the host keeps its own callback, and that callback is
-// driven by the session until the session ends. Both eyes get the host's
-// one picture. Nothing here draws a second camera, and syncCanvasToLayer
-// is not called.
+// driven by the session until the session ends. The dungeon host draws each
+// eye. Every other host still draws once, and the clock copies that picture.
+// syncCanvasToLayer is not called.
 
 import { guardedSetXrTarget, probeVrEngineHooks } from './engineBridge.js';
 import { endVrSession, immersiveVrSupported, makeEnterVrButton } from './xrSession.js';
 import { relayVrLog } from './xrLog.js';
 import { createXrFrameClock } from './xrFrameLoop.js';
+import { createDungeonStereo, DUNGEON_NEAR, DUNGEON_FAR } from './dungeonStereo.js';
 
 /**
  * Mount Enter VR on the real game, or mount nothing.
@@ -54,11 +55,13 @@ export async function installVr(renderer, hooks = {}) {
     if (!headset) return { mounted: false, reason: 'unsupported' };
     if (!doc?.body || !renderer?.gl) return { mounted: false, reason: 'no-surface' };
 
+    const stereo = createDungeonStereo((fb, vp) => guardedSetXrTarget(renderer, fb, vp));
     clock = Clock({
       win,
       gl: renderer.gl,
       setTarget: (fb, vp) => guardedSetXrTarget(renderer, fb, vp),
       onDisengage: () => {
+        try { stereo.release(); } catch { /* the next session captures a new head */ }
         try { console.log(say('info', 'VR session ended. The window frame loop is back.')); } catch { /* the flat game continues */ }
       },
       onArmFail: () => {
@@ -73,6 +76,7 @@ export async function installVr(renderer, hooks = {}) {
         try { console.warn(say('warn', 'VR could not copy the picture to the other eye. That eye may stay dark.')); } catch { /* the first eye still drew */ }
       },
     });
+    try { clock.dungeonEyes = (draw, camera) => stereo.paint(clock, draw, camera); } catch { /* no seam: the clock's copy remains */ }
     if (!clock.install()) {
       console.warn(say('warn', 'VR off. This page has no frame clock to move.'));
       return { mounted: false, reason: 'no-clock' };
@@ -84,6 +88,8 @@ export async function installVr(renderer, hooks = {}) {
       canvas: renderer.canvas ?? renderer.gl.canvas ?? null,
       doc,
       hideOnEnter: false,
+      depthNear: DUNGEON_NEAR,
+      depthFar: DUNGEON_FAR,
       onGesture: () => { try { clock.install(); } catch { /* engage reports a clock that will not arm */ } },
       onEnter: (opened) => {
         live = opened?.session ?? null;
@@ -96,7 +102,7 @@ export async function installVr(renderer, hooks = {}) {
           stop(live);
           return;
         }
-        try { console.log(say('info', 'VR frame loop is on the headset. Both eyes show the same picture for now.')); } catch { /* the session is already up */ }
+        try { console.log(say('info', 'VR frame loop is on the headset. The dungeon draws each eye. Other places still share one picture.')); } catch { /* the session is already up */ }
       },
       onError: (err) => {
         try { console.warn(say('warn', `VR session refused: ${err?.message ?? err}`)); } catch { /* the flat game continues */ }

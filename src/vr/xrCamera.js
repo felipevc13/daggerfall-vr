@@ -51,6 +51,15 @@ const DEG = Math.PI / 180;
 export const VR_EYE_X = 1;
 export const IPD_SCALE = 0.75;
 
+/** VR1: one game metre is one headset metre.
+ *  Classic units become metres when a mesh is read (`GLOBAL_SCALE` 0.025 in
+ *  world/meshReader.js, DFU's MeshReader.GlobalScale). A dungeon block face is
+ *  51.2 m, the body is 1.8 m, the eye is 1.7 m, and a door is about 2.4–3.2 m.
+ *  WebXR's local-floor space is already metres. Applying 0.025 again would
+ *  shrink the player to a few centimetres, so the headset delta is multiplied
+ *  by 1 and the game position is left as the motor stored it. */
+export const GAME_UNIT_IN_METERS = 1;
+
 export function vrEyeX() { return VR_EYE_X; }
 export function setVrEyeX() {}
 export function setStereoProfile() {}
@@ -130,6 +139,23 @@ export function projectionMatrix(view, near, far) {
   }
   const raw = offCenterProjection(-0.04, 0.04, -0.04, 0.04, near ?? 0.05, far ?? 300);
   return raw ? mirrorProjectionX(raw) : null;
+}
+
+/** VR1: the same XR view with its translation replaced by the move since the
+ *  captured head, times `metersPerGameUnit`. `eyeMatrices` then adds that
+ *  delta to the game eye, so a still headset keeps the eye the motor chose
+ *  and a crouch or a room-scale step is only the change. The rotation stays
+ *  the eye's. The demo rig still passes the raw view and the feet; this is
+ *  the dungeon's anchor, not a second camera. */
+export function headsetDeltaView(view, neutral, metersPerGameUnit = GAME_UNIT_IN_METERS) {
+  const src = view?.transform?.matrix;
+  if (!src || !neutral || neutral.length < 3) return null;
+  const scale = Number.isFinite(metersPerGameUnit) ? metersPerGameUnit : 1;
+  const m = new Float32Array(src);
+  m[12] = (Number(m[12]) - Number(neutral[0])) * scale;
+  m[13] = (Number(m[13]) - Number(neutral[1])) * scale;
+  m[14] = (Number(m[14]) - Number(neutral[2])) * scale;
+  return { transform: { matrix: m }, projectionMatrix: view.projectionMatrix, fov: view.fov };
 }
 
 /** Both matrices and the eye, the three things a host's frame needs. */
