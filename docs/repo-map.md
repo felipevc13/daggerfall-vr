@@ -53,14 +53,17 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 | `src/vr/xrCamera.js` | One eye: WebXR pose into the engine's `lookAt` / mirrored projection. Preset 5 (`VR_EYE_X`, `IPD_SCALE`, `proj[0] = -proj[0]`). |
 | `src/vr/xrInput.js` | Sticks, snap turn, buttons, haptics, `ctx.collider.move`. |
 | `src/vr/xrWeapons.js` | Right-hand sword, left-hand torch, tip speed. |
-| `src/vr/xrMenu.js` | In-world menu. Left X or Y toggles it. Left grip holds to talk (`xrVoice.js`). |
+| `src/vr/xrMenu.js` | In-world menu. Left X or Y toggles it. Left grip holds to talk (`xrVoice.js`). A demo slate, not the game's windows. |
 | `src/vr/xrVoice.js` | Microphone to `/api/vr-voice`. |
 | `src/vr/xrLog.js` | Console and errors to `/api/vr-log`. |
 | `src/vr/xrSkeleton.js`, `xrUI.js`, `xrCalibrator.js` | Demo enemy, combat slate, and the old optics bench. |
 | `src/vr/vrDungeon.js` | Demo host. Not the online game. |
-| `src/vr/engineBridge.js` | Feature detection, the `gameMat4` namespace, and `offCenterProjection`. |
+| `src/vr/engineBridge.js` | Feature detection, the `gameMat4` namespace, `offCenterProjection`, and the read-only UI hooks (`hostPaused`, `overlayOpen`). |
+| `src/vr/uiPresence.js` | Generic "is a modal open?" detector. No menu list. Loaded by the dungeon demo only under `?vrui`. |
 
 `makeEnterVrButton` is the button `installVr` mounts. It returns null when the browser has no headset. A player who opens `/play/` without `?vr` never calls it, and the module is not downloaded.
+
+How the game's own windows open, and the plan for mirroring them on a floating panel, is [docs/vr-menus.md](vr-menus.md). The detector in `uiPresence.js` is the first piece of that plan. It does not draw a panel yet.
 
 ## Current coupling
 
@@ -85,7 +88,7 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 
 ### What `src/vr` still imports itself
 
-Through `engineBridge.js`: `gameMat4` (lookAt, perspective, mirrorProjectionX, identity, UP_Y) and `offCenterProjection`, which returns null if `perspectiveOffCenter` is gone. Those mat4 names are not re-exported. `probeVrEngineHooks` dynamic-imports `Renderer` and checks `setXrTarget` and `_frameTarget`. `guardedSetXrTarget` no-ops when the method is gone.
+Through `engineBridge.js`: `gameMat4` (lookAt, perspective, mirrorProjectionX, identity, UP_Y) and `offCenterProjection`, which returns null if `perspectiveOffCenter` is gone. Those mat4 names are not re-exported. `probeVrEngineHooks` dynamic-imports `Renderer` and checks `setXrTarget` and `_frameTarget`. `guardedSetXrTarget` no-ops when the method is gone. `probeVrUiHooks` dynamic-imports `ui/input.js` and `ui/enhanced/enhancedOverlays.js` and checks `hostPaused` and `overlayOpen`. It does not import the window stack. Those imports run only when something asks (`uiPresence.start`, or the contract test). A missing export is a status, not a throw. The dungeon demo's `?vrui` flag passes `uiOverlayActive` into the detector; that page never registers a host.
 
 `vrDungeon.js` still constructs `Renderer` and imports the dungeon stack directly:
 
