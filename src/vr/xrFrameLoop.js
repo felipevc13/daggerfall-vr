@@ -22,6 +22,8 @@
 // /play/ without ?vr never loads this file. A failure logs and falls back to
 // the window clock. Nothing here throws into the caller.
 
+import { XrInputManager, questSampleOf, trackingYawOf } from './xrInput.js';
+
 const QUEUE_ID = 2 ** 20;
 
 /** VR1: the eye rectangles for this XR frame, or null when the head cannot be posed. */
@@ -275,6 +277,24 @@ export function createXrFrameClock({
   let stereoClaimed = false;
   const eyeMirror = createEyeMirror(gl);
   const copyEyes = mirror ?? ((fbLayer, views) => eyeMirror.copy(fbLayer, views));
+  const questInput = new XrInputManager();
+  let questSample = null;
+
+  function publishQuest(xrFrame) {
+    questSample = null;
+    if (mode !== 'session' || !session || !xrFrame) return;
+    try {
+      questInput.poll(session, refSpace, xrFrame);
+      let headYaw = null;
+      try {
+        const pose = typeof xrFrame.getViewerPose === 'function' ? xrFrame.getViewerPose(refSpace) : null;
+        headYaw = trackingYawOf(pose?.transform?.matrix);
+      } catch { headYaw = null; }
+      questSample = questSampleOf(questInput.state, headYaw);
+    } catch {
+      questSample = null;
+    }
+  }
 
   function rectOf(v) {
     return { x: v.x, y: v.y, width: v.width, height: v.height };
@@ -356,6 +376,7 @@ export function createXrFrameClock({
     framePack = null;
     stereoClaimed = false;
     if (mode === 'session') {
+      publishQuest(xrFrame);
       if (xrFrame) {
         try { framePack = eyePackOf(xrFrame); } catch { framePack = null; }
         views = framePack?.views ?? null;
@@ -424,6 +445,7 @@ export function createXrFrameClock({
     refSpace = null;
     framePack = null;
     stereoClaimed = false;
+    questSample = null;
     try { setTarget(null, null); } catch { /* already the canvas */ }
     try { eyeMirror.release(); } catch { /* nothing left to free */ }
     if (listener && ending) {
@@ -505,6 +527,7 @@ export function createXrFrameClock({
     disengage: () => disengage('end'),
     eyePack: () => framePack,
     claimStereo: () => { stereoClaimed = true; },
+    questMotor: () => (mode === 'session' ? questSample : null),
     get installed() { return installed; },
     get presenting() { return mode === 'session'; },
   };

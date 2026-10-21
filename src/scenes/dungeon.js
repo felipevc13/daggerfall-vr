@@ -78,6 +78,7 @@ import { trackHudPointer } from '../ui/hud/hudActiveSpells.js';   // U46: the sp
 import { createDataPipeline } from './dataPipeline.js';
 import { buildDungeonContext } from './dungeonContext.js';
 import { paintDungeonEyes } from './dungeonEyeHost.js';   // VR1: per-eye paint when ?vr published one; one paint otherwise
+import { applyDungeonQuestInput, createDungeonQuestLatch } from './dungeonQuestInput.js';   // VR1: Quest sticks into this host's motor, one call a frame
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: the standalone dungeon scene is the outermost motor here, so it claims the mod
 import { nativeMetrics, pointToNative } from '../ui/native/nativePanel.js';   // U14: the overlay pointer seam
 import { lookScale, lookInvert, keyboardLookRate } from '../ui/lookSettings.js';   // SETT: MouseLookSensitivity + InvertMouseVertical
@@ -579,6 +580,11 @@ export async function bootDungeon(canvas, renderer, params, status) {
   };
   const touch = attachTouch(canvas, inputHooks);
   const gamepad = attachGamepad(canvas, inputHooks);   // GP1: null without the Gamepad API
+  const questLatch = createDungeonQuestLatch();
+  if (gamepad && typeof gamepad.axes === 'function') {
+    const ownAxes = gamepad.axes.bind(gamepad);
+    gamepad.axes = () => questLatch.analog ?? ownAxes();
+  }
   addEventListener('mousemove', (e) => {
     ctx.reportMouse?.(e.movementX, e.movementY, document.pointerLockElement === canvas);   // raw input truth for F8
     // U37: a window frees the mouse, so an open overlay gets the HOVER
@@ -846,6 +852,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
     const right = [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)];   // HANDEDNESS (mat4's law): screen-right = (cos, 0, -sin) under the mirrored projection - Unity's own right
     const overlayHeld = ctx.uiOverlayActive;   // overlays HOLD the world: no movers, no motor - typing a name must not walk the player off the start ledge
     lookGate(overlayHeld);   // a window up frees the cursor; closing re-locks
+    applyDungeonQuestInput(cam, keys, keyEdge, questLatch, !!overlayHeld);   // VR1: no sample leaves cam, keys, and the pad throw alone. A live stick is read by the analog line through gamepad.axes.
     // A8 - POINTER PARITY, THE FLAG AT THIS LINE RETIRED. Mouse0 is
     // DFU's ActivateCenterObject: the readied spell fires on its
     // PRESS (EntityEffectManager.cs:250) and the world activation

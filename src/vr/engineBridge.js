@@ -24,7 +24,8 @@
 //
 // WHAT DOES NOT CROSS HERE YET. src/tools/vrLab.js constructs Renderer
 // for the empty-room lab. The real game does not. Quest sticks are read
-// in xrInput.js. /play/?vr does not feed them to the motor yet.
+// in xrInput.js. The frame clock publishes one sample a frame.
+// readQuestMotor is null without a session, so a flat frame never sees it.
 
 import * as mat4 from '../world/mat4.js';
 
@@ -80,6 +81,20 @@ export async function probeVrEngineHooks() {
   } catch { /* missing.push happens below */ }
   const missing = collectMissingHooks(mat4, Renderer);
   return { ok: missing.length === 0, missing };
+}
+
+/** The Quest sample for this frame, or null when no session is presenting.
+ *  The dungeon host does not import this file. It reads the same clock.
+ *  A throw, a missing publisher, or a window clock answers null. */
+export function readQuestMotor(clock = globalThis.__xrFrameClock) {
+  if (!clock || clock.presenting !== true) return null;
+  try {
+    const sample = typeof clock.questMotor === 'function' ? clock.questMotor() : null;
+    if (!sample || typeof sample !== 'object') return null;
+    return sample;
+  } catch {
+    return null;
+  }
 }
 
 /** Point the world pass at one eye, or refuse. Never throws: a flat frame
