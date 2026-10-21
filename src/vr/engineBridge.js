@@ -90,3 +90,111 @@ export function guardedSetXrTarget(renderer, framebuffer, viewport) {
     return false;
   }
 }
+
+// VR1: UI PRESENCE. Read-only questions the menu detector asks so it can
+// tell "a modal is up" without a list of menus. Nothing here is called
+// while a flat frame draws: src/main.js does not import src/vr, and these
+// loaders run only when a headset page asks. Each import is dynamic and
+// the answer is a status, never a throw, so an upstream rename degrades
+// to "missing" and the other signals still answer.
+//
+//   input.hostPaused             the host's pause, once it has handed its
+//                                hooks to an input layer (null before that)
+//   enhancedOverlays.overlayOpen the DOM doors' close-arm stack
+//   windowStack.pauseWhileOpen   the stack's own pause law, applied to a
+//                                stack object the caller already holds
+//
+// The four hosts keep their stacks in closures. There is no global list
+// to import. hostPaused() is how a host publishes the latch. A caller
+// that holds a stack (a test, a later plug) passes that object through.
+
+/** Names probeVrUiHooks reports. Same list the contract test pins. */
+export const VR_UI_HOOKS = Object.freeze([
+  'input.hostPaused',
+  'enhancedOverlays.overlayOpen',
+  'windowStack.makeWindowStack',
+  'windowStack.pauseWhileOpen',
+]);
+
+let uiHooksPromise = null;
+
+/** Load the three UI modules once. A failed import is a missing module. */
+export function loadVrUiHooks() {
+  if (!uiHooksPromise) {
+    uiHooksPromise = (async () => {
+      const out = { input: null, overlays: null, stack: null };
+      try { out.input = await import('../ui/input.js'); } catch { out.input = null; }
+      try { out.overlays = await import('../ui/enhanced/enhancedOverlays.js'); } catch { out.overlays = null; }
+      try { out.stack = await import('../ui/windowStack.js'); } catch { out.stack = null; }
+      return out;
+    })();
+  }
+  return uiHooksPromise;
+}
+
+/** Which UI hooks are still exported. Missing names are not a crash. */
+export async function probeVrUiHooks() {
+  const mods = await loadVrUiHooks();
+  const missing = [];
+  if (typeof mods.input?.hostPaused !== 'function') missing.push('input.hostPaused');
+  if (typeof mods.overlays?.overlayOpen !== 'function') missing.push('enhancedOverlays.overlayOpen');
+  if (typeof mods.stack?.makeWindowStack !== 'function') missing.push('windowStack.makeWindowStack');
+  if (typeof mods.stack?.pauseWhileOpen !== 'function') missing.push('windowStack.pauseWhileOpen');
+  return { ok: missing.length === 0, missing };
+}
+
+/** @param {{ status: 'value', value: boolean } | { status: 'idle' } | { status: 'missing' } | { status: 'threw' }} */
+function valueStatus(status, value) {
+  return value === undefined ? { status } : { status, value };
+}
+
+/** The host's pause. `idle` is "no host has registered yet" (the boot
+ *  menu). `missing` is "upstream dropped the export". `threw` is a read
+ *  that failed — the caller treats that as "show the panel". */
+export function readHostPaused(mods) {
+  const fn = mods?.input?.hostPaused;
+  if (typeof fn !== 'function') return valueStatus('missing');
+  try {
+    const v = fn();
+    if (v == null) return valueStatus('idle');
+    return valueStatus('value', !!v);
+  } catch {
+    return valueStatus('threw');
+  }
+}
+
+/** True when a DOM door has registered a close arm. */
+export function readOverlayOpen(mods) {
+  const fn = mods?.overlays?.overlayOpen;
+  if (typeof fn !== 'function') return valueStatus('missing');
+  try {
+    return valueStatus('value', !!fn());
+  } catch {
+    return valueStatus('threw');
+  }
+}
+
+/** Whether one stack currently holds a pausing window.
+ *  `paused()` is the latch. `pauseWhileOpen` is the same law the hosts
+ *  OR onto the live slot for the frame before reconcile. A window with
+ *  no `pauseWhileOpen: false` pauses (the engine's default). If that
+ *  law itself is gone, a live top still counts: showing the panel is
+ *  the failure mode. */
+export function readStackModal(mods, stack, slot = null) {
+  if (stack == null && slot == null) return valueStatus('value', false);
+  const pauseWhileOpen = mods?.stack?.pauseWhileOpen;
+  const pauses = (win) => {
+    if (!win) return false;
+    if (typeof pauseWhileOpen !== 'function') return true;
+    try { return pauseWhileOpen(win) === true; } catch { return true; }
+  };
+  try {
+    if (pauses(slot)) return valueStatus('value', true);
+    if (stack && typeof stack.paused === 'function' && stack.paused()) return valueStatus('value', true);
+    const top = stack && typeof stack.topWindow === 'function' ? stack.topWindow() : null;
+    if (top && pauses(top)) return valueStatus('value', true);
+    return valueStatus('value', false);
+  } catch {
+    return valueStatus('threw');
+  }
+}

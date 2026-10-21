@@ -55,6 +55,7 @@ function startVrDungeon() {
   // Debug overlay
   const debugEl = document.createElement('pre');
   debugEl.style.cssText = 'position:fixed;left:10px;top:10px;z-index:20;color:#55efc4;background:rgba(0,0,0,0.85);font:12px monospace;padding:8px;max-height:45vh;overflow:auto;pointer-events:none;border-radius:6px;border:1px solid #00b894;';
+  debugEl.dataset.vrChrome = '1';
   document.body.appendChild(debugEl);
   const debugLines = [];
   function dbg(msg) {
@@ -362,6 +363,32 @@ function startVrDungeon() {
     else if (e.code === 'KeyS') { rig.pos[0] -= Math.sin(rig.yaw) * 0.2; rig.pos[2] -= Math.cos(rig.yaw) * 0.2; }
     else if (e.code === 'Space' && skeleton) skeleton.onHit(25, 'slash');
   });
+
+  // VR1: ?vrui logs when the generic modal detector changes. The import
+  // stays inside the flag so a normal dungeon session does not load the
+  // UI readers. The dungeon's stack is not published through hostPaused
+  // (this page never calls noteHostInput); uiOverlayActive is that latch.
+  if (pageHas('vrui')) {
+    import('./uiPresence.js').then(async ({ createUiPresence }) => {
+      const presence = createUiPresence({ watch: true, canvas });
+      presence.observeStack({
+        paused: () => !!ctx?.uiOverlayActive,
+        topWindow: () => null,
+      });
+      let baseline = true;
+      presence.subscribe((s) => {
+        const reasons = s.reasons.join(',') || '-';
+        const id = s.element?.id || '';
+        if (baseline) {
+          baseline = false;
+          console.log('[vrui]', 'watching', s.open ? 'open' : 'closed', reasons, s.kind, id, s.viewport?.w, s.viewport?.h);
+          return;
+        }
+        console.log('[vrui]', s.open ? 'open' : 'closed', reasons, s.kind, id, s.viewport?.w, s.viewport?.h);
+      });
+      await presence.start();
+    }).catch((err) => console.warn('[vrui]', err?.message ?? err));
+  }
 
   boot().catch(err => {
     dbg(`FALHA AO INICIAR MASMORRA: ${err?.message ?? err}`);
