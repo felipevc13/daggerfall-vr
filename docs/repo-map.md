@@ -52,7 +52,7 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 | `src/vr/xrFrameLoop.js` | The page's `requestAnimationFrame` stand-in while a session is active. The host still calls `requestAnimationFrame` once. The first eye is `guardedSetXrTarget`. Later eyes get a copy of that picture, unless the dungeon claimed the frame. |
 | `src/vr/dungeonStereo.js` | The dungeon's per-eye paint. One game metre is one headset metre (`GAME_UNIT_IN_METERS`). Published on the clock as `dungeonEyes`. |
 | `src/vr/xrSession.js` | `immersive-vr` session, `local-floor`, `XRWebGLLayer`, and `makeEnterVrButton`. Returns null when the browser has no headset, so a flat page shows nothing. On `/play/?vr` the plaque stays up and the next click is Exit. |
-| `src/vr/xrCamera.js` | One eye: WebXR pose into the engine's `lookAt` / mirrored projection. Preset 5 (`VR_EYE_X`, `IPD_SCALE`, `proj[0] = -proj[0]`). |
+| `src/vr/xrCamera.js` | One eye: WebXR pose into the engine's `lookAt` / `mirrorProjectionX` (scale and off-centre term). The eye offset is the headset's, unscaled. |
 | `src/vr/xrInput.js` | Sticks, snap turn, buttons, haptics, `ctx.collider.move`. |
 | `src/vr/xrWeapons.js` | Right-hand sword, left-hand torch, tip speed. |
 | `src/vr/xrMenu.js` | In-world menu. Left X or Y toggles it. Left grip holds to talk (`xrVoice.js`). A demo slate, not the game's windows. |
@@ -79,7 +79,7 @@ How the game's own windows open, and the plan for mirroring them on a floating p
 - `setXrTarget(framebuffer, viewport)` and `_xrTarget`. Null means the flat canvas, which is every frame of a page that never calls it.
 - `_frameTarget()` is `_frameFbo`, else the eye's framebuffer, else the canvas. The old `_frameFbo ?? null` sites read this so a nested pass returns to the eye.
 - `beginFrame` binds the eye, scissors the clear to that eye, and does not resize the canvas while a session owns it.
-- `_aimXrResolve` (fork exception): while `setXrTarget` has an eye, the air resolve writes that eye's rectangle of the XR framebuffer instead of the canvas. The image stays the window's size. A flat frame never sets the target, so the resolve stays the canvas. Retro mode still owns `resolveTo` when it is on. Hosts do not call this. `guardedSetXrTarget` is the only door.
+- `_aimXrResolve` (fork exception): while `setXrTarget` has an eye, the air resolve writes that eye's rectangle of the XR framebuffer instead of the canvas. The world image is that eye's viewport (`xrWorldImageSize`), so the blit keeps the projection's aspect. A flat frame never sets the target, so the resolve stays the canvas. Retro mode still owns its own image size and `resolveTo` when it is on. Hosts do not call this. `guardedSetXrTarget` is the only door.
 
 `src/world/mat4.js`
 

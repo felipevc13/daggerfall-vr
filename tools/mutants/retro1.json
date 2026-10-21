@@ -345,20 +345,22 @@
   {
     "name": "RETRO1-lane-frame-canvas-sized",
     "file": "src/render/renderer.js",
-    "old": "this._air.beginFrameTarget(retro ? retro.width : this.canvas.width, retro ? retro.height : this.canvas.height, retro ? 'retro' : 'canvas')",
-    "new": "this._air.beginFrameTarget(this.canvas.width, this.canvas.height, retro ? 'retro' : 'canvas')",
+    "old": "if (retro?.width > 0 && retro?.height > 0) return [retro.width, retro.height];",
+    "new": "if (false) return [retro.width, retro.height];",
     "tests": [
       "test/render/retro1.test.js"
-    ]
+    ],
+    "note": "VR1 re-aimed BY CONTENT: the retro size now lives in xrWorldImageSize. Dropping it makes the lane image the window again."
   },
   {
     "name": "RETRO1-lane-one-slot",
     "file": "src/render/renderer.js",
-    "old": "retro ? retro.height : this.canvas.height, retro ? 'retro' : 'canvas')",
-    "new": "retro ? retro.height : this.canvas.height, 'canvas')",
+    "old": "_img[1], retro ? 'retro' : 'canvas')",
+    "new": "_img[1], 'canvas')",
     "tests": [
       "test/render/retro1.test.js"
-    ]
+    ],
+    "note": "VR1 re-aimed BY CONTENT: the size arguments moved; the slot is still this call's."
   },
   {
     "name": "RETRO1-mips-never-dropped",

@@ -15,8 +15,9 @@
 //   - render/renderer.js Renderer.setXrTarget and Renderer._frameTarget.
 //     Hosts call guardedSetXrTarget. A missing method returns false.
 //     While that target is set, the air resolve writes the eye's rectangle
-//     (`_aimXrResolve` in renderer.js, a fork exception). A flat frame never
-//     sets the target, so the resolve stays the canvas.
+//     (`_aimXrResolve` in renderer.js, a fork exception) and the world image
+//     is that eye's viewport (`xrWorldImageSize`). A flat frame never sets
+//     the target, so the resolve stays the canvas.
 //   - The context flag xrCompatible: true in the Renderer constructor is
 //     pinned by test/vr/engineContract.test.js. makeXRCompatible() in
 //     xrSession.js is the runtime fallback if a browser still accepts it.

@@ -1644,6 +1644,14 @@ export function buildWireIndices(triIndices, subMeshes) {
   return { indices, ranges };
 }
 
+/** VR1: the world image's pixel size. An eye is drawn at that eye's viewport,
+ *  so the XR projection's aspect is the rectangle it lands in. Retro keeps
+ *  its own image. A flat frame keeps the window. */
+export function xrWorldImageSize(eye, retro, canvasW, canvasH) {
+  if (retro?.width > 0 && retro?.height > 0) return [retro.width, retro.height];
+  if (eye?.width > 0 && eye?.height > 0) return [eye.width, eye.height];
+  return [canvasW, canvasH];
+}
 
 export class Renderer {
   // HARD3: two fields this class mints LAZILY, with `??=` at their point
@@ -2119,6 +2127,14 @@ export class Renderer {
    */
   get worldViewportRect() { return this._worldViewportFrame ? { ...this._worldViewportFrame } : null; }
 
+  /** VR1: the eye image's pixels when this frame has no canvas world rect.
+   *  Null on a flat frame and under retro, which already parked its rect. */
+  _xrEyeImagePx() {
+    const v = this._xrTarget?.vp;
+    if (this._worldViewportPx || !(v?.width > 0) || !(v?.height > 0)) return null;
+    return [0, 0, v.width, v.height];
+  }
+
   /** gl.viewport back to whatever this frame's world pass owns - the
    *  reduced rect if one is live, the full canvas otherwise. The
    *  borrow-and-return shape the sprite RT already uses for the clear
@@ -2126,9 +2142,15 @@ export class Renderer {
   _restoreWorldViewport() {
     const gl = this.gl, p = this._worldViewportPx;
     if (p) gl.viewport(p[0], p[1], p[2], p[3]);
-    // VR1: an eye is the world's viewport under a session - `drawingBufferWidth`
-    // is the WHOLE stereo texture, so restoring it between passes put the next
-    // draw across both eyes. Before every frame and flat: unchanged.
+    // VR1: while the world is in the eye's own image, the viewport is that
+    // image (origin 0). The XR framebuffer's eye rectangle is a different
+    // origin, and restoring it here painted one eye across the image or off
+    // it. Once the image is resolved, `_frameFbo` is null and the eye
+    // rectangle is the target again. A flat frame is unchanged.
+    else if (this._xrTarget?.vp && this._frameFbo) {
+      const v = this._xrTarget.vp;
+      gl.viewport(0, 0, v.width, v.height);
+    }
     else if (this._xrTarget) { const v = this._xrTarget.vp; gl.viewport(v.x, v.y, v.width, v.height); }
     else gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
   }
@@ -2891,7 +2913,8 @@ export class Renderer {
     if (world && this._perf) { this._perf.begin(); this._perf.mark('shadow'); this.stats.draws = 0; this._perfOpen = true; }   // EL8: the frame's clock starts with its passes; VC6d: and its first span
     if (this._shadows && world) this._renderPasses(proj, view, lightDir);
     // EL4: THE FRAME IMAGE - the world pass draws into it, the clear included; a panel frame keeps the canvas
-    this._frameFbo = this._air && !this._panelSaved ? this._air.beginFrameTarget(retro ? retro.width : this.canvas.width, retro ? retro.height : this.canvas.height, retro ? 'retro' : 'canvas') : null;
+    const _img = xrWorldImageSize(this._xrTarget?.vp, retro, this.canvas.width, this.canvas.height);
+    this._frameFbo = this._air && !this._panelSaved ? this._air.beginFrameTarget(_img[0], _img[1], retro ? 'retro' : 'canvas') : null;
     // RETRO1: THE RETRO IMAGE. Under the lane its frame is the image's size (above) and its resolve writes into the
     // image; on the classic set the world pass draws into the image itself. Either way the frame's first screen
     // quad presents it (_compositeAir). AUDIT RETRO1 B5: the depth the sky test reads is this frame's, taken now -
@@ -3119,7 +3142,7 @@ export class Renderer {
       this._air.prepare({   // EL6: the inputs alone - the images are drawn at the resolve, off the frame's depth
         proj, view, lightDir, eye: this._camPos, sunScale: this._sunScale, sunColor: this._sunColor,
         pointLights: this._pointLights, pointColors: count > 0 ? this._pointColorData(count) : null, carried: this._pointCarried,   // MAC-T1
-        viewport: this._worldViewportPx ?? [0, 0, this.canvas.width, this.canvas.height],
+        viewport: this._xrEyeImagePx() ?? this._worldViewportPx ?? [0, 0, this.canvas.width, this.canvas.height],
         shadows: sp, textures: this.textures, emissionTextures: this.emissionTextures, blackTex: this._blackTex,
         windowEmission: this._windowEmission, isSpectral: isSpectralArchive, bindVao, clearColor: this._clearColor,
         windowRooms: !!this._rw?.rooms,   // WAGONS2 (FINAL AUDIT): exterior glass shows its room (winModeFor) - the replay blooms a lit one's alone
@@ -3208,9 +3231,9 @@ export class Renderer {
    *  beginFrame's clear and the picture stays on the window. A retro image
    *  already owns resolveTo and is left alone. `_xrTarget` null (every flat
    *  frame, and every frame after the session ends) does not set it. The
-   *  image stays the window's size and is stretched into the eye rectangle;
-   *  it is not the headset's native eye resolution. Hosts reach this only by
-   *  guardedSetXrTarget, which is what stores `_xrTarget`. */
+   *  image is that eye's size (`xrWorldImageSize`), so the blit keeps the
+   *  projection's aspect. A flat frame never sets the target. Hosts reach
+   *  this only by guardedSetXrTarget, which is what stores `_xrTarget`. */
   _aimXrResolve() {
     if (!this._xrTarget?.vp || !this._air || this._air.resolveTo) return;
     const v = this._xrTarget.vp;
@@ -5724,6 +5747,16 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     this._beginLane(proj, view, lightDir, opts?.world === true);   // EL2/EL3/EL4: the maps, the images and the frame, before the clear
     // LC1: the lantern grid for this frame's lights, on a WORLD frame of the lane alone (a panel bracket's frame is another view and another viewport: every light)
     this._clustersLive = !!this._lane && opts?.world === true && !this._panelSaved && this._spriteDepth === 0 && this._studioDepth === 0 && this._buildClusters(proj, view);
+    // VR1: the air image is the eye's size and its origin is 0. The scissor
+    // set above is the eye's place in the stereo buffer; left on the image
+    // it clears only the bottom of a window, or nothing, and both eyes
+    // then show that one crop. It sits after the lantern grid, and it only
+    // aims the clear.
+    if (xrWorld && this._frameFbo && this._xrTarget?.vp) {
+      const v = this._xrTarget.vp;
+      gl.viewport(0, 0, v.width, v.height);
+      if (this._xrScissor) gl.scissor(0, 0, v.width, v.height);
+    }
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     if (this._xrScissor) { gl.disable(gl.SCISSOR_TEST); this._xrScissor = false; }   // VR1: the eye's rect guarded the clear alone
     s.viewDraws = this._rwOutside ? 0 : this._rwViewDraws;

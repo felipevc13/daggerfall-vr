@@ -211,22 +211,22 @@
   {
     "name": "renderer-frame-in-panel",
     "file": "src/render/renderer.js",
-    "old": "    this._frameFbo = this._air && !this._panelSaved ? this._air.beginFrameTarget(retro ?",
-    "new": "    this._frameFbo = this._air ? this._air.beginFrameTarget(retro ?",
+    "old": "    this._frameFbo = this._air && !this._panelSaved ? this._air.beginFrameTarget(_img[0]",
+    "new": "    this._frameFbo = this._air ? this._air.beginFrameTarget(_img[0]",
     "tests": [
       "test/render/el4_frame.test.js"
     ],
-    "note": "RETRO1 re-aimed BY CONTENT: the retro mode's lines now sit beside this one; same law, same killer."
+    "note": "RETRO1 re-aimed BY CONTENT: the retro mode's lines now sit beside this one; same law, same killer. VR1 re-aimed BY CONTENT: the eye image's size is chosen above this call."
   },
   {
     "name": "renderer-frame-not-bound",
     "file": "src/render/renderer.js",
-    "old": "    this._frameFbo = this._air && !this._panelSaved ? this._air.beginFrameTarget(retro ? retro.width : this.canvas.width, retro ? retro.height : this.canvas.height, retro ? 'retro' : 'canvas') : null;",
+    "old": "    this._frameFbo = this._air && !this._panelSaved ? this._air.beginFrameTarget(_img[0], _img[1], retro ? 'retro' : 'canvas') : null;",
     "new": "    this._frameFbo = null;",
     "tests": [
       "test/render/el4_frame.test.js"
     ],
-    "note": "RETRO1 re-aimed BY CONTENT: the retro mode's lines now sit beside this one; same law, same killer."
+    "note": "RETRO1 re-aimed BY CONTENT: the retro mode's lines now sit beside this one; same law, same killer. VR1 re-aimed BY CONTENT: the size is xrWorldImageSize's, the call still binds the frame."
   },
   {
     "name": "renderer-air-off-no-release",

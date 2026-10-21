@@ -14,7 +14,6 @@
 // depth to disagree about.
 //
 //   ?x=&y=&z=&yaw=   the rig's feet and facing (metres, degrees)
-//   ?eye=            the XR eye sign probe: 1 | -1, overriding VR_EYE_X
 //   ?near=&far=      the lens (defaults 0.05 / 300)
 //
 // Flat (no headset) the page draws the same room from the rig's eye, so a
@@ -22,7 +21,7 @@
 // stereo frames (one per eye pair). `window.__lab` moves the rig from a probe.
 import { Renderer, WORLD_FRAME } from '../render/renderer.js';
 import { lookAt, perspective, mirrorProjectionX, identity, UP_Y } from '../world/mat4.js';
-import { eyeMatrices, setVrEyeX, rigView } from '../vr/xrCamera.js';
+import { eyeMatrices, rigView } from '../vr/xrCamera.js';
 import { enterVrSession, endVrSession, makeEnterVrButton, viewerPose, requestFrame } from '../vr/xrSession.js';
 import { XrInputManager } from '../vr/xrInput.js';
 import { pageHas, pageParam } from '../systems/pageQuery.js';
@@ -35,7 +34,6 @@ function startVrLab() {
   const NEAR = Number(pageParam('near') ?? 0.05);
   const FAR = Number(pageParam('far') ?? 300);
   const EYE_HEIGHT = 1.6;   // a standing eye, the way motor.js's EYE_HEIGHT is 1.7
-  if (pageHas('eye')) setVrEyeX(Number(pageParam('eye')));   // the on-device sign probe (VR_EYE_X's note)
   const LIGHT_DIR = normalize([0.4, 0.82, 0.3]);
   const SKY_COLOR = new Float32Array([0.53, 0.7, 0.92, 1.0]); // Classic Daggerfall Iliac Bay pale sky
 
@@ -250,7 +248,7 @@ function startVrLab() {
 
   window.__lab = {
     rig: (x, y, z, yawDeg) => { rig.pos = [x, y, z]; rig.yaw = (yawDeg * Math.PI) / 180; },
-    eye: (v) => setVrEyeX(v),
+    eye: () => {},
     view: (v) => rigView(v, rig),
     end: () => endVrSession(session),
     presenting: () => presenting,
