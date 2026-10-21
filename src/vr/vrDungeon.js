@@ -206,11 +206,25 @@ function startVrDungeon() {
       const dt = lastTime ? Math.min((time - lastTime) / 1000, 0.1) : 0.016;
       lastTime = time;
 
+      const pose = viewerPose(frame, refSpace);
+      if (!pose) {
+        if (frameCount % 60 === 0) console.warn(`[VR FRAME ${frameCount}] NO POSE RETURNED BY WEBXR (tracking lost or waiting)`);
+        requestFrame(session, xrFrame);
+        return;
+      }
+
+      // Calculate head yaw from viewer pose so walking forward aligns with head gaze
+      let headYaw = 0;
+      if (pose.transform?.matrix) {
+        const m = pose.transform.matrix;
+        headYaw = Math.atan2(-m[8], m[10]);
+      }
+
       // 1. Locomotion on Quest controllers (with dungeon capsule collision)
       // Pauses locomotion when menu is open so player can freely click items
       xrInput.poll(session, refSpace, frame);
       if (!menu || !menu.isOpen) {
-        xrInput.updateLocomotion(rig, dt, 0, ctx?.collider);
+        xrInput.updateLocomotion(rig, dt, headYaw, ctx?.collider);
       }
 
       // 2. In-World Menu Raycasting & Hover/Click Input
@@ -239,13 +253,6 @@ function startVrDungeon() {
       weapons.update(rig, dt, targets);
       if (skeleton) skeleton.update(dt, rig.pos);
       if (ctx && ctx.flicker) ctx.flicker.tick(dt);
-
-      const pose = viewerPose(frame, refSpace);
-      if (!pose) {
-        if (frameCount % 60 === 0) console.warn(`[VR FRAME ${frameCount}] NO POSE RETURNED BY WEBXR (tracking lost or waiting)`);
-        requestFrame(session, xrFrame);
-        return;
-      }
 
       // 3. Stereo Eye Render Pass
       const views = pose.views;

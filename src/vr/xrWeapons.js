@@ -187,6 +187,7 @@ export class XrWeapons {
 
     // 6DOF motion tracking
     this.lastTipPos = null;
+    this.lastLocalTipPos = null;
     this.lastHiltPos = null;
     this.tipSpeed = 0;
     this.isSwinging = false;
@@ -194,8 +195,8 @@ export class XrWeapons {
     this.hitCooldown = 0;
 
     // Current world poses
-    this.rightHand = { pos: [0, 0, 0], fwd: [0, 0, 1], up: [0, 1, 0], matrix: identity(), active: false };
-    this.leftHand = { pos: [0, 0, 0], fwd: [0, 0, 1], up: [0, 1, 0], matrix: identity(), active: false };
+    this.rightHand = { pos: [0, 0, 0], localPos: [0, 0, 0], fwd: [0, 0, 1], localFwd: [0, 0, 1], up: [0, 1, 0], matrix: identity(), active: false };
+    this.leftHand = { pos: [0, 0, 0], localPos: [0, 0, 0], fwd: [0, 0, 1], localFwd: [0, 0, 1], up: [0, 1, 0], matrix: identity(), active: false };
 
     this._initMeshes();
   }
@@ -263,7 +264,11 @@ export class XrWeapons {
       this.leftHand.active = false;
     }
 
-    if (!this.rightHand.active) return;
+    if (!this.rightHand.active) {
+      this.lastLocalTipPos = null;
+      this.lastTipPos = null;
+      return;
+    }
 
     // Calculate current hilt and tip in world space
     const hiltPos = [
@@ -277,12 +282,22 @@ export class XrWeapons {
       this.rightHand.pos[2] + this.rightHand.fwd[2] * this.weaponLength,
     ];
 
-    if (this.lastTipPos && dt > 0.001) {
-      const dx = tipPos[0] - this.lastTipPos[0];
-      const dy = tipPos[1] - this.lastTipPos[1];
-      const dz = tipPos[2] - this.lastTipPos[2];
-      const dist = Math.hypot(dx, dy, dz);
+    // Calculate tip in controller/room space to decouple swing speed from locomotion
+    const localTipPos = [
+      this.rightHand.localPos[0] + this.rightHand.localFwd[0] * this.weaponLength,
+      this.rightHand.localPos[1] + this.rightHand.localFwd[1] * this.weaponLength,
+      this.rightHand.localPos[2] + this.rightHand.localFwd[2] * this.weaponLength,
+    ];
+
+    if (this.lastLocalTipPos && dt > 0.001) {
+      const ldx = localTipPos[0] - this.lastLocalTipPos[0];
+      const ldy = localTipPos[1] - this.lastLocalTipPos[1];
+      const ldz = localTipPos[2] - this.lastLocalTipPos[2];
+      const dist = Math.hypot(ldx, ldy, ldz);
       this.tipSpeed = dist / dt;
+
+      // Strike direction in world yaw
+      const [dx, dy, dz] = rigRotate([ldx, ldy, ldz], rig.yaw);
 
       // Detect whoosh / swing sound
       if (this.tipSpeed > 2.0 && this.swingCooldown <= 0) {
@@ -305,6 +320,7 @@ export class XrWeapons {
       }
     }
 
+    this.lastLocalTipPos = localTipPos;
     this.lastTipPos = tipPos;
     this.lastHiltPos = hiltPos;
   }
@@ -357,8 +373,12 @@ export class XrWeapons {
 
   _extractPose(xrPose, rig, outHand) {
     const m = xrPose.transform.matrix;
+    outHand.localPos = [m[12], m[13], -m[14]];
+    outHand.localFwd = [-m[8], -m[9], m[10]];
+    outHand.localUp = [m[4], m[5], -m[6]];
+
     // Map controller position directly (m[12] is +X right, m[13] is +Y up, -m[14] is +Z forward)
-    const off = rigRotate([m[12], m[13], -m[14]], rig.yaw);
+    const off = rigRotate(outHand.localPos, rig.yaw);
     outHand.pos = [rig.pos[0] + off[0], rig.pos[1] + off[1], rig.pos[2] + off[2]];
 
     // Map controller forward (+Z along weapon) and up
@@ -366,8 +386,8 @@ export class XrWeapons {
     const turn = ([x, y, z]) => [x * cy + z * sy, y, -x * sy + z * cy];
 
     // WebXR controller forward (-Z in XR space maps to +Z in game space)
-    outHand.fwd = turn([-m[8], -m[9], m[10]]);
-    outHand.up = turn([m[4], m[5], -m[6]]);
+    outHand.fwd = turn(outHand.localFwd);
+    outHand.up = turn(outHand.localUp);
 
     // Build model matrix for rendering
     outHand.matrix = this._buildModelMatrix(outHand.pos, outHand.fwd, outHand.up);
