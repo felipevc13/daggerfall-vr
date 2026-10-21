@@ -39,7 +39,7 @@ On the Quest, with USB debugging accepted: open `http://localhost:5173/vr-dungeo
 Players can step into Privateer's Hold through the Quest Browser without PCVR or a link cable.
 
 ### Core VR Features:
-- **Headset stereo**: Each eye uses that eye's WebXR pose and its own asymmetric projection. The projection is mirrored the same way as the flat lens (`mirrorProjectionX`, both the scale and the off-centre term). One game metre is one headset metre.
+- **Headset stereo**: Each eye uses that eye's WebXR pose and its own asymmetric projection. The horizontal scale is mirrored (`proj[0]`). The lens centre (`proj[8]`) stays where the runtime put it. One game metre is one headset metre, and the eye offset is the pose's own.
 - **6DOF Physical Weapon Combat**: Steel longsword in the right hand and flickering dungeon torch in the left hand, with real blade tip velocity tracking and physical strike detection.
 - **Classic Enemies with 6DOF Hit Physics**: Authentic Daggerfall Skeletal Warrior (*TEXTURE.270*) featuring upright billboarding, 1-bit alpha transparency cutout, and dynamic recoil wobble physics when struck.
 - **Smooth Locomotion & Wall Collisions**: Left thumbstick locomotion with genuine capsule sliding collision against 3D dungeon walls and geometry (`ctx.collider.move`), plus 45° snap turn on the right thumbstick.
@@ -63,7 +63,7 @@ Upstream engine (do not treat as the mod): `src/characters`, `src/world`, `src/r
 | [`src/vr/engineBridge.js`](src/vr/engineBridge.js) | Hook probe and the only `src/vr` import of `mat4`. |
 | [`src/vr/xrSession.js`](src/vr/xrSession.js) | Session and the Enter VR button. |
 | [`src/vr/xrFrameLoop.js`](src/vr/xrFrameLoop.js) | Moves the page frame clock onto the headset, and back on exit. |
-| [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | Eye matrices. The headset's own pose and frustum, mirrored with the flat lens. |
+| [`src/vr/xrCamera.js`](src/vr/xrCamera.js) | Eye matrices. The headset's own pose and frustum. Horizontal scale mirrored; lens centre kept. |
 | [`src/vr/xrInput.js`](src/vr/xrInput.js) | Sticks, snap turn, collisions, haptics. |
 | [`src/vr/xrWeapons.js`](src/vr/xrWeapons.js) | Sword and torch. |
 | [`src/vr/xrMenu.js`](src/vr/xrMenu.js) | In-world menu, X/Y, voice grip. |
@@ -78,9 +78,9 @@ Upstream engine (do not treat as the mod): `src/characters`, `src/world`, `src/r
 1. **WebXR Black Screen Issue (LightingLane / FBO Redirection)**:
    - *Cause*: The desktop renderer created an offscreen framebuffer (`_frameFbo`) for screen-space post-processing (`AirPass`). WebGL rendered dungeon geometry into `_frameFbo` while the WebXR layer received only the clear color.
    - *Solution*: Disabled lighting lane redirection in VR with `renderer.setLightingLane(null)` and rendered geometry directly to the WebXR `layer.framebuffer`.
-2. **Stereo that would not fuse**:
-   - *Cause*: The flat lens mirrors X (`mirrorProjectionX` negates both the scale and the off-centre term). An earlier profile mirrored only the scale and kept 75% of the eye spacing, so the two optical centres diverged. The air image was also the window's size, stretched into each eye, so both eyes often showed one cropped picture.
-   - *Solution*: Copy the headset projection and run it through `mirrorProjectionX`. Use the eye's real offset, unscaled. Draw the world image at the eye's own size, so the blit keeps the disparity.
+2. **Two campfires (the eyes do not fuse)**:
+   - *Cause*: `mirrorProjectionX` negates `proj[0]` and `proj[8]`. On the flat lens `proj[8]` is 0. On a Quest eye it is the lens centre (about ±0.17 NDC). Negating it places a point straight ahead on the outer side of each lens, about 0.35 NDC from where the runtime projection puts it. The eye offset was already the headset's own (about 0.063 m), not applied twice. The air colour sample is `texture(uFrame, vUV)` into that eye's rectangle. It does not add the other eye's viewport x.
+   - *Solution*: Negate only `proj[0]`. Leave `proj[8]` as the runtime matrix. Dev checks, only while `?vr` is loaded: `&ipd=0` draws both eyes from the head centre, `&swapeyes` swaps which pose lands in which lens.
 3. **Inverted Controller Coordinates**:
    - *Cause*: Multiplying controller positions by camera parity flags flipped the right hand to the left side.
    - *Solution*: WebXR controller input coordinates are physical (+X right, +Y up, -Z forward) and must never be multiplied by the eye mirror flag.

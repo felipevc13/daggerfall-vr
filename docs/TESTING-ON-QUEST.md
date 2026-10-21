@@ -70,6 +70,16 @@ http://localhost:5173/play/?dungeon&class=16&vr
 
 `16` is the Warrior. The careers table is `CLASS_CAREERS` in `src/systems/chargen.js` (Mage is 0, Warrior is 16, Knight is 17). That index is what `?class=` hands the dungeon host, and the host builds the career headless, so the character-creation wizard does not open.
 
+Two dev flags, read only after `?vr` has loaded `src/vr`. On `/play/` without `?vr` they do nothing, because that page does not fetch the module.
+
+- `&ipd=0` draws both eyes from the head centre and keeps each eye's projection. A campfire should be one fire, with no stereo depth. If it is still two fires, the split is the projection or the composite, not the eye offset.
+- `&swapeyes` swaps which eye's pose and projection land in which lens, and leaves each framebuffer rectangle where the runtime put it. With the fusion fix, this should look wrong (two fires, or depth turned inside out). If this is the view that fuses, the eyes were paired backwards.
+
+```text
+http://localhost:5173/play/?dungeon&class=16&vr&ipd=0
+http://localhost:5173/play/?dungeon&class=16&vr&swapeyes
+```
+
 Plain `?dungeon` (no `class`) runs the classic opening: character creation, then Privateer's Hold. `?dungeon` with no value is still that hold, region Daggerfall.
 
 ```text
@@ -84,7 +94,7 @@ The dev server needs Daggerfall's game files. Put the `ARENA2` folder at `./aren
 2. **Enter VR** appears only when `probeVrEngineHooks()` reports every hook and `navigator.xr.isSessionSupported('immersive-vr')` is true. A desktop browser without a headset, and a page opened without `?vr`, show no button.
 3. The button is a small dark plaque with a bone label and a grey-gold border, on the **right edge, about a third of the way down**. It sits under the sign-in mark and above the footer, so it does not cover Settings, Overhauls, or Screenshots, and it does not sit on the compass or the vitals. It only takes clicks on itself. During the intro film the film covers it (the film is a later full-screen layer at the same depth). That is expected. The plaque is back when the title menu is up, and it stays up through character creation, the pause menu, and the dungeon. Pressing it while a session is open ends the session. The label then reads Exit.
 4. Press **Enter VR**. The browser starts an immersive session and **leaves it open**. The dev terminal and `.quest-vr.log` get one `[INFO]` line: the frame loop is on the headset, the dungeon draws each eye, and other places still share one picture.
-   - **Quest, stereo:** `http://localhost:5173/play/?dungeon&class=16&vr` (the port the script printed). Privateer's Hold, Warrior, no character creation. Look straight ahead: the horizon of a level corridor sits at eye height, and the floor is below that line. Look up and the ceiling comes into view. The two eyes fuse. A near door jamb shifts between them, and a door reads about human height (one game metre is one headset metre). Turning your head looks around. Walking still follows the body's facing, not the nose.
+   - **Quest, stereo:** `http://localhost:5173/play/?dungeon&class=16&vr` (the port the script printed). Privateer's Hold, Warrior, no character creation. Look straight ahead: the horizon of a level corridor sits at eye height, and the floor is below that line. Look up and the ceiling comes into view. Look at a campfire: one fire, not two side by side. A near door jamb shifts a little between the eyes, and a door reads about human height (one game metre is one headset metre). Turning your head looks around. Walking still follows the body's facing, not the nose. Then `&ipd=0` (one fire, no depth) and `&swapeyes` (that one should look wrong). Both need `?vr`. Without `?vr` they do nothing.
    - **Quest, one picture:** `http://localhost:5173/play/?vr` until you are in the world, and any interior. Both eyes show the same picture. A menu open on `?dungeon&class=16&vr` does too.
    - On `?vr` alone the front door is a DOM menu, so the headset shows that picture only once a world host is drawing frames. Controllers do not become a sword on this page yet.
 5. **Exit.** Press the same plaque (it says Exit), or leave immersive mode from the Quest system menu. The flat page returns, still running, and the plaque says Enter VR again. The window frame loop is back. The terminal logs that. There is not a second loop.
@@ -106,7 +116,7 @@ USB is the Quest check. A desktop check of the same door:
 2. In desktop Chrome, install the Immersive Web Emulator extension and emulate a Quest headset.
 3. Open `http://localhost:5173/play/?vr`.
 4. **Enter VR** should appear on the right edge, under the sign-in mark. It is covered during the intro film and back on the title menu. The press starts the emulated session and **keeps it open**. The terminal logs that the frame loop is on the headset and that the dungeon draws each eye.
-   - Open `http://localhost:5173/play/?dungeon&class=16&vr`. The emulator's two views are Privateer's Hold from two eyes, with character creation skipped (16 is the Warrior). Looking straight, a level corridor's horizon sits near the middle of each view and the floor is below it. A near door jamb shifts between the views, and the two views fuse. Yaw the emulated head and the view turns. The body does not walk toward the nose. Plain `?dungeon&vr` runs character creation first, then the same hold. The dev server needs `./arena2` or `ARENA2_PATH`.
+   - Open `http://localhost:5173/play/?dungeon&class=16&vr`. The emulator's two views are Privateer's Hold from two eyes, with character creation skipped (16 is the Warrior). Looking straight, a level corridor's horizon sits near the middle of each view and the floor is below it. A campfire is one fire across the two views. A near door jamb shifts between the views, and the two views fuse. Yaw the emulated head and the view turns. The body does not walk toward the nose. `&ipd=0` and `&swapeyes` are the same dev checks as on the headset, and they do nothing on a tab without `?vr`. Plain `?dungeon&vr` runs character creation first, then the same hold. The dev server needs `./arena2` or `ARENA2_PATH`.
    - Open `http://localhost:5173/play/?vr` and enter the world, or open an interior. Both emulator views show the same picture.
    - Open `http://localhost:5173/play/` in another tab and confirm that tab never requests `src/vr`.
    Leaving the session from the emulator (or the Exit plaque) returns the window loop, and the terminal logs that the window frame loop is back.

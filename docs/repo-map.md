@@ -50,9 +50,9 @@ They were not moved into `prototypes/`. They are not unused, and moving them wou
 | --- | --- |
 | `src/vr/installVr.js` | The only file the game calls. Probes the engine hooks, asks `isSessionSupported('immersive-vr')`, and mounts `makeEnterVrButton`. The press keeps the session open. `src/vr/xrFrameLoop.js` moves the page clock onto `session.requestAnimationFrame` and puts the window clock back on end. |
 | `src/vr/xrFrameLoop.js` | The page's `requestAnimationFrame` stand-in while a session is active. The host still calls `requestAnimationFrame` once. The first eye is `guardedSetXrTarget`. Later eyes get a copy of that picture, unless the dungeon claimed the frame. |
-| `src/vr/dungeonStereo.js` | The dungeon's per-eye paint. One game metre is one headset metre (`GAME_UNIT_IN_METERS`). Published on the clock as `dungeonEyes`. |
+| `src/vr/dungeonStereo.js` | The dungeon's per-eye paint. One game metre is one headset metre (`GAME_UNIT_IN_METERS`). Published on the clock as `dungeonEyes`. Dev flags `ipd=0` and `swapeyes` are read through `engineBridge` and do nothing without `?vr`. |
 | `src/vr/xrSession.js` | `immersive-vr` session, `local-floor`, `XRWebGLLayer`, and `makeEnterVrButton`. Returns null when the browser has no headset, so a flat page shows nothing. On `/play/?vr` the plaque stays up and the next click is Exit. |
-| `src/vr/xrCamera.js` | One eye: WebXR pose into the engine's `lookAt` / `mirrorProjectionX` (scale and off-centre term). The eye offset is the headset's, unscaled. |
+| `src/vr/xrCamera.js` | One eye: WebXR pose into the engine's `lookAt`. The XR projection negates only `proj[0]`. `proj[8]` stays the runtime's lens centre (`mirrorProjectionX` would move it; that term is 0 only on the flat symmetric lens). The eye offset is the headset's, unscaled. |
 | `src/vr/xrInput.js` | Sticks, snap turn, buttons, haptics, `ctx.collider.move`. |
 | `src/vr/xrWeapons.js` | Right-hand sword, left-hand torch, tip speed. |
 | `src/vr/xrMenu.js` | In-world menu. Left X or Y toggles it. Left grip holds to talk (`xrVoice.js`). A demo slate, not the game's windows. |
