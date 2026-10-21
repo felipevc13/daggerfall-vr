@@ -145,7 +145,7 @@ alone('a supported headset keeps the session, runs the queued frame on it, and E
     ended: false,
     listeners,
     xrPending,
-    updateRenderState() {},
+    updateRenderState(state) { session.renderState = state; },
     requestReferenceSpace: async () => ({ kind: 'local-floor' }),
     requestAnimationFrame(cb) {
       const id = xrNext++;
@@ -226,8 +226,10 @@ alone('a supported headset keeps the session, runs the queued frame on it, and E
     assert.equal(session.xrPending.size, 1);
     assert.equal(doc.kids[0].textContent, 'Exit');
     assert.equal(doc.kids[0].disabled, false);
-    assert.match(env.logs.join('\n'), /VR frame loop is on the headset\. Both eyes show the same picture for now\./);
-    assert.match(posts[0].body, /same picture for now/);
+    assert.match(env.logs.join('\n'), /VR frame loop is on the headset\. The dungeon draws each eye\. Other places still share one picture\./);
+    assert.match(posts[0].body, /The dungeon draws each eye/);
+    assert.equal(session.renderState.depthNear, 0.05);
+    assert.equal(session.renderState.depthFar, 800);
     assert.equal(JSON.parse(posts[0].body).level, 'info');
     session.fire(40);
     assert.deepEqual(stamps, [40]);

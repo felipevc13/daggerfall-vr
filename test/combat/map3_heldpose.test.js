@@ -520,7 +520,7 @@ test('MAP3 fpArm hides the hand-carried pieces while the sheet is up - the sourc
 
 test('MAP3 weaponRig: armsDrawn() is the draw seam\'s own record - reset at the top of every draw and set exactly where the arm takes the frame, before the untouched literal; the hold API passes straight through (mutants: armsDrawn-stale, armsDrawn-from-active)', () => {
   const src = rd('src/combat/weapon/weaponRig.js');
-  assert.match(src, /draw\(\{ paralyzed = false \} = \{\}\) \{\s*\n\s*_armDrewLast = false;/);
+  assert.match(src, /draw\(\{ paralyzed = false, resume = true \} = \{\}\) \{\s*\n\s*_armDrewLast = false;/);   // VR1 (PIN MOVED): resume defaults true, so this reset still heads every draw
   assert.match(src, /_armDrewLast = !eotbHidesWeapon\(\) && fpArm\.active\(\);[^\n]*\n\s*if \(eotbHidesWeapon\(\)\) return;\s*\n\s*if \(fpArm\.active\(\)\) \{ fpArm\.draw\(c\); return; \}/, 'set on the line before the two-line seam (EOTB-IL keeps those two adjacent), with the same two conditions');
   assert.equal([...src.matchAll(/^\s*_armDrewLast = /gm)].length, 2, 'written in exactly those two places');
   assert.match(src, /armsDrawn\(\) \{ return _armDrewLast && fpArm\.drewLast\(\); \},/, 'AUDIT-MAP2: the seam reached AND the arm composed - fpArm.draw(null) under the EOTB spell-hands hide returns before composing');

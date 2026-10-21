@@ -3173,6 +3173,8 @@ export class Renderer {
     this._air.setGrade?.(this._sceneGrade); this._sceneGrade = null;   // SD-LOOK: the frame's grade, or the lane's defaults back
     const sc = this._scissor;   // AUDIT RETRO1 F3: a screen scissor live at the first quad is not the passes' - lifted for them and the present, and put back
     if (sc) this.gl.disable(this.gl.SCISSOR_TEST);
+    if (this._air.resolveTo?._vrEye) this._air.resolveTo = null;   // VR1: a resolve that threw must not keep the previous eye
+    this._aimXrResolve();   // VR1: an eye's resolve writes the XR framebuffer. A flat frame and a retro image leave resolveTo alone. Before the air span: VC6d allows one line between the mark and the composite.
     if (this._perfOpen) this._perf?.mark('air');   // VC6d: the AO, the bloom, the shafts and the resolve - a WORLD frame's (AUDIT RETRO1 J8: a menu's resolve, the meter closed, opened a span nothing closed)
     this._air.setCloudShadow(this._cloudShadow ?? this._deckOwed);   // VC6c: the FRAME's deck - the host sets it after beginFrame, so the shafts can only read it here
     this._air.composite();   // EL4: the resolve - the frame to the canvas
@@ -3188,12 +3190,31 @@ export class Renderer {
     // invalidates them. (VC6c/VC6d pin the two lines above this one as
     // adjacent, which is why the reason is written here and not there.)
     this._forgetTextureShadows();
+    if (this._air.resolveTo?._vrEye) this._air.resolveTo = null;   // VR1: after the forget the pin keeps next to the composite. The next flat frame must not inherit the eye.
     if (this._retroOwed) this._presentRetroFrame();   // RETRO1: the lane resolved into the retro image - now the image to the canvas (J1: before the meter closes)
     this._perfClose();   // EL8: the clock stops at the resolve; the line, when it is due
     if (sc) { this.gl.enable(this.gl.SCISSOR_TEST); this.gl.scissor(sc[0], sc[1], sc[2], sc[3]); }
     this._frameFbo = null;
     this._lastProgram = null; this._lastVao = null;
-    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    if (this._xrTarget?.vp) {
+      const v = this._xrTarget.vp;
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this._xrTarget.fb);
+      this.gl.viewport(v.x, v.y, v.width, v.height);
+    } else this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  /** VR1 fork exception: the air lane resolves to the canvas. Under a headset
+   *  the same resolve has to land in the current eye, or that eye only keeps
+   *  beginFrame's clear and the picture stays on the window. A retro image
+   *  already owns resolveTo and is left alone. `_xrTarget` null (every flat
+   *  frame, and every frame after the session ends) does not set it. The
+   *  image stays the window's size and is stretched into the eye rectangle;
+   *  it is not the headset's native eye resolution. Hosts reach this only by
+   *  guardedSetXrTarget, which is what stores `_xrTarget`. */
+  _aimXrResolve() {
+    if (!this._xrTarget?.vp || !this._air || this._air.resolveTo) return;
+    const v = this._xrTarget.vp;
+    this._air.resolveTo = { fbo: this._xrTarget.fb, vp: { x: v.x, y: v.y, width: v.width, height: v.height }, _vrEye: true };
   }
 
   /** AUDIT 68 S16-perf-no-resolve-leak: THE `?perf` FRAME'S CLOSE - the world frame's, not the air pass's. It lived

@@ -2012,9 +2012,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     paperCorners() { return fpArm.paperCorners(); },
     heldPose() { return fpArm.heldPose(); },
     setHeldPose(spec) { return fpArm.setHeldPose(spec); },
-    draw({ paralyzed = false } = {}) {
+    draw({ paralyzed = false, resume = true } = {}) {
       _armDrewLast = false;
-      try { return onUiScreen(renderer, cv(), () => drawInner({ paralyzed })); } finally { widget.endOfFrame(); twoHands.offWidget.endOfFrame(); shield.endOfFrame(); }   // WW1: WaitForEndOfFrame resumes after the frame's draw (TWO-HANDS: the left hand's clone's too); RETRO-UI: in the pillarbox
+      try { return onUiScreen(renderer, cv(), () => drawInner({ paralyzed })); } finally { if (resume !== false) { widget.endOfFrame(); twoHands.offWidget.endOfFrame(); shield.endOfFrame(); } }   // WW1: WaitForEndOfFrame resumes after the frame's draw (TWO-HANDS: the left hand's clone's too); RETRO-UI: in the pillarbox. VR1: a second eye passes resume false so the swing steps once.
     },
     widget,   // WW1: the clone, for the pins
     twoHands,   // TWO-HANDS: the second hand, the guard and the running hands, for the pins

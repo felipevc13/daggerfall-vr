@@ -2,7 +2,7 @@
 
 A VR mod for [DFO](https://daggerfalljs.dev/), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a player who does not pass `?vr` never loads the VR module.
 
-**Status:** Privateer's Hold can be entered in VR from `vr-dungeon.html`. The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press keeps the session open and draws the game's picture into both eyes. Per-eye cameras are the next step. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button.
+**Status:** Privateer's Hold can be entered in VR from `vr-dungeon.html`. The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press keeps the session open. `/play/?dungeon&vr` draws each eye. The world and interiors still share one picture. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button.
 
 Play it: https://daggerfalljs.dev/
 

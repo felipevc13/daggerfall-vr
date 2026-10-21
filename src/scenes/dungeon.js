@@ -77,6 +77,7 @@ import { rayDirFromScreen, projectToScreen, ndcFromScreen } from '../player/tapR
 import { trackHudPointer } from '../ui/hud/hudActiveSpells.js';   // U46: the spell-icon rows' pointer
 import { createDataPipeline } from './dataPipeline.js';
 import { buildDungeonContext } from './dungeonContext.js';
+import { paintDungeonEyes } from './dungeonEyeHost.js';   // VR1: per-eye paint when ?vr published one; one paint otherwise
 import { setAmbientTextHost, tickAmbientText } from '../systems/ambientText.js';   // AT2: the standalone dungeon scene is the outermost motor here, so it claims the mod
 import { nativeMetrics, pointToNative } from '../ui/native/nativePanel.js';   // U14: the overlay pointer seam
 import { lookScale, lookInvert, keyboardLookRate } from '../ui/lookSettings.js';   // SETT: MouseLookSensitivity + InvertMouseVertical
@@ -1131,34 +1132,39 @@ export async function bootDungeon(canvas, renderer, params, status) {
     else renderer.setPointLights(_lit, DUNGEON_LANTERN_F32, renderer.lightingLane ? capFadeColors(_lit, _lit.length / 4 - _near.length / 4, cam.pos, renderer.maxPointLights, DUNGEON_LANTERN_F32) : null);
     renderer.everyLightCasts();   // LA-SHADOW3: the level is drawn whole below - every torch keeps a shadow map (worldModes.js's dungeon arm)
     renderer.setWorldViewport(worldViewportRect(canvas.clientWidth, canvas.clientHeight));   // E5: ViewportChanger.Update, every frame
-    renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one
-    if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
-    if (ctx.staticBatch) renderer.drawMesh(ctx.staticBatch, BATCH_IDENTITY, null);   // PERF5: the level's static models, one call per texture (keys resolved in the merge)
-    for (const d of ctx.drawList) if (!d._batched) renderer.drawMesh(d.mesh, d.matrix, d.texRemap ?? ctx.texRemap);   // AUDIT PRE-MERGE 1003 W4: a climate-free model's own table
-    for (const d of ctx.dynamicDraws) renderer.drawMesh(d.gpu, d.object.matrix, ctx.texRemap);
-    const camRight = new Float32Array([Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)]);
-    ctx.flatAnims.tick(dt);   // FA1: whoever draws the flats runs their clock
+    ctx.flatAnims.tick(dt);   // FA1: whoever draws the flats runs their clock. Once per frame, before either eye.
     // (the blood pool's clock runs inside ctx.drawFoes now - both dungeon
     // hosts call it, so neither can forget it; 2026-08-27)
     noteLocalPlayer(player.pos, [Math.sin(cam.yaw), 0, Math.cos(cam.yaw)]);   // TACT2: where I stand and face
     tickTactics(foeFrameDt(ctx.uiOverlayActive ? 0 : dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step; AUDIT TELL H1: held under the window that holds them (the return below, above drawFoes)
-    renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), player.pos));   // TACT4: a foe's wind-up on the ground
-    renderer.drawFoeTelegraphs?.(techniqueMarksNow());   // TECH1: and the player's own marks, after the foes' (bible/05-Combat/Weapon-Techniques.md)
-    ctx.bloodMarks?.draw?.(camRight, UP_Y);   // BLOOD1 AUDIT 3: the context's ring, drawn by THIS host beside the level's flats and under them - it used to ride drawFoes' gate, so a cleared level drew no blood at all
-    if (ctx.uiOverlayActive) ctx.drawWindowBodies?.(canvas, { proj, view, eye: cam.pos });   // AUDIT MW-NPC C6, FB1015 LOOT-BODY: under a window drawFoes' last bodies, frozen
-    renderer.drawBillboards([...ctx.billboardBatches, ...ctx.campBatches(), ...ctx.torchBatches()], camRight, UP_Y);   // HT1: the dropped torches on the same pass
     // AUDIT 23 (hosts-9 = audio-3) - SongManager.cs:193: Update() runs
     // every frame, windows open or not - THE MUSIC CONTEXT IS FED
     // BEFORE THE MODAL RETURN (AUDIT 21 F1's law, which this host
     // alone skipped: the boot chargen played no music and a song
     // ending under any window never re-picked). Fed ABOVE the gate so
-    // both the overlay and gameplay arms ride the same call.
+    // both the overlay and gameplay arms ride the same call. Once per
+    // frame, before either eye.
     musicDirector.update({
       inside: true, insideDungeon: true, insideDungeonCastle: ctx.inCastle ?? false,
       gameDays: Math.floor(ctx.classicMinutes / 1440),
       dungeonKey: ctx.musicSeed,
       locationIndex: dfLocation?.locationIndex ?? -1,
     });
+    // VR1: one paint of the picture. index 0 runs drawFoes (the sim). A later
+    // eye redraws. The body's yaw still faces the level flats. An overlay
+    // paints once, into the eye the clock already aimed, and does not claim.
+    function paintDungeonFrame(proj, view, index) {
+    renderer.beginFrame(proj, view, INTERIOR_LIGHT_DIR, WORLD_FRAME);   // AUDIT-EL F5: a WORLD frame - the lane replays its records for this one
+    if (walkMode) mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: player.bodyYawFor(cam.yaw), viewYaw: cam.yaw });   // MW-D24; DISC18: the body at the capsule's own feet, not the camera's smoothed ones
+    if (ctx.staticBatch) renderer.drawMesh(ctx.staticBatch, BATCH_IDENTITY, null);   // PERF5: the level's static models, one call per texture (keys resolved in the merge)
+    for (const d of ctx.drawList) if (!d._batched) renderer.drawMesh(d.mesh, d.matrix, d.texRemap ?? ctx.texRemap);   // AUDIT PRE-MERGE 1003 W4: a climate-free model's own table
+    for (const d of ctx.dynamicDraws) renderer.drawMesh(d.gpu, d.object.matrix, ctx.texRemap);
+    const camRight = new Float32Array([Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)]);
+    renderer.drawFoeTelegraphs?.(drawableBlows(tacticsNow(), player.pos));   // TACT4: a foe's wind-up on the ground
+    renderer.drawFoeTelegraphs?.(techniqueMarksNow());   // TECH1: and the player's own marks, after the foes' (bible/05-Combat/Weapon-Techniques.md)
+    ctx.bloodMarks?.draw?.(camRight, UP_Y);   // BLOOD1 AUDIT 3: the context's ring, drawn by THIS host beside the level's flats and under them - it used to ride drawFoes' gate, so a cleared level drew no blood at all
+    if (ctx.uiOverlayActive) ctx.drawWindowBodies?.(canvas, { proj, view, eye: cam.pos });   // AUDIT MW-NPC C6, FB1015 LOOT-BODY: under a window drawFoes' last bodies, frozen
+    renderer.drawBillboards([...ctx.billboardBatches, ...ctx.campBatches(), ...ctx.torchBatches()], camRight, UP_Y);   // HT1: the dropped torches on the same pass
     // AUDIT FONT F3: the branch below returns above `drawFoes`, the only
     // place this host reaches drawHud - so ui/hud/hud.js's mid-screen
     // draw/hide and the popup column's never ran on an overlay frame,
@@ -1179,9 +1185,10 @@ export async function bootDungeon(canvas, renderer, params, status) {
       capturePendingScreenshot(canvas);   // SS1: a save armed under an overlay still lands its shot
       deliverOwedShots();   // SHOT1: the PrintScreen shots owed to a drawn frame, read from this one (ui/screenshot.js)
       frameAbort();   // AUDIT-WH2 L1-F4: the frame never reached frameEnd - close the token, take no sample
-      requestAnimationFrame(frame);
       return;   // U2b/U3: hold gameplay, keep the loop (AUDIT 18 F5: the overlay's own clock still runs - DFU's RestWindow.Update ticks on realtime under timeScale 0)
     }
+    if ((index ?? 0) > 0) ctx.replayDungeonView?.(proj, view, cam.pos, player.pos);   // VR1: the picture again, not the sim
+    else {
     ctx.drawFoes(dt, canvas, proj, view, cam.pos, player.pos, anyMove(moveHeld(keys)), player.height, !!player.isSneaking, motionBagOf(player), player.bobOffset ? player.bobOffset[1] : 0, !!player.crouching, player.feetAt(), climbRigInput(player, cam.yaw), aimView);   // DISC13-A: the render feet, the candle's   // CLIMB6: the climb's snapshot   // ROAD-H H1b: PlayerMotor.IsCrouching rides in beside the live height - the archer's 0.05 dip (DaggerfallMissile.cs:583-585) is the latched STATE, not a 0.9 capsule   // moveHeld: the collision-trigger input gate (verbatim)   // internally gated (S4b: missiles fire without foes)   // C8 E1+E2: rigged class enemies, classic senses + pursuit
     // WATER-D1: the water plane is drawn INSIDE drawFoes now, before the
     // weapon overlay - a draw here landed after the lane's resolve and
@@ -1194,17 +1201,24 @@ export async function bootDungeon(canvas, renderer, params, status) {
     // PAUSED arm and it returns; without this line the Status key would
     // open a readout on `?dungeon` that no frame ever draws.
     if (ctx.unpausedOverlay) { ctx.tickOverlay(dt); ctx.drawOverlay(canvas); }
-
     frames++;
     if (shotMode) window.__frame = frames;
     if (shotMode && frames === 5) window.__shotReady = true;
+    }
     renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
     // SS1: deliver a pending save screenshot after the frame's last
     // draw (preserveDrawingBuffer false - the buffer is only this
     // task's to read).
     capturePendingScreenshot(canvas);
     deliverOwedShots();   // SHOT1: the PrintScreen shots owed to a drawn frame, read from this one (ui/screenshot.js)
-    frameEnd();   // PERF1
+    if ((index ?? 0) === 0) frameEnd();   // PERF1: one sample per frame, on the eye that ran the sim
+    }
+    if (ctx.uiOverlayActive) {
+      paintDungeonFrame(proj, view, 0);   // VR1: a window stays one picture; the clock copies it
+      requestAnimationFrame(frame);
+      return;
+    }
+    paintDungeonEyes((shot) => paintDungeonFrame(shot.proj, shot.view, shot.index ?? 0), { proj, view, eye: mwv.eye, yaw: cam.yaw });
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

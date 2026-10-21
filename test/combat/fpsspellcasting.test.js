@@ -244,7 +244,7 @@ test('fpsSpellCasting: WeaponManager.cs:247 - the weapon hides while the hands p
   assert.match(rigSrc, /if \(spellArmed\(\) \|\| fpsSpellCasting\.isPlayingAnim\) v = false;\s+\/\/ HasReadySpell \/ IsPlayingAnim/);
   // And the hands are drawn OUTSIDE that gate, or a cast would show
   // nothing at all: the weapon's hidden and the hands would be too.
-  const draw = rigSrc.slice(rigSrc.indexOf('    draw({ paralyzed = false } = {}) {'));
+  const draw = rigSrc.slice(rigSrc.indexOf('    draw({ paralyzed = false, resume = true } = {}) {'));   // VR1 (PIN MOVED): a second eye passes resume false so endOfFrame steps once
   const handsAt = draw.indexOf('drawSpellCastHands(');
   const gateAt = draw.indexOf('if (paralyzed ||');   // the law here is the ORDER, so anchor on the gate's head - its condition has widened once (TORCH-VIS) and may again
   const spriteAt = draw.indexOf('drawFpsWeapon(');

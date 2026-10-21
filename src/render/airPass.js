@@ -2088,10 +2088,14 @@ export class AirPass {
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
     }
-    // 4. the frame to the canvas - RETRO1: or into the retro image, the frame's own size, which the renderer presents next
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.resolveTo?.fbo ?? null);
+    // 4. the frame to the canvas - RETRO1: or into the retro image, the frame's own size, which the renderer presents next.
+    // VR1: a headset eye sets resolveTo.vp. The blit lands in that rectangle. No vp keeps the full image, which is the canvas and the retro frame.
+    const _dest = this.resolveTo;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, _dest?.fbo ?? null);
     setFrameTarget(null);
-    gl.viewport(0, 0, F.w, F.h);
+    const _vp = _dest?.vp;
+    if (_vp && _vp.width > 0 && _vp.height > 0) gl.viewport(_vp.x, _vp.y, _vp.width, _vp.height);
+    else gl.viewport(0, 0, F.w, F.h);
     gl.useProgram(PR.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, F.tex); gl.uniform1i(PR.uFrame, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, T.bloom.tex); gl.uniform1i(PR.uBloom, 1);
