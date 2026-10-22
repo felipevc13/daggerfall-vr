@@ -104,6 +104,27 @@ Open `http://localhost:5173/play/?dungeon&class=16&vr`, press **Enter VR**, and 
 6. Open a menu. The sticks do not walk or turn, and the triggers do not swing, until the menu closes. Closing it while a stick is still held does not turn you.
 7. Exit VR. The keyboard and mouse still move you. Open `http://localhost:5173/play/` with no `?vr`: there is no Enter VR button, and the sticks are not in that page.
 
+## The title panel
+
+`/play/?vr` can be entered from the title menu, after the intro film has uncovered the Enter VR plaque. The session stays open. Until you pick a game, the headset shows a dark room and one large panel: the same front door the page is showing (Online, Offline, login, settings, overhauls, new game, load). Point the right controller. The trigger clicks. The left controller is used when the right ray misses the panel. Looking up does not tilt the panel. Y, the grips, and the sticks do not drive this screen.
+
+Typing into a login field is not settled on a headset. A trigger on a text field focuses it. If the Quest does not raise its keyboard, leave the login for a later pass and use Offline, which does not need an account.
+
+When the door closes, the panel loop stops and the session does not. The world is the picture the game was already drawing in VR: one shared view outdoors and in interiors, both eyes in a dungeon. Menus you open after that are not on the panel yet.
+
+### What to check on the Quest
+
+Open `http://localhost:5173/play/?vr` (the port the script printed). Wait until **Enter VR** is visible, then press it.
+
+1. You are in a dark room. A large panel in front of you shows the front door, readable enough to tell Online from Offline.
+2. Point the right controller at Offline and pull the trigger once. The offline doors appear on the same panel. Holding the trigger does not fire them again.
+3. Open Settings or Overhauls from the panel, then come back. The page you see in the headset is the page that changed.
+4. Point at the right edge, where the flat Exit plaque sits. That plaque is not a door on the panel, and the session stays up.
+5. Start a game (Offline, then New Game, or Continue if you have a save). The panel goes away. The session stays. You are in the world, still in VR.
+6. Open `http://localhost:5173/play/` with no `?vr`. There is no Enter VR button and no panel.
+
+A dungeon you enter from that same session still draws both eyes, and the sticks still walk you, as in the controller checklist above.
+
 ## The flat game, without `?vr`
 
 This check still has to pass.

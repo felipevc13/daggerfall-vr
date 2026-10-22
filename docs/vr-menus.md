@@ -7,14 +7,14 @@ Legend:
 - **[V]** read in this tree, with `path:line`.
 - **[S]** an inference, a headset measurement nobody has taken, or a claim from outside this repository that this pass did not re-check.
 
-This page is the plan. The code that landed with it is only the detector in `src/vr/uiPresence.js`. It does not draw a panel.
+This page is the plan. The detector in `src/vr/uiPresence.js` still does not draw a panel. The title screen does: `src/vr/titlePanel.js` paints the live front door (`#intro`, then `#enhanced-menu`) onto a level quad and clicks it with a controller ray. That loop stops when the door unmounts. The session stays up, and the world's existing frames take the picture. Menus that open after the game has started are still the later plug described below. `uiPresence` is not what shows the title. The title is the door's own elements.
 
 ## Summary
 
 1. **The UI is hybrid, and most of it is DOM.** Each window can exist in two skins. Classic draws into the WebGL canvas in a virtual 320×200. Enhanced Plus, the default, is fixed `div`s on `document.body` over the canvas. Several screens are DOM on both skins: the boot menu, Settings, and the online panels. A VR path that only reads the canvas misses those.
 2. **Windows are owned per host, not by one global stack.** `makeWindowStack` is the port of Daggerfall Unity's `UserInterfaceManager`, and four hosts each keep one. Enhanced doors put a stub in the same slot, so the host's pause covers both skins. DOM doors also register a close function in `enhancedOverlays`. Since the upstream sync, `hostPaused()` in `src/ui/input.js` is a global read of whatever pause the live host published.
 3. **The gamepad already solves "any window" for a device that is not a mouse.** Under the Plus layout it ORs the host pause, the overlay registry, and a DOM sweep, then clicks by dispatching synthetic pointer events. VR is a third device of that kind. The sweep it uses today keys off the id prefix `enhanced-`, which the Wyrd door does not use.
-4. **Recommendation: mirror the whole 2D plane on one floating panel.** Detection stays generic, which is what `uiPresence.js` does now. A menu upstream adds later shows up because it has to occupy a host slot, register an overlay, or put a fixed interactive element on the body in order to work in the flat game. Drawing that plane, and pointing at it, are the next pull requests. They are listed at the end, with the questions that are still Felipe's.
+4. **Recommendation: mirror the whole 2D plane on one floating panel.** Detection stays generic, which is what `uiPresence.js` does now. A menu upstream adds later shows up because it has to occupy a host slot, register an overlay, or put a fixed interactive element on the body in order to work in the flat game. The title door is drawn that way now (`titlePanel.js`). Menus after the game has started are the next pull requests. They are listed at the end, with the questions that are still Felipe's.
 
 ## How the UI works today
 

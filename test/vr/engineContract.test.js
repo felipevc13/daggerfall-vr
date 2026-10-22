@@ -216,6 +216,10 @@ test('the air resolve follows the eye the bridge aimed, and the dungeon does not
   assert.match(read('src/vr/engineBridge.js'), /export function readQuestMotor/);
   assert.doesNotMatch(read('src/scenes/dungeonQuestInput.js'), /from ['"][^'"]*\/vr\//);
   assert.match(read('src/scenes/dungeon.js'), /applyDungeonQuestInput\(/);
+  assert.match(read('src/vr/installVr.js'), /createTitlePanel/);
+  assert.match(read('src/vr/xrFrameLoop.js'), /questRays/);
+  assert.doesNotMatch(read('src/vr/titlePanel.js'), /from ['"]\.\.\/scenes\//);
+  assert.doesNotMatch(read('src/vr/titlePanel.js'), /endVrSession/);
 });
 
 test('the frame clock lives in src/vr and aims the existing eye hook', () => {
