@@ -247,7 +247,7 @@ function closeVoids(xml) {
   });
 }
 
-export function dataUrlOf(backgroundImage) {
+export function cssDataImage(backgroundImage) {
   const text = String(backgroundImage || '');
   const at = text.toLowerCase().indexOf('data:image/');
   if (at < 0) return '';
@@ -401,7 +401,7 @@ async function collectRasterImages(root, doc) {
     }
     let bg = '';
     try { bg = view?.getComputedStyle?.(el)?.backgroundImage || ''; } catch { bg = ''; }
-    const url = dataUrlOf(bg);
+    const url = cssDataImage(bg);
     if (!url) continue;
     budget -= 1;
     jobs.push(loadCleanImage(doc, url).then((img) => { if (img) map.set(el, img); }));

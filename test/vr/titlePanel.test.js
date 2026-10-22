@@ -8,7 +8,7 @@ import {
 } from '../../src/vr/panelHit.js';
 import { dispatchPanelPointer, elementInRoot, triggerEdge } from '../../src/vr/panelPointer.js';
 import { applyStickScroll, scrollableAt, stickScrollDelta } from '../../src/vr/panelScroll.js';
-import { bakeScrollTree, dataUrlOf, scrollShift, viewportBox } from '../../src/vr/pageShot.js';
+import { bakeScrollTree, cssDataImage, scrollShift, viewportBox } from '../../src/vr/pageShot.js';
 import { buildPaintList, canvasForPanel, paintList, pseudoStamps, releaseDoorPin, resolveDoorRect } from '../../src/vr/domRaster.js';
 import { uploadPanelSource } from '../../src/vr/panelDraw.js';
 import { createTitlePanel, frontDoorRoot, panelPhase } from '../../src/vr/titlePanel.js';
@@ -107,9 +107,9 @@ test('a ::before mark is the crisp stamps of its box-shadow', () => {
     { dx: 8, dy: 0, color: 'rgb(34, 170, 68)' },
     { dx: 4, dy: 4, color: '#112233' },
   ]);
-  assert.equal(dataUrlOf('url("data:image/svg+xml,<svg></svg>") center / contain no-repeat'), 'data:image/svg+xml,<svg></svg>');
-  assert.equal(dataUrlOf(`url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'></svg>")`), `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'></svg>`);
-  assert.equal(dataUrlOf('none'), '');
+  assert.equal(cssDataImage('url("data:image/svg+xml,<svg></svg>") center / contain no-repeat'), 'data:image/svg+xml,<svg></svg>');
+  assert.equal(cssDataImage(`url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'></svg>")`), `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'></svg>`);
+  assert.equal(cssDataImage('none'), '');
 
   const mark = { tagName: 'I', childNodes: [], children: [] };
   const root = { tagName: 'DIV', childNodes: [], children: [mark] };
