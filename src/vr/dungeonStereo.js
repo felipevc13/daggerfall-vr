@@ -2,8 +2,9 @@
 //
 // The frame clock aims eye 0 and, unless this frame was claimed, copies that
 // picture into the other eyes. This module is the claim. installVr publishes
-// it on the clock as `dungeonEyes`. The dungeon host calls that door. No other
-// host does, so the world and the interiors stay on the copy.
+// it on the clock as `dungeonEyes`. The standalone dungeon host and the
+// world host's dungeon arm call that door. Outdoors and interiors do not,
+// so those frames stay on the world-locked monitor.
 //
 // For each XRView it points the renderer at that eye (`setTarget`, which is
 // guardedSetXrTarget) and builds the eye from that view's projectionMatrix
@@ -23,6 +24,7 @@
 // throws.
 
 import { eyeMatrices, headsetDeltaView, GAME_UNIT_IN_METERS } from './xrCamera.js';
+import { noteVrPath } from './vrPath.js';
 
 export { GAME_UNIT_IN_METERS };
 
@@ -87,7 +89,10 @@ export function createDungeonStereo(setTarget) {
       }
       draw(shots[i]);
     }
-    try { clock.claimStereo?.(); } catch { /* the copy would repeat eye 0; the eyes already differ */ }
+    try {
+      clock.claimStereo?.();
+      noteVrPath('dungeon-stereo');
+    } catch { /* the copy would repeat eye 0; the eyes already differ */ }
     return true;
   }
 

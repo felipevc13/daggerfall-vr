@@ -115,7 +115,7 @@ export async function installVr(renderer, hooks = {}) {
           return;
         }
         try { panel.start(); } catch { /* no quad: the session still shows the world's frames */ }
-        try { console.log(say('info', 'VR frame loop is on the headset. The dungeon draws each eye. Other places still share one picture.')); } catch { /* the session is already up */ }
+        try { console.log(say('info', 'VR frame loop is on the headset. A dungeon draws each eye. Other places sit on the monitor.')); } catch { /* the session is already up */ }
       },
       onError: (err) => {
         try { console.warn(say('warn', `VR session refused: ${err?.message ?? err}`)); } catch { /* the flat game continues */ }

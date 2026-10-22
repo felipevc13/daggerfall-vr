@@ -2,7 +2,7 @@
 
 A VR mod for [DFO](https://daggerfalljs.dev/), the browser reimplementation of *The Elder Scrolls II: Daggerfall* from [Lattymoy/daggerfall-js-source](https://github.com/Lattymoy/daggerfall-js-source). The mod runs in the Meta Quest Browser through WebXR. The flat game stays the same game: a player who does not pass `?vr` never loads the VR module.
 
-**Status:** The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press keeps the session open. On the title screen the front door is a floating panel you point at. `/play/?dungeon&class=16&vr` draws each eye in Privateer's Hold as a Warrior, and the Quest controllers walk that player. The world and interiors still share one picture, and the sticks do not walk there yet. Menus after the game has started are not on the panel yet. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button.
+**Status:** The real game mounts **Enter VR** at `/play/?vr` when the browser can start `immersive-vr`. That press keeps the session open. On the title screen the front door is a floating panel you point at, and the panel keeps the page's own shape. `/play/?dungeon&class=16&vr` draws each eye in Privateer's Hold as a Warrior, and the Quest controllers walk that player. A dungeon entered from the title, session already open, does the same. Outdoors and interiors sit on that world-locked panel, and the sticks do not walk there yet. Without `?vr`, `src/main.js` does not fetch `src/vr`. The live site https://daggerfalljs.dev/play/ is upstream and has no button.
 
 Play it: https://daggerfalljs.dev/
 

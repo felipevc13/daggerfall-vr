@@ -135,6 +135,8 @@ This is a map of families, not a whitelist. Counts above are why it cannot be a 
 
 **[V]** The world host listens for `keydown`. With a window up, `routeKey` (`src/ui/input.js:766`) gives the key to the window: raw `e.code` for a choice window, otherwise `overlayAction` (`:632`), which turns the key into `up`, `down`, `confirm`, `back`, or `char:…`. With no window, `routeAction` (`:931`) calls the host (`togglePause` at `:953`, `toggleInventory` at `:955`, and the rest of that switch). DOM windows also listen themselves, on the capture phase. `isTextEntryTarget` leaves a text field its own keys. `routeKeyUp` (`:686`) is a separate path; the automap uses it.
 
+**Verified on a Quest, after the title monitor:** focusing a text field while the immersive session is up opens the Quest system keyboard. That is a fact from a headset pass, not a guess. This mod does not draw the keyboard, and it does not have to. Offline still needs no account.
+
 ### Mouse and touch
 
 **[V]** `pointerdown`, `wheel`, and `pointermove` land on the canvas. The host tries the street slot, then the mode slot, then HUD clicks, then `requestLook`. DOM windows sit above the canvas, so the canvas never sees those clicks. `installContextMenuGuard` (`src/ui/input.js:756`) suppresses the browser's context menu. The right button is a game button.
