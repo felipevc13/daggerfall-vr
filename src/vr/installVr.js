@@ -14,6 +14,7 @@ import { relayVrLog } from './xrLog.js';
 import { createXrFrameClock } from './xrFrameLoop.js';
 import { createDungeonStereo, DUNGEON_NEAR, DUNGEON_FAR } from './dungeonStereo.js';
 import { createTitlePanel } from './titlePanel.js';
+import { attachEnterChrome, createEnterLoader, expectsFrontDoor } from './enterChrome.js';
 
 /**
  * Mount Enter VR on the real game, or mount nothing.
@@ -90,11 +91,14 @@ export async function installVr(renderer, hooks = {}) {
     }
 
     let button = null;
+    let chrome = null;
     button = await makeButton({
       gl: renderer.gl,
       canvas: renderer.canvas ?? renderer.gl.canvas ?? null,
       doc,
       hideOnEnter: false,
+      hold: true,
+      onSession: (live) => chrome?.setSession(!!live),
       depthNear: DUNGEON_NEAR,
       depthFar: DUNGEON_FAR,
       onGesture: () => { try { clock.install(); } catch { /* engage reports a clock that will not arm */ } },
@@ -121,7 +125,15 @@ export async function installVr(renderer, hooks = {}) {
       try { clock.uninstall(); } catch { /* already down */ }
       return { mounted: false, reason: 'unsupported' };
     }
+    const loader = createEnterLoader(doc);
+    chrome = attachEnterChrome({
+      doc,
+      button,
+      loader,
+      expectDoor: () => expectsFrontDoor(win?.location?.search ?? ''),
+    });
     doc.body.appendChild(button);
+    if (loader) doc.body.appendChild(loader);
     return { mounted: true, reason: 'ready' };
   } catch (err) {
     try { clock?.uninstall(); } catch { /* the flat game continues */ }

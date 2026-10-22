@@ -4,10 +4,16 @@
 // own -Z forward. It is placed once, level, in front of the head. Pitch does
 // not tilt it. Nothing here imports the engine.
 
-export const PANEL_DISTANCE = 1.35;
-export const PANEL_WIDTH = 1.6;
-export const PANEL_DROP = 0.05;
-export const PANEL_MAX_HEIGHT = 1.15;
+// Tunable after a Quest pass. Width 1.7 m at 1.45 m is about 61 degrees
+// across (2 * atan((width / 2) / distance)). The quad is 4:3, taller than
+// the door's wide box, and its centre sits on the eye.
+export const PANEL_DISTANCE = 1.45;
+export const PANEL_WIDTH = 1.7;
+export const PANEL_DROP = 0;
+export const PANEL_ASPECT = 4 / 3;
+export const PANEL_MAX_HEIGHT = 1.4;
+export const PANEL_VIEW_W = 1280;
+export const PANEL_VIEW_H = 960;
 
 function num(v) {
   const n = Number(v);
@@ -81,7 +87,7 @@ export function panelSize(aspect, width = PANEL_WIDTH, maxHeight = PANEL_MAX_HEI
 
 /** A level quad. `forward` is the horizontal direction from the head to the
  *  panel. The plane normal points back at the player. */
-export function placePanel(head, forward, { distance = PANEL_DISTANCE, width = PANEL_WIDTH, aspect = 16 / 9, drop = PANEL_DROP } = {}) {
+export function placePanel(head, forward, { distance = PANEL_DISTANCE, width = PANEL_WIDTH, aspect = PANEL_ASPECT, drop = PANEL_DROP } = {}) {
   const f = normalize3(forward);
   const eye = head && head.length >= 3 ? [num(head[0]), num(head[1]), num(head[2])] : null;
   if (!f || !eye || eye.some((v) => v == null)) return null;

@@ -4,10 +4,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  aimHands, levelForward, placePanel, rayFromTransform, rayPanelHit, uvToClient,
+  PANEL_ASPECT, PANEL_DISTANCE, PANEL_DROP, PANEL_WIDTH, aimHands, levelForward, panelSize, placePanel, rayFromTransform, rayPanelHit, uvToClient,
 } from '../../src/vr/panelHit.js';
 import { dispatchPanelPointer, elementInRoot, triggerEdge } from '../../src/vr/panelPointer.js';
-import { buildPaintList, canvasForPanel, paintList, releaseDoorPin, resolveDoorRect } from '../../src/vr/domRaster.js';
+import { applyStickScroll, scrollableAt, stickScrollDelta } from '../../src/vr/panelScroll.js';
+import { bakeScrollTree, cssDataImage, scrollShift, viewportBox } from '../../src/vr/pageShot.js';
+import { buildPaintList, canvasForPanel, paintList, pseudoStamps, releaseDoorPin, resolveDoorRect } from '../../src/vr/domRaster.js';
 import { uploadPanelSource } from '../../src/vr/panelDraw.js';
 import { createTitlePanel, frontDoorRoot, panelPhase } from '../../src/vr/titlePanel.js';
 import { createXrFrameClock } from '../../src/vr/xrFrameLoop.js';
@@ -23,20 +25,20 @@ test('a level panel ignores head pitch, and the ray maps to the page', () => {
   const pitched = [1, 0, 0, 0, 0, 0.866, 0.5, 0, 0, -0.5, 0.866, 0, 0, 1.6, 0, 1];
   assert.deepEqual(levelForward(pitched), [0, 0, -1]);
   const pose = placePanel([0, 1.6, 0], [0, 0, -1], { aspect: 16 / 9 });
-  assert.ok(Math.abs(pose.center[2] + 1.35) < 1e-9);
-  assert.equal(pose.center[1], 1.55);
-  const center = rayPanelHit([0, 1.55, 0], [0, 0, -1], pose);
+  assert.ok(Math.abs(pose.center[2] + PANEL_DISTANCE) < 1e-9);
+  assert.equal(pose.center[1], 1.6 - PANEL_DROP);
+  const center = rayPanelHit([0, 1.6, 0], [0, 0, -1], pose);
   assert.ok(Math.abs(center.u - 0.5) < 1e-6);
   assert.ok(Math.abs(center.v - 0.5) < 1e-6);
-  const above = rayPanelHit([0, 1.6, 0], [0, 0, -1], pose);
+  const above = rayPanelHit([0, 1.75, 0], [0, 0, -1], pose);
   assert.ok(above.v < 0.5);
-  assert.equal(rayPanelHit([0, 1.55, 0], [1, 0, 0], pose), null);
-  assert.equal(rayPanelHit([0, 1.55, 0], [0, 0, 1], pose), null);
+  assert.equal(rayPanelHit([0, 1.6, 0], [1, 0, 0], pose), null);
+  assert.equal(rayPanelHit([0, 1.6, 0], [0, 0, 1], pose), null);
   const page = uvToClient(0.25, 0.5, { left: 10, top: 20, width: 200, height: 100 });
   assert.deepEqual(page, { x: 60, y: 70 });
   const aimed = aimHands({
-    right: { origin: [3, 1.55, 0], direction: [0, 0, -1], trigger: true },
-    left: { origin: [0, 1.55, 0], direction: [0, 0, -1], trigger: false },
+    right: { origin: [3, 1.6, 0], direction: [0, 0, -1], trigger: true },
+    left: { origin: [0, 1.6, 0], direction: [0, 0, -1], trigger: false },
   }, pose);
   assert.equal(aimed.hand, 'left');
   assert.equal(aimed.trigger, false);
@@ -70,7 +72,7 @@ test('one trigger press clicks the door element under the ray, not the VR plaque
   };
   assert.equal(elementInRoot(doc, root, 60, 70), button);
   const pose = placePanel([0, 1.6, 0], [0, 0, -1], { aspect: 2 });
-  const hit = rayPanelHit([0, 1.55, 0], [0, 0, -1], pose);
+  const hit = rayPanelHit([0, 1.6, 0], [0, 0, -1], pose);
   const point = uvToClient(hit.u, hit.v, { left: 0, top: 0, width: 200, height: 100 });
   const prev = { down: false };
   const press = triggerEdge(prev, true);
@@ -86,6 +88,46 @@ test('one trigger press clicks the door element under the ray, not the VR plaque
   doc.elementsFromPoint = () => [field];
   dispatchPanelPointer(doc, root, point, 'down');
   assert.equal(seen.includes('focus'), true);
+});
+
+test('a ::before mark is the crisp stamps of its box-shadow', () => {
+  assert.deepEqual(pseudoStamps({ content: 'none', width: '4px', height: '4px', boxShadow: '4px 0px 0px 0px #fff' }), []);
+  const marks = pseudoStamps({
+    content: '""',
+    left: '0px',
+    top: '0px',
+    width: '4px',
+    height: '4px',
+    backgroundColor: '#c08a3e',
+    boxShadow: 'rgb(34, 170, 68) 8px 0px 0px 0px, 4px 4px 0px 0px #112233, 0px 2px 6px 0px #000',
+  });
+  assert.equal(marks.length, 1);
+  assert.deepEqual(marks[0].stamps, [
+    { dx: 0, dy: 0, color: '#c08a3e' },
+    { dx: 8, dy: 0, color: 'rgb(34, 170, 68)' },
+    { dx: 4, dy: 4, color: '#112233' },
+  ]);
+  assert.equal(cssDataImage('url("data:image/svg+xml,<svg></svg>") center / contain no-repeat'), 'data:image/svg+xml,<svg></svg>');
+  assert.equal(cssDataImage(`url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'></svg>")`), `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'></svg>`);
+  assert.equal(cssDataImage('none'), '');
+
+  const mark = { tagName: 'I', childNodes: [], children: [] };
+  const root = { tagName: 'DIV', childNodes: [], children: [mark] };
+  const list = buildPaintList(root, {
+    rectOf: (el) => (el === root ? box(0, 0, 80, 40) : box(10, 6, 24, 16)),
+    styleOf: (el, pseudo) => (el === mark && pseudo === '::before' ? {
+      content: '""', left: '0px', top: '0px', width: '4px', height: '4px', backgroundColor: '#c08a3e', boxShadow: '8px 0px 0px 0px #22aa44',
+    } : null),
+  });
+  const drawn = [];
+  paintList({
+    setTransform() {}, clearRect() {}, strokeRect() {},
+    fillRect(x, y, w, h) { drawn.push(`${this.fillStyle}@${x},${y},${w}x${h}`); },
+    fillText() {}, drawImage() {},
+    fillStyle: '', font: '', textAlign: '', textBaseline: '', globalAlpha: 1, strokeStyle: '', lineWidth: 1,
+  }, list);
+  assert.ok(drawn.includes('#c08a3e@10,6,4x4'));
+  assert.ok(drawn.includes('#22aa44@18,6,4x4'));
 });
 
 test('the paint list is the live boxes, and a chrome node is not one of them', () => {
@@ -171,14 +213,15 @@ test('a collapsed door gets a pixel box, and a failed upload is not treated as a
   const root = {
     id: 'enhanced-menu',
     style,
-    getBoundingClientRect() { return laid ? box(0, 0, 1280, 720) : box(0, 0, 0, 0); },
+    getBoundingClientRect() { return laid ? box(0, 0, 1280, 960) : box(0, 0, 0, 0); },
   };
   Object.defineProperty(style, 'width', { set(v) { if (parseFloat(v) >= 32) laid = true; }, configurable: true });
   const memory = {};
   const pinned = resolveDoorRect(root, memory);
   assert.equal(pinned.pinned, true);
   assert.equal(pinned.rect.width, 1280);
-  assert.equal(pinned.rect.height, 720);
+  assert.equal(pinned.rect.height, 960);
+  assert.equal(style.height, '960px');
   assert.equal(style.left, '0px');
   releaseDoorPin(memory);
   assert.equal(style.cssText, 'position:fixed;inset:0');
@@ -265,10 +308,10 @@ test('the panel is up for the door and drops when the door leaves, without endin
   run();
   assert.deepEqual(phases, ['title', 'world']);
   assert.equal(claims.length, 1);
-  assert.equal(frames.length, 0);
+  assert.equal(frames.length, 1);
   assert.equal(ended, 0);
   assert.equal(panel.phase, 'world');
-  assert.equal(panel.start(), true);
+  assert.equal(panel.start(), false);
   clock.presenting = false;
   run();
   assert.equal(panel.phase, 'off');
@@ -340,7 +383,146 @@ test('the first title frame logs the door box once', () => {
   panel.start();
   frames.splice(0).forEach((cb) => cb(10));
   assert.equal(lines.length, 1);
-  assert.match(lines[0], /vr-panel enhanced-menu 320x180 nodes=0 texts=0 images=0 tex=0 gl=0 pin=0/);
+  assert.match(lines[0], /vr-panel:phase=title,shot=box,ms=\d+,view=1280x960,nodes=0,texts=0,images=0,tex=0,gl=0,pin=1/);
   frames.splice(0).forEach((cb) => cb(20));
   assert.equal(lines.length, 1);
+});
+
+test('the monitor is a tall quad about 61 degrees across, centred on the eye', () => {
+  const size = panelSize(PANEL_ASPECT, PANEL_WIDTH);
+  const degrees = 2 * Math.atan((size.width / 2) / PANEL_DISTANCE) * 180 / Math.PI;
+  assert.ok(Math.abs(size.width - 1.7) < 1e-9);
+  assert.ok(Math.abs(size.height - 1.275) < 1e-9);
+  assert.ok(degrees > 60 && degrees < 65);
+  assert.equal(PANEL_DROP, 0);
+  const pose = placePanel([0, 1.6, 0], [0, 0, -1]);
+  assert.equal(pose.center[1], 1.6);
+  assert.ok(Math.abs(pose.halfH - 1.275 / 2) < 1e-9);
+  const odd = viewportBox(0, 0);
+  assert.equal(odd.pinned, true);
+  assert.equal(odd.width, 1280);
+  assert.equal(odd.height, 960);
+  const live = viewportBox(1600, 900);
+  assert.equal(live.pinned, false);
+  assert.equal(live.width, 1600);
+});
+
+test('nested scrollports keep the visible window, and the stick scrolls that inner box', () => {
+  const root = { tagName: 'DIV', childNodes: [], children: [] };
+  const outer = {
+    tagName: 'DIV', childNodes: [], children: [], scrollHeight: 500, clientHeight: 100, scrollTop: 40, scrollLeft: 0,
+  };
+  const gone = { tagName: 'P', childNodes: [{ nodeType: 3, textContent: 'OuterGone' }], children: [] };
+  const inner = {
+    tagName: 'DIV', childNodes: [], children: [], scrollHeight: 300, clientHeight: 40, scrollTop: 20, scrollLeft: 0,
+  };
+  const hidden = { tagName: 'P', childNodes: [{ nodeType: 3, textContent: 'InnerGone' }], children: [] };
+  const shown = { tagName: 'P', childNodes: [{ nodeType: 3, textContent: 'InnerShown' }], children: [] };
+  inner.children = [hidden, shown];
+  outer.children = [gone, inner];
+  root.children = [outer];
+  const rects = new Map([
+    [root, box(0, 0, 400, 300)],
+    [outer, box(20, 20, 200, 100)],
+    [gone, box(24, 0, 80, 16)],
+    [inner, box(30, 40, 140, 40)],
+    [hidden, box(34, 10, 80, 16)],
+    [shown, box(36, 48, 90, 18)],
+  ]);
+  const scroll = { overflowY: 'auto', overflowX: 'hidden' };
+  const list = buildPaintList(root, {
+    rectOf: (el) => rects.get(el),
+    styleOf: (el) => (el === outer || el === inner ? scroll : null),
+  });
+  assert.deepEqual(list.nodes.map((n) => n.text).filter(Boolean), ['InnerShown']);
+  const hit = list.nodes.find((n) => n.text === 'InnerShown');
+  assert.equal(hit.clip.left, 30);
+  assert.equal(hit.clip.top, 40);
+  assert.ok(hit.clip.height <= 40);
+  assert.equal(list.nodes.some((n) => n.text === 'OuterGone' || n.text === 'InnerGone'), false);
+
+  shown.parentElement = inner;
+  inner.parentElement = outer;
+  outer.parentElement = root;
+  inner.computedStyle = scroll;
+  outer.computedStyle = scroll;
+  const doc = { elementsFromPoint: () => [shown], scrollingElement: null, documentElement: null };
+  assert.equal(scrollableAt(doc, 40, 50), inner);
+  assert.equal(applyStickScroll(inner, stickScrollDelta(1, 16)), true);
+  assert.ok(inner.scrollTop > 20);
+  assert.equal(stickScrollDelta(0.1, 16), 0);
+  assert.ok(stickScrollDelta(-1, 16) < 0);
+  assert.equal(scrollShift(12, 30), 'translate(-12px, -30px)');
+  assert.equal(scrollShift(0, 0), '');
+
+  const docBake = {
+    createElement() {
+      return {
+        nodeType: 1, style: {}, childNodes: [], attributes: {},
+        setAttribute(name, value) { this.attributes[name] = value; },
+        get firstChild() { return this.childNodes[0] ?? null; },
+        appendChild(child) { this.childNodes.push(child); return child; },
+        removeChild(child) {
+          const at = this.childNodes.indexOf(child);
+          if (at >= 0) this.childNodes.splice(at, 1);
+          return child;
+        },
+      };
+    },
+  };
+  const leaf = { nodeType: 1, scrollTop: 0, scrollLeft: 0, childNodes: [], style: {} };
+  const port = {
+    nodeType: 1, scrollTop: 24, scrollLeft: 8, style: {}, ownerDocument: docBake, childNodes: [leaf],
+    get firstChild() { return this.childNodes[0] ?? null; },
+    appendChild(child) { this.childNodes.push(child); return child; },
+    removeChild(child) {
+      const at = this.childNodes.indexOf(child);
+      if (at >= 0) this.childNodes.splice(at, 1);
+      return child;
+    },
+  };
+  bakeScrollTree(port);
+  assert.equal(port.childNodes.length, 1);
+  assert.equal(port.childNodes[0].style.transform, 'translate(-8px, -24px)');
+  assert.equal(port.childNodes[0].childNodes[0], leaf);
+  assert.equal(port.style.overflow, 'hidden');
+});
+
+test('an unclaimed frame can still be painted, and a claimed one is left to the dungeon', () => {
+  const win = {
+    requestAnimationFrame(cb) { this.pending = cb; return 1; },
+    cancelAnimationFrame() { this.pending = null; },
+  };
+  const pending = new Map();
+  let n = 1;
+  const session = {
+    inputSources: [],
+    requestAnimationFrame(cb) { const id = n++; pending.set(id, cb); return id; },
+    cancelAnimationFrame(id) { pending.delete(id); },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const frame = { getViewerPose() { return { views: [{}, {}], transform: { matrix: IDENTITY } }; } };
+  let paints = 0;
+  const clock = createXrFrameClock({
+    win,
+    setTarget: () => true,
+    mirror: () => true,
+  });
+  clock.install();
+  clock.engage({
+    session,
+    layer: { framebuffer: {}, getViewport: () => ({ x: 0, y: 0, width: 4, height: 4 }) },
+    refSpace: {},
+  });
+  clock.setUnclaimed(() => { paints += 1; });
+  win.requestAnimationFrame(() => {});
+  for (const [, cb] of [...pending.entries()]) cb(16, frame);
+  pending.clear();
+  assert.equal(paints, 1);
+  win.requestAnimationFrame(() => { clock.claimStereo(); });
+  for (const [, cb] of [...pending.entries()]) cb(32, frame);
+  pending.clear();
+  assert.equal(paints, 1);
+  assert.equal(clock.claimed(), true);
 });

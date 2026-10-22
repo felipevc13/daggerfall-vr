@@ -119,10 +119,11 @@ export function endVrSession(session) {
  *
  * @param {{ gl: WebGL2RenderingContext, canvas?: HTMLCanvasElement, label?: string,
  *          hideOnEnter?: boolean, exitLabel?: string, onGesture?: () => void,
- *          onEnter: (opened: any) => void, onError?: (err: any) => void, doc?: Document }} opts
+ *          onEnter: (opened: any) => void, onError?: (err: any) => void, doc?: Document,
+ *          hold?: boolean, onSession?: (live: any) => void }} opts
  * @returns {Promise<HTMLButtonElement|null>} the button, or null if none can ever work
  */
-export async function makeEnterVrButton({ gl, canvas = null, label = 'Enter VR', hideOnEnter = true, exitLabel = 'Exit', onGesture = null, onEnter, onError = null, doc = (typeof document !== 'undefined' ? document : null), depthNear = 0.05, depthFar = 300, optionalFeatures = null, domOverlayRoot = null } = {}) {
+export async function makeEnterVrButton({ gl, canvas = null, label = 'Enter VR', hideOnEnter = true, exitLabel = 'Exit', onGesture = null, onEnter, onError = null, doc = (typeof document !== 'undefined' ? document : null), depthNear = 0.05, depthFar = 300, optionalFeatures = null, domOverlayRoot = null, hold = false, onSession = null } = {}) {
   if (!doc || !(await immersiveVrSupported())) return null;
   const button = doc.createElement('button');
   button.type = 'button';
@@ -134,20 +135,26 @@ export async function makeEnterVrButton({ gl, canvas = null, label = 'Enter VR',
   // top-right corner. A short plaque on the right edge, under that mark and
   // above the foot, misses all of those, and it misses the chargen question,
   // which is centred in its pane. z-index 30 stays under the asset picker
-  // (40) and over the menu host (12) and the HUD (4). The intro film is also
-  // 30 and is appended later, so it covers this plaque until the film ends.
+  // (40) and over the menu host (12) and the HUD (4). #intro is the same
+  // layer and is appended later, so it would cover this plaque for the whole
+  // film. The plug does not fight that: it holds the plaque until
+  // #enhanced-menu is up and #intro is gone (enterChrome.js). The spot stays
+  // clear of Screenshots, which is the foot.
   // Only the button takes clicks.
   button.style.cssText = 'position:fixed;top:38%;right:16px;transform:translateY(-50%);z-index:30;' +
     'padding:6px 12px;font:600 12px system-ui,sans-serif;letter-spacing:0.14em;text-transform:uppercase;' +
     'color:#d8cfae;background:rgba(10,12,17,0.92);border:2px solid #7d7460;border-radius:0;' +
     'cursor:pointer;pointer-events:auto;white-space:nowrap;';
   let live = null;
+  const note = () => { try { onSession?.(live); } catch { /* the plaque still shows the word */ } };
   const reset = () => {
     live = null;
     button.textContent = label;
     button.disabled = false;
-    button.style.display = '';
+    if (!hold) button.style.display = '';
+    note();
   };
+  if (hold) button.style.display = 'none';
   button.addEventListener('click', async () => {
     if (!hideOnEnter && live) {
       const current = live;
@@ -168,6 +175,7 @@ export async function makeEnterVrButton({ gl, canvas = null, label = 'Enter VR',
         live = opened?.session ?? null;
         button.textContent = exitLabel;
         button.disabled = false;
+        note();
         try { opened?.session?.addEventListener?.('end', reset, { once: true }); } catch { /* a session with no events still ends through the clock */ }
       }
       // Awaiting keeps a host that returns a promise from becoming an unhandled rejection. A sync host is unchanged.
