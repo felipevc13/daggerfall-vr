@@ -5,15 +5,20 @@
 // while the film is still fading (introScreen.js enterMenu), so the plaque
 // waits until the film node is gone. Before either node exists, a spinner
 // stands in. A scene URL that never mounts the door (a probe's ?begin) does
-// not wait. Nothing here is a timer.
+// not wait. Nothing here is a timer. The query is read through pageHas.
+
+import { pageHas } from '../systems/pageQuery.js';
 
 const SKIP_DOOR = Object.freeze(['begin', 'nomenu', 'shot', 'interior', 'dungeon', 'world', 'exterior', 'region', 'loc']);
 
 export function expectsFrontDoor(search) {
   if (search == null) return true;
-  const params = typeof search === 'string' ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search) : search;
-  if (!params || typeof params.has !== 'function') return true;
-  for (const key of SKIP_DOOR) if (params.has(key)) return false;
+  if (typeof search !== 'string') {
+    if (typeof search.has !== 'function') return true;
+    for (const key of SKIP_DOOR) if (search.has(key)) return false;
+    return true;
+  }
+  for (const key of SKIP_DOOR) if (pageHas(key, search)) return false;
   return true;
 }
 
