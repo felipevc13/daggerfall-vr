@@ -114,9 +114,9 @@ When the door closes, the panel loop stops and the session does not. The world i
 
 ### What to check on the Quest
 
-Open `http://localhost:5173/play/?vr` (the port the script printed). Wait until **Enter VR** is visible, then press it.
+Open `http://localhost:5173/play/?vr` (the port the script printed). Wait until **Enter VR** is visible, then press it. The dev terminal (or `.quest-vr.log`) prints one `vr-panel` line: the door id, its pixel box, how many text nodes were painted, `tex=1` when the picture uploaded, and `gl=` the WebGL error if it did not.
 
-1. You are in a dark room. A large panel in front of you shows the front door, readable enough to tell Online from Offline.
+1. You are in a dark room. A large panel in front of you shows the front door, readable enough to tell Online from Offline. A first visit with nobody signed in shows the sign-in window on that panel; close it, and the Online / Offline doors are the same ones as the page.
 2. Point the right controller at Offline and pull the trigger once. The offline doors appear on the same panel. Holding the trigger does not fire them again.
 3. Open Settings or Overhauls from the panel, then come back. The page you see in the headset is the page that changed.
 4. Point at the right edge, where the flat Exit plaque sits. That plaque is not a door on the panel, and the session stays up.

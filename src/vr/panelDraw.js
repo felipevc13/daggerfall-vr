@@ -80,6 +80,72 @@ function pack(list) {
   return data;
 }
 
+const UNPACK_RESET = [
+  ['UNPACK_ALIGNMENT', 4],
+  ['UNPACK_ROW_LENGTH', 0],
+  ['UNPACK_SKIP_PIXELS', 0],
+  ['UNPACK_SKIP_ROWS', 0],
+  ['UNPACK_IMAGE_HEIGHT', 0],
+  ['UNPACK_SKIP_IMAGES', 0],
+  ['UNPACK_FLIP_Y_WEBGL', false],
+  ['UNPACK_PREMULTIPLY_ALPHA_WEBGL', false],
+  ['UNPACK_COLORSPACE_CONVERSION_WEBGL', null],
+];
+
+function drainErrors(gl) {
+  try {
+    for (let i = 0; i < 8; i++) {
+      if (!gl.getError()) break;
+    }
+  } catch { /* a context that cannot report still tries the upload */ }
+}
+
+/** Put `source` in `tex`. Resets unpack state first: a bound pixel-unpack
+ *  buffer or a leftover row length makes texImage2D fail without throwing,
+ *  and an incomplete texture samples as black. The quad's v=0 is its top,
+ *  so the canvas is stored unflipped. */
+export function uploadPanelSource(gl, tex, source) {
+  if (!gl || !tex || !source) return { ok: false, error: 0 };
+  const saved = [];
+  const unpack = gl.PIXEL_UNPACK_BUFFER;
+  let prevBuf = null;
+  if (unpack != null) {
+    try { prevBuf = gl.getParameter(unpack); } catch { prevBuf = null; }
+    try { gl.bindBuffer(unpack, null); } catch { /* this context has no unpack buffer */ }
+  }
+  for (const [name, fallback] of UNPACK_RESET) {
+    const key = gl[name];
+    if (key == null) continue;
+    let before = null;
+    try { before = gl.getParameter(key); } catch { before = null; }
+    saved.push([key, before]);
+    const value = name === 'UNPACK_COLORSPACE_CONVERSION_WEBGL' ? (gl.NONE ?? 0) : fallback;
+    try { gl.pixelStorei(key, value); } catch { /* the pname is absent */ }
+  }
+  drainErrors(gl);
+  let error = 0;
+  try {
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    try { error = gl.getError() || 0; } catch { error = 0; }
+  } catch { error = -1; }
+  for (let i = saved.length - 1; i >= 0; i--) {
+    const [key, before] = saved[i];
+    if (before == null) continue;
+    try { gl.pixelStorei(key, before); } catch { /* the safe value can stay */ }
+  }
+  if (unpack != null) {
+    try { gl.bindBuffer(unpack, prevBuf); } catch { /* already unbound */ }
+  }
+  try { gl.bindTexture(gl.TEXTURE_2D, null); } catch { /* the next draw binds it */ }
+  const ok = error === 0 || error === gl.NO_ERROR;
+  return { ok, error: ok ? 0 : error };
+}
+
 /** A drawer bound to one GL context. `draw` returns true when both eyes were painted. */
 export function createPanelDrawer(gl) {
   if (!gl) return { draw() { return false; }, setTexture() {}, dispose() {} };
@@ -101,18 +167,14 @@ export function createPanelDrawer(gl) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.bindTexture(gl.TEXTURE_2D, null);
   let texOn = 0;
 
   function setTexture(source) {
-    if (!source) return;
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    // The quad's v=0 is its top edge, and a canvas's first row is its top.
-    // Leaving the unpack unflipped puts that row at v=0. Flipping it would
-    // turn the door upside down.
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); texOn = 1; }
-    catch { texOn = 0; }
-    gl.bindTexture(gl.TEXTURE_2D, null);
+    if (!source) return { ok: false, error: 0 };
+    const result = uploadPanelSource(gl, tex, source);
+    if (result.ok) texOn = 1;
+    return result;
   }
 
   function drawQuad(mvp, pose, pad, color, useTex) {
@@ -129,6 +191,10 @@ export function createPanelDrawer(gl) {
     gl.uniform1f(gl.getUniformLocation(panel, 'uTexOn'), useTex ? texOn : 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
+    if (useTex) {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    }
     gl.uniform1i(gl.getUniformLocation(panel, 'uTex'), 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
