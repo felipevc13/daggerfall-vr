@@ -282,6 +282,14 @@ export function createXrFrameClock({
   let questSample = null;
   let questRays = { left: null, right: null };
   let viewerMatrix = null;
+  let unclaimed = null;
+
+  function stickAxes(gp) {
+    const axes = gp?.axes;
+    if (!axes || !axes.length) return { x: 0, y: 0 };
+    if (axes.length >= 4) return { x: Number(axes[2]) || 0, y: Number(axes[3]) || 0 };
+    return { x: Number(axes[0]) || 0, y: Number(axes[1]) || 0 };
+  }
 
   function handRay(source, xrFrame) {
     const space = source?.targetRaySpace;
@@ -292,7 +300,8 @@ export function createXrFrameClock({
     if (!ray) return null;
     const button = source.gamepad?.buttons?.[0];
     const trigger = (Number(button?.value) || 0) >= 0.5 || button?.pressed === true;
-    return { origin: ray.origin, direction: ray.direction, trigger };
+    const stick = stickAxes(source.gamepad);
+    return { origin: ray.origin, direction: ray.direction, trigger, stickX: stick.x, stickY: stick.y };
   }
 
   function publishQuest(xrFrame) {
@@ -428,6 +437,11 @@ export function createXrFrameClock({
     for (const cb of batch) {
       try { cb(stamp); } catch (err) { tell(err); }
     }
+    // After every host. A monitor that draws here covers a frame no stereo
+    // pass claimed, and claiming from that draw skips the eye copy below.
+    if (mode === 'session' && !stereoClaimed && unclaimed) {
+      try { unclaimed(framePack); } catch { /* the copy still runs */ }
+    }
     const claimed = stereoClaimed;
     framePack = null;
     if (mode !== 'session' || !views || views.length < 2 || claimed) return;
@@ -559,6 +573,8 @@ export function createXrFrameClock({
     disengage: () => disengage('end'),
     eyePack: () => framePack,
     claimStereo: () => { stereoClaimed = true; },
+    claimed: () => stereoClaimed,
+    setUnclaimed: (fn) => { unclaimed = typeof fn === 'function' ? fn : null; },
     questMotor: () => (mode === 'session' ? questSample : null),
     questRays: () => (mode === 'session' ? questRays : null),
     viewerMatrix: () => (mode === 'session' ? viewerMatrix : null),

@@ -205,9 +205,12 @@ alone('a supported headset keeps the session, runs the queued frame on it, and E
     const result = await installVr(renderer, { doc, win });
     assert.equal(result.reason, 'ready');
     assert.equal(result.mounted, true);
-    assert.equal(doc.kids.length, 1);
+    assert.equal(doc.kids.length, 2);
     assert.equal(doc.kids[0].textContent, 'Enter VR');
     assert.equal(doc.kids[0].getAttribute('data-vr-chrome'), '');
+    assert.equal(doc.kids[0].style.display, 'none');
+    assert.equal(doc.kids[1].hidden, false);
+    assert.equal(doc.kids[1].getAttribute('data-vr-loading'), '');
     assert.match(doc.kids[0].style.cssText, /top:38%/);
     assert.match(doc.kids[0].style.cssText, /right:16px/);
     assert.match(doc.kids[0].style.cssText, /pointer-events:auto/);
@@ -226,6 +229,8 @@ alone('a supported headset keeps the session, runs the queued frame on it, and E
     assert.equal(session.xrPending.size, 1);
     assert.equal(doc.kids[0].textContent, 'Exit');
     assert.equal(doc.kids[0].disabled, false);
+    assert.equal(doc.kids[0].style.display, '');
+    assert.equal(doc.kids[1].hidden, true);
     assert.match(env.logs.join('\n'), /VR frame loop is on the headset\. The dungeon draws each eye\. Other places still share one picture\./);
     assert.match(posts[0].body, /The dungeon draws each eye/);
     assert.equal(session.renderState.depthNear, 0.05);

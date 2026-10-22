@@ -1,18 +1,23 @@
-// VR1 - the front door, on a quad, while the immersive session is up.
+// VR1 - the page, on a quad, while the immersive session is up.
 //
-// #intro and #enhanced-menu are the page's own screens. This module does
-// not import them. When both are gone the session stays up and this loop
-// stops, so the world's own frames are the picture. /play/ without a
-// session never starts the loop.
+// The quad is a virtual monitor: one size, the viewport's picture, not the
+// door element's box. #intro and #enhanced-menu still decide the title
+// phase. When they leave, the loop stays up. A DOM screen that covers the
+// view (chargen is one) keeps the monitor, because that screen is not in
+// the WebGL framebuffer. A world that is drawing into the eyes, and the
+// dungeon's own stereo pass, are left alone. /play/ without a session
+// never starts the loop.
 
-import { aimHands, headPoint, levelForward, placePanel, uvToClient } from './panelHit.js';
+import { PANEL_ASPECT, aimHands, headPoint, levelForward, placePanel, uvToClient } from './panelHit.js';
 import { dispatchPanelPointer, elementInRoot, triggerEdge } from './panelPointer.js';
-import { rasterizeRoot, releaseDoorPin, resolveDoorRect } from './domRaster.js';
+import { releaseDoorPin, resolveDoorRect, rasterizeRoot } from './domRaster.js';
 import { createPanelDrawer } from './panelDraw.js';
+import { pageCovers, snapshotViewport, viewportBox } from './pageShot.js';
+import { applyStickScroll, scrollableAt, stickScrollDelta, wheelBurst } from './panelScroll.js';
 import { relayVrLog } from './xrLog.js';
 
 export const DOOR_IDS = Object.freeze(['intro', 'enhanced-menu']);
-const RASTER_MS = 100;
+const RASTER_MS = 250;
 
 /** The cinematic, or the menu after it. Null once the player has left the door. */
 export function frontDoorRoot(doc) {
@@ -48,21 +53,27 @@ function safeDrawer(gl) {
   try { return createPanelDrawer(gl); } catch { return null; }
 }
 
-export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: given, log } = {}) {
+function canSnapshot(doc) {
+  return !!(doc?.body && typeof globalThis.XMLSerializer === 'function' && typeof doc.createElement === 'function' && doc.defaultView);
+}
+
+export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: given, log, capture } = {}) {
   const time = now ?? (() => (typeof performance !== 'undefined' ? performance.now() : Date.now()));
   const drawer = given ?? safeDrawer(gl) ?? { draw() { return false; }, setTexture() {}, dispose() {} };
+  const shoot = capture ?? snapshotViewport;
   let alive = false;
   let frameId = null;
   let phase = 'off';
   let pose = null;
-  let poseRoot = null;
   let canvas = null;
   let paintedAt = 0;
-  let paintedRoot = null;
+  let busy = false;
   const trigger = { down: false };
   let captured = null;
   let aim = null;
-  let told = false;
+  let toldKey = '';
+  let lastStamp = 0;
+  let deferred = false;
   const doorBox = {};
 
   function say(line) {
@@ -78,52 +89,95 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     try { onPhase?.(phase); } catch { /* a test hook is not the session */ }
   }
 
-  function lockPose(root) {
-    if (pose && poseRoot === root) return pose;
+  function viewFrame() {
+    return viewportBox(win?.innerWidth, win?.innerHeight);
+  }
+
+  function lockPose() {
+    if (pose) return pose;
     const forward = levelForward(clock?.viewerMatrix?.());
     const head = headPoint(clock?.viewerMatrix?.());
     if (!forward || !head) return pose;
-    let aspect = 16 / 9;
-    try {
-      const rect = root.getBoundingClientRect();
-      if (rect && rect.height > 0 && rect.width > 0) aspect = rect.width / rect.height;
-    } catch { /* the previous quad stays */ }
-    const next = placePanel(head, forward, { aspect });
+    const next = placePanel(head, forward, { aspect: PANEL_ASPECT });
     if (!next) return pose;
     pose = next;
-    poseRoot = root;
     return pose;
   }
 
-  function raster(root, stamp) {
-    const measured = resolveDoorRect(root, doorBox);
-    if (paintedRoot === root && stamp - paintedAt < RASTER_MS && !measured.pinned) return;
+  function publish(shot, mode, ms) {
+    const uploaded = shot?.canvas ? drawer.setTexture(shot.canvas) : null;
+    const frame = viewFrame();
+    const key = `${phase}:${mode}`;
+    if (toldKey === key) return;
+    toldKey = key;
+    const w = Math.round(frame.width);
+    const h = Math.round(frame.height);
+    say(`vr-panel:phase=${phase},shot=${mode},ms=${Math.max(0, Math.round(ms))},view=${w}x${h},nodes=${shot?.nodes ?? 0},texts=${shot?.texts ?? 0},images=${shot?.images ?? 0},tex=${uploaded?.ok ? 1 : 0},gl=${uploaded?.error ?? 0},pin=${frame.pinned ? 1 : 0}`);
+  }
+
+  function boxShot() {
+    const root = doc?.body || doc?.documentElement || frontDoorRoot(doc);
+    if (!root) return null;
     if (!canvas && typeof doc?.createElement === 'function') {
       try { canvas = doc.createElement('canvas'); } catch { canvas = null; }
     }
-    paintedAt = stamp;
-    paintedRoot = root;
-    const shot = rasterizeRoot(root, canvas, doc);
-    const uploaded = shot?.canvas ? drawer.setTexture(shot.canvas) : null;
-    if (!told) {
-      told = true;
-      const w = Math.round(measured.rect?.width || shot?.width || 0);
-      const h = Math.round(measured.rect?.height || shot?.height || 0);
-      say(`vr-panel ${root?.id || 'door'} ${w}x${h} nodes=${shot?.nodes ?? 0} texts=${shot?.texts ?? 0} images=${shot?.images ?? 0} tex=${uploaded?.ok ? 1 : 0} gl=${uploaded?.error ?? 0} pin=${measured.pinned ? 1 : 0}`);
-    }
+    const shot = rasterizeRoot(root, canvas, doc, viewFrame());
+    return shot ? { ...shot, mode: 'box' } : null;
   }
 
-  function pointer(root) {
-    const quad = lockPose(root);
+  function raster(stamp) {
+    if (busy) return;
+    if (canvas && stamp - paintedAt < RASTER_MS) return;
+    paintedAt = stamp;
+    const t0 = time();
+    if (!canSnapshot(doc)) {
+      publish(boxShot(), 'box', time() - t0);
+      return;
+    }
+    busy = true;
+    Promise.resolve(shoot(doc, win, canvas, viewFrame())).then((shot) => {
+      busy = false;
+      if (!alive) return;
+      if (shot?.canvas) publish(shot, shot.mode || 'svg', time() - t0);
+      else publish(boxShot(), 'box', time() - t0);
+    }, () => {
+      busy = false;
+      if (!alive) return;
+      publish(boxShot(), 'box', time() - t0);
+    });
+  }
+
+  function mirroring() {
+    if (typeof clock?.claimed === 'function' && clock.claimed()) return false;
+    if (frontDoorRoot(doc)) return true;
+    return pageCovers(doc, win);
+  }
+
+  function hitRoot(door) {
+    return doc?.body || door || doc?.documentElement || null;
+  }
+
+  function pointer(door, stamp) {
+    const quad = lockPose();
     aim = quad ? aimHands(clock?.questRays?.(), quad) : null;
-    const rect = root.getBoundingClientRect?.();
-    if (!aim || !rect) {
+    const frame = viewFrame();
+    const root = hitRoot(door);
+    if (!aim || !root) {
       if (trigger.down && captured) dispatchPanelPointer(doc, root, { x: 0, y: 0 }, 'up', captured);
       trigger.down = false;
       captured = null;
       return;
     }
-    const point = uvToClient(aim.hit.u, aim.hit.v, rect);
+    const point = uvToClient(aim.hit.u, aim.hit.v, frame);
+    const rays = clock?.questRays?.();
+    const delta = stickScrollDelta(rays?.right?.stickY, stamp - lastStamp);
+    if (delta) {
+      const scroller = scrollableAt(doc, point.x, point.y);
+      if (scroller && applyStickScroll(scroller, delta)) {
+        wheelBurst(scroller, delta, doc);
+        paintedAt = 0;
+      }
+    }
     const edge = triggerEdge(trigger, aim.trigger);
     if (edge.down) {
       captured = elementInRoot(doc, root, point.x, point.y);
@@ -138,9 +192,9 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     }
   }
 
-  function drawEyes(root) {
+  function drawEyes() {
     const pack = clock?.eyePack?.() ?? null;
-    const quad = lockPose(root);
+    const quad = lockPose();
     if (!pack?.views?.length || !quad) return false;
     const views = [];
     for (const entry of pack.views) {
@@ -154,33 +208,56 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     return drawer.draw({ framebuffer: pack.framebuffer ?? null, views, pose: quad, hit }) === true;
   }
 
+  function paintIfNeeded() {
+    if (!alive || !mirroring()) return false;
+    const drew = drawEyes();
+    if (drew) {
+      try { clock?.claimStereo?.(); } catch { /* the copy would repeat one eye */ }
+    }
+    return drew;
+  }
+
+  function halt() {
+    alive = false;
+    releaseDoorPin(doorBox);
+    try { clock?.setUnclaimed?.(null); } catch { /* the clock may not have the hook */ }
+    pose = null;
+    captured = null;
+    trigger.down = false;
+    if (frameId != null) {
+      try { win?.cancelAnimationFrame?.(frameId); } catch { /* already fired */ }
+      frameId = null;
+    }
+  }
+
   function tick(stamp) {
     frameId = null;
+    const nowStamp = Number(stamp) || time();
     if (!alive) return;
     if (!clock?.presenting) {
-      alive = false;
-      releaseDoorPin(doorBox);
+      halt();
       setPhase('off');
       return;
     }
-    const root = frontDoorRoot(doc);
-    const next = panelPhase({ presenting: true, doorOpen: !!root });
+    const door = frontDoorRoot(doc);
+    const next = panelPhase({ presenting: true, doorOpen: !!door });
     setPhase(next);
-    if (next !== 'title') {
-      alive = false;
-      releaseDoorPin(doorBox);
-      pose = null;
-      poseRoot = null;
-      captured = null;
+    if (door) resolveDoorRect(door, doorBox);
+    else releaseDoorPin(doorBox);
+    const show = mirroring();
+    try {
+      if (show) raster(nowStamp);
+      else publish(null, 'eyes', 0);
+    } catch { /* a bad snapshot leaves the previous picture */ }
+    if (show) {
+      try { pointer(door, nowStamp); } catch { /* the ray is not the session */ }
+    } else if (trigger.down) {
       trigger.down = false;
-      return;
+      captured = null;
     }
-    try { raster(root, Number(stamp) || time()); } catch { /* a bad snapshot leaves the previous picture */ }
-    try { pointer(root); } catch { /* the ray is not the session */ }
-    let drew = false;
-    try { drew = drawEyes(root); } catch { drew = false; }
-    if (drew) {
-      try { clock.claimStereo?.(); } catch { /* the copy would repeat one eye */ }
+    lastStamp = nowStamp;
+    if (!deferred) {
+      try { paintIfNeeded(); } catch { /* the copy still has the engine's frame */ }
     }
     if (!alive) return;
     try { frameId = win.requestAnimationFrame(tick); } catch { alive = false; }
@@ -191,17 +268,15 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
       if (alive) return false;
       if (typeof win?.requestAnimationFrame !== 'function') return false;
       alive = true;
+      if (typeof clock?.setUnclaimed === 'function') {
+        deferred = true;
+        try { clock.setUnclaimed(() => { try { paintIfNeeded(); } catch { /* the copy remains */ } }); }
+        catch { deferred = false; }
+      }
       try { frameId = win.requestAnimationFrame(tick); } catch { alive = false; return false; }
       return true;
     },
-    stop() {
-      alive = false;
-      releaseDoorPin(doorBox);
-      if (frameId != null) {
-        try { win?.cancelAnimationFrame?.(frameId); } catch { /* already fired */ }
-        frameId = null;
-      }
-    },
+    stop() { halt(); },
     get phase() { return phase; },
   };
 }
