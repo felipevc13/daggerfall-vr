@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  PANEL_ASPECT, PANEL_DISTANCE, PANEL_DROP, PANEL_WIDTH, aimHands, levelForward, panelSize, placePanel, rayFromTransform, rayPanelHit, uvToClient,
+  PANEL_ASPECT, PANEL_DISTANCE, PANEL_DROP, PANEL_MIN_HEIGHT, PANEL_WIDTH, aimHands, levelForward, panelSize, placePanel, rayFromTransform, rayPanelHit, uvToClient,
 } from '../../src/vr/panelHit.js';
 import { dispatchPanelPointer, elementInRoot, triggerEdge } from '../../src/vr/panelPointer.js';
 import { applyStickScroll, scrollableAt, stickScrollDelta } from '../../src/vr/panelScroll.js';
@@ -383,9 +383,31 @@ test('the first title frame logs the door box once', () => {
   panel.start();
   frames.splice(0).forEach((cb) => cb(10));
   assert.equal(lines.length, 1);
-  assert.match(lines[0], /vr-panel:phase=title,shot=box,ms=\d+,view=1280x960,nodes=0,texts=0,images=0,tex=0,gl=0,pin=1/);
+  assert.match(lines[0], /vr-panel:phase=title,shot=box,ms=\d+,view=1280x960,nodes=0,texts=0,images=0,tex=0,gl=0,pin=1,path=title/);
   frames.splice(0).forEach((cb) => cb(20));
   assert.equal(lines.length, 1);
+});
+
+test('the quad aspect equals the captured picture, and a click uses that same frame', () => {
+  for (const [w, h] of [[1920, 1080], [1600, 1000], [1280, 960], [2560, 1600]]) {
+    const aspect = w / h;
+    const size = panelSize(aspect);
+    assert.ok(Math.abs(size.width / size.height - aspect) < 1e-9, `${w}x${h}`);
+    const pose = placePanel([0, 1.6, 0], [0, 0, -1], { aspect });
+    assert.ok(Math.abs((pose.halfW * 2) / (pose.halfH * 2) - aspect) < 1e-9);
+    const rect = { left: 0, top: 0, width: w, height: h };
+    assert.deepEqual(uvToClient(0, 0, rect), { x: 0, y: 0 });
+    assert.deepEqual(uvToClient(1, 1, rect), { x: w, y: h });
+    const mid = uvToClient(0.25, 0.5, rect);
+    assert.ok(Math.abs(mid.x - w * 0.25) < 1e-6);
+    assert.ok(Math.abs(mid.y - h * 0.5) < 1e-6);
+  }
+  const wide = panelSize(2.4);
+  assert.ok(wide.height >= PANEL_MIN_HEIGHT - 1e-9);
+  assert.ok(Math.abs(wide.width / wide.height - 2.4) < 1e-9);
+  const tall = panelSize(0.9);
+  assert.ok(tall.height <= 1.4 + 1e-9);
+  assert.ok(Math.abs(tall.width / tall.height - 0.9) < 1e-9);
 });
 
 test('the monitor is a tall quad about 61 degrees across, centred on the eye', () => {
@@ -525,4 +547,61 @@ test('an unclaimed frame can still be painted, and a claimed one is left to the 
   pending.clear();
   assert.equal(paints, 1);
   assert.equal(clock.claimed(), true);
+});
+
+test('a wide page sizes the quad to the page, and a world frame sizes it to the eye', () => {
+  const root = { isConnected: true, getBoundingClientRect: () => box(0, 0, 320, 180) };
+  let open = true;
+  const doc = { getElementById: (id) => (open && id === 'enhanced-menu' ? root : null), body: {} };
+  const frames = [];
+  const win = {
+    innerWidth: 1600,
+    innerHeight: 900,
+    requestAnimationFrame(cb) { frames.push(cb); return frames.length; },
+    cancelAnimationFrame() {},
+  };
+  const poses = [];
+  const claims = [];
+  let hook = null;
+  const clock = {
+    presenting: true,
+    claimed: () => claims.length > 0,
+    viewerMatrix: () => IDENTITY,
+    questRays: () => null,
+    eyePack: () => ({
+      framebuffer: {},
+      views: [{
+        x: 0, y: 0, width: 1440, height: 1600,
+        view: { projectionMatrix: new Float32Array(16), transform: { inverse: { matrix: new Float32Array(16) } } },
+      }],
+    }),
+    claimStereo() { claims.push(1); },
+    setUnclaimed(fn) { hook = fn; },
+  };
+  const drawer = {
+    draw(eyes) {
+      poses.push({ w: eyes.pose.halfW * 2, h: eyes.pose.halfH * 2, flip: !!eyes.flipV });
+      return true;
+    },
+    setTexture() { return { ok: true, error: 0 }; },
+    captureEye() { return { width: 1440, height: 1600 }; },
+  };
+  const panel = createTitlePanel({ doc, win, clock, drawer });
+  assert.equal(panel.start(), true);
+  const run = () => {
+    const batch = frames.splice(0);
+    for (const cb of batch) cb(10);
+  };
+  run();
+  hook();
+  assert.equal(claims.length, 1);
+  assert.ok(Math.abs(poses[0].w / poses[0].h - 1600 / 900) < 1e-6);
+  assert.equal(poses[0].flip, false);
+  claims.length = 0;
+  open = false;
+  run();
+  hook();
+  assert.equal(claims.length, 1);
+  assert.ok(Math.abs(poses.at(-1).w / poses.at(-1).h - 1440 / 1600) < 1e-6);
+  assert.equal(poses.at(-1).flip, true);
 });

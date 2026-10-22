@@ -5,13 +5,18 @@
 // not tilt it. Nothing here imports the engine.
 
 // Tunable after a Quest pass. Width 1.7 m at 1.45 m is about 61 degrees
-// across (2 * atan((width / 2) / distance)). The quad is 4:3, taller than
-// the door's wide box, and its centre sits on the eye.
+// across (2 * atan((width / 2) / distance)) when the picture is 4:3.
+// PANEL_ASPECT is that pinned fallback (an odd window). A live capture
+// passes its own width/height, and the quad keeps that ratio: height is
+// width/ratio, then a short picture grows the width up to PANEL_MIN_HEIGHT
+// and a tall one shrinks the width down to PANEL_MAX_HEIGHT. The centre
+// stays on the eye.
 export const PANEL_DISTANCE = 1.45;
 export const PANEL_WIDTH = 1.7;
 export const PANEL_DROP = 0;
 export const PANEL_ASPECT = 4 / 3;
 export const PANEL_MAX_HEIGHT = 1.4;
+export const PANEL_MIN_HEIGHT = 0.85;
 export const PANEL_VIEW_W = 1280;
 export const PANEL_VIEW_H = 960;
 
@@ -73,13 +78,16 @@ export function rayFromTransform(matrix) {
   return { origin, direction };
 }
 
-export function panelSize(aspect, width = PANEL_WIDTH, maxHeight = PANEL_MAX_HEIGHT) {
+export function panelSize(aspect, width = PANEL_WIDTH, maxHeight = PANEL_MAX_HEIGHT, minHeight = PANEL_MIN_HEIGHT) {
   const a = Number(aspect);
   const ratio = a > 0.25 && a < 8 ? a : 16 / 9;
   let w = width;
   let h = w / ratio;
   if (h > maxHeight) {
     h = maxHeight;
+    w = h * ratio;
+  } else if (h < minHeight) {
+    h = minHeight;
     w = h * ratio;
   }
   return { width: w, height: h };

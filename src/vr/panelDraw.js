@@ -46,12 +46,14 @@ function mul4(a, b) {
   return out;
 }
 
-function corners(pose, pad) {
+function corners(pose, pad, flipV) {
   const hw = pose.halfW + pad;
   const hh = pose.halfH + pad;
   const c = pose.center;
   const r = pose.right;
   const u = pose.up;
+  const top = flipV ? 1 : 0;
+  const bot = flipV ? 0 : 1;
   const at = (sx, sy, u0, v0) => {
     const p = [
       c[0] + r[0] * sx * hw + u[0] * sy * hh,
@@ -60,10 +62,10 @@ function corners(pose, pad) {
     ];
     return { p, u: u0, v: v0 };
   };
-  const tl = at(-1, 1, 0, 0);
-  const tr = at(1, 1, 1, 0);
-  const bl = at(-1, -1, 0, 1);
-  const br = at(1, -1, 1, 1);
+  const tl = at(-1, 1, 0, top);
+  const tr = at(1, 1, 1, top);
+  const bl = at(-1, -1, 0, bot);
+  const br = at(1, -1, 1, bot);
   return [tl, tr, bl, bl, tr, br];
 }
 
@@ -169,6 +171,10 @@ export function createPanelDrawer(gl) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.bindTexture(gl.TEXTURE_2D, null);
   let texOn = 0;
+  let flipV = false;
+  let capW = 0;
+  let capH = 0;
+  let capFbo = null;
 
   function setTexture(source) {
     if (!source) return { ok: false, error: 0 };
@@ -178,7 +184,7 @@ export function createPanelDrawer(gl) {
   }
 
   function drawQuad(mvp, pose, pad, color, useTex) {
-    const data = pack(corners(pose, pad));
+    const data = pack(corners(pose, pad, flipV && useTex));
     gl.useProgram(panel);
     gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
@@ -199,8 +205,54 @@ export function createPanelDrawer(gl) {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
+  /** Copy eye 0 into the quad's texture before the eyes are cleared.
+   *  A blit keeps the eye's own pixels, so the quad can match that aspect.
+   *  The texture's v=0 is the bottom of a framebuffer, and the quad's v=0
+   *  is its top, so the draw flips v for this picture. */
+  function captureEye(pack) {
+    const view = pack?.views?.[0];
+    const fb = pack?.framebuffer ?? null;
+    const w = Math.round(Number(view?.width));
+    const h = Math.round(Number(view?.height));
+    if (!view || fb == null || !(w > 0) || !(h > 0)) return null;
+    if (typeof gl.blitFramebuffer !== 'function' || typeof gl.createFramebuffer !== 'function') return null;
+    let read = null;
+    let drawFb = null;
+    try {
+      read = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
+      drawFb = gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
+      if (!capFbo) capFbo = gl.createFramebuffer();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      if (capW !== w || capH !== h) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        capW = w;
+        capH = h;
+      }
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, capFbo);
+      gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      if (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) return null;
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fb);
+      gl.blitFramebuffer(view.x, view.y, view.x + view.width, view.y + view.height, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      texOn = 1;
+      return { width: w, height: h };
+    } catch {
+      return null;
+    } finally {
+      try {
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, read);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, drawFb);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+      } catch { /* the next draw binds the headset */ }
+    }
+  }
+
   function draw(eyes) {
     if (!eyes?.views?.length || !eyes.pose) return false;
+    flipV = !!eyes.flipV;
     const fb = eyes.framebuffer ?? null;
     const depthOn = gl.isEnabled(gl.DEPTH_TEST);
     const blendOn = gl.isEnabled(gl.BLEND);
@@ -281,5 +333,5 @@ export function createPanelDrawer(gl) {
     gl.deleteTexture(tex);
   }
 
-  return { draw, setTexture, dispose };
+  return { draw, setTexture, captureEye, dispose };
 }

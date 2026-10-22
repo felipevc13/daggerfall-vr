@@ -1,20 +1,22 @@
 // VR1 - the page, on a quad, while the immersive session is up.
 //
-// The quad is a virtual monitor: one size, the viewport's picture, not the
-// door element's box. #intro and #enhanced-menu still decide the title
-// phase. When they leave, the loop stays up. A DOM screen that covers the
-// view (chargen is one) keeps the monitor, because that screen is not in
-// the WebGL framebuffer. A world that is drawing into the eyes, and the
-// dungeon's own stereo pass, are left alone. /play/ without a session
-// never starts the loop.
+// The quad is a virtual monitor. Its aspect is the picture's aspect:
+// the viewport while a DOM screen is up, the eye's own pixels when the
+// picture is the 3D frame. #intro and #enhanced-menu, and any DOM screen
+// that covers the view (chargen is one), are the title picture. Outdoors
+// and interiors, which are not stereo yet, are that same quad showing
+// the eye that just drew, world-locked, not a flat copy across both eyes.
+// A dungeon that claimed the frame is left alone. /play/ without a
+// session never starts the loop.
 
-import { PANEL_ASPECT, aimHands, headPoint, levelForward, placePanel, uvToClient } from './panelHit.js';
+import { aimHands, headPoint, levelForward, panelSize, placePanel, uvToClient } from './panelHit.js';
 import { dispatchPanelPointer, elementInRoot, triggerEdge } from './panelPointer.js';
 import { releaseDoorPin, resolveDoorRect, rasterizeRoot } from './domRaster.js';
 import { createPanelDrawer } from './panelDraw.js';
 import { pageCovers, snapshotViewport, viewportBox } from './pageShot.js';
 import { applyStickScroll, scrollableAt, stickScrollDelta, wheelBurst } from './panelScroll.js';
 import { relayVrLog } from './xrLog.js';
+import { noteVrPath } from './vrPath.js';
 
 export const DOOR_IDS = Object.freeze(['intro', 'enhanced-menu']);
 const RASTER_MS = 250;
@@ -74,6 +76,7 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
   let toldKey = '';
   let lastStamp = 0;
   let deferred = false;
+  let pictureFlip = false;
   const doorBox = {};
 
   function say(line) {
@@ -93,15 +96,24 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     return viewportBox(win?.innerWidth, win?.innerHeight);
   }
 
-  function lockPose() {
-    if (pose) return pose;
-    const forward = levelForward(clock?.viewerMatrix?.());
-    const head = headPoint(clock?.viewerMatrix?.());
-    if (!forward || !head) return pose;
-    const next = placePanel(head, forward, { aspect: PANEL_ASPECT });
-    if (!next) return pose;
-    pose = next;
+  function fitPose(aspect) {
+    const size = panelSize(aspect);
+    const ratio = size.width / size.height;
+    if (!pose) {
+      const forward = levelForward(clock?.viewerMatrix?.());
+      const head = headPoint(clock?.viewerMatrix?.());
+      if (!forward || !head) return null;
+      pose = placePanel(head, forward, { aspect: ratio });
+      return pose;
+    }
+    pose.halfW = size.width / 2;
+    pose.halfH = size.height / 2;
     return pose;
+  }
+
+  function lockPose() {
+    const frame = viewFrame();
+    return fitPose(frame.width / Math.max(1, frame.height));
   }
 
   function publish(shot, mode, ms) {
@@ -112,7 +124,7 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     toldKey = key;
     const w = Math.round(frame.width);
     const h = Math.round(frame.height);
-    say(`vr-panel:phase=${phase},shot=${mode},ms=${Math.max(0, Math.round(ms))},view=${w}x${h},nodes=${shot?.nodes ?? 0},texts=${shot?.texts ?? 0},images=${shot?.images ?? 0},tex=${uploaded?.ok ? 1 : 0},gl=${uploaded?.error ?? 0},pin=${frame.pinned ? 1 : 0}`);
+    say(`vr-panel:phase=${phase},shot=${mode},ms=${Math.max(0, Math.round(ms))},view=${w}x${h},nodes=${shot?.nodes ?? 0},texts=${shot?.texts ?? 0},images=${shot?.images ?? 0},tex=${uploaded?.ok ? 1 : 0},gl=${uploaded?.error ?? 0},pin=${frame.pinned ? 1 : 0},path=title`);
   }
 
   function boxShot() {
@@ -147,8 +159,12 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     });
   }
 
-  function mirroring() {
-    if (typeof clock?.claimed === 'function' && clock.claimed()) return false;
+  function claimed() {
+    return typeof clock?.claimed === 'function' && clock.claimed();
+  }
+
+  function domUp() {
+    if (claimed()) return false;
     if (frontDoorRoot(doc)) return true;
     return pageCovers(doc, win);
   }
@@ -194,7 +210,7 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
 
   function drawEyes() {
     const pack = clock?.eyePack?.() ?? null;
-    const quad = lockPose();
+    const quad = pose;
     if (!pack?.views?.length || !quad) return false;
     const views = [];
     for (const entry of pack.views) {
@@ -205,14 +221,28 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     const hit = aim?.hit ? { point: aim.hit.point, rayOrigin: null } : null;
     const ray = clock?.questRays?.()?.[aim?.hand || 'right'];
     if (hit && ray?.origin) hit.rayOrigin = ray.origin;
-    return drawer.draw({ framebuffer: pack.framebuffer ?? null, views, pose: quad, hit }) === true;
+    return drawer.draw({ framebuffer: pack.framebuffer ?? null, views, pose: quad, hit, flipV: pictureFlip }) === true;
   }
 
   function paintIfNeeded() {
-    if (!alive || !mirroring()) return false;
+    if (!alive || claimed()) return false;
+    const frame = viewFrame();
+    const dom = !!(frontDoorRoot(doc) || pageCovers(doc, win));
+    let kind = 'title';
+    if (!dom) {
+      const eye = drawer.captureEye?.(clock?.eyePack?.() ?? null);
+      if (!eye || !(eye.width > 0) || !(eye.height > 0)) return false;
+      kind = 'fallback-monitor';
+      pictureFlip = true;
+      fitPose(eye.width / eye.height);
+    } else {
+      pictureFlip = false;
+      fitPose(frame.width / Math.max(1, frame.height));
+    }
     const drew = drawEyes();
     if (drew) {
       try { clock?.claimStereo?.(); } catch { /* the copy would repeat one eye */ }
+      noteVrPath(kind);
     }
     return drew;
   }
@@ -244,10 +274,9 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     setPhase(next);
     if (door) resolveDoorRect(door, doorBox);
     else releaseDoorPin(doorBox);
-    const show = mirroring();
+    const show = domUp();
     try {
       if (show) raster(nowStamp);
-      else publish(null, 'eyes', 0);
     } catch { /* a bad snapshot leaves the previous picture */ }
     if (show) {
       try { pointer(door, nowStamp); } catch { /* the ray is not the session */ }

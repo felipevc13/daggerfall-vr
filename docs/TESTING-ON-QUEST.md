@@ -1,6 +1,6 @@
 # Testing on a Meta Quest
 
-The headset check is the real game. `/play/` mounts Enter VR only when the URL has `?vr`. That press keeps the immersive session open. On `/play/?dungeon&class=16&vr` each eye is drawn (Privateer's Hold, as a Warrior, with character creation skipped) and the Quest controllers walk that player. On `/play/?vr` alone, and in the world and interiors, both eyes still show the one picture the host drew, and the sticks do not walk there yet. Without `?vr`, `/play/` is the flat game and does not download `src/vr`. https://daggerfalljs.dev/play/ is upstream and has no door. The checks are below.
+The headset check is the real game. `/play/` mounts Enter VR only when the URL has `?vr`. That press keeps the immersive session open. On `/play/?dungeon&class=16&vr` each eye is drawn (Privateer's Hold, as a Warrior, with character creation skipped) and the Quest controllers walk that player. The same stereo and the same sticks apply to a dungeon entered from the title (Offline, New Game, into the world) while that session is still up. Outdoors and interiors are not stereo yet: they sit on the world-locked monitor, not a picture glued to the face. Without `?vr`, `/play/` is the flat game and does not download `src/vr`. https://daggerfalljs.dev/play/ is upstream and has no door. The checks are below.
 
 WebXR is a secure context. These origins can start a session:
 
@@ -70,16 +70,16 @@ The dev server needs Daggerfall's game files. Put the `ARENA2` folder at `./aren
 1. If `./arena2` and `ARENA2_PATH` are both unset, pick the ARENA2 folder when the page asks. The front door itself does not ask.
 2. **Enter VR** appears only when `probeVrEngineHooks()` reports every hook and `navigator.xr.isSessionSupported('immersive-vr')` is true. A desktop browser without a headset, and a page opened without `?vr`, show no button.
 3. The button is a small dark plaque with a bone label and a grey-gold border, on the **right edge, about a third of the way down**. It sits under the sign-in mark and above the footer, so it does not cover Settings, Overhauls, or Screenshots, and it does not sit on the compass or the vitals. It only takes clicks on itself. During the intro film the film covers it (the film is a later full-screen layer at the same depth). That is expected. The plaque is back when the title menu is up, and it stays up through character creation, the pause menu, and the dungeon. Pressing it while a session is open ends the session. The label then reads Exit.
-4. Press **Enter VR**. The browser starts an immersive session and **leaves it open**. The dev terminal and `.quest-vr.log` get one `[INFO]` line: the frame loop is on the headset, the dungeon draws each eye, and other places still share one picture.
-   - **Quest, stereo:** `http://localhost:5173/play/?dungeon&class=16&vr` (the port the script printed). Privateer's Hold, Warrior, no character creation. Look straight ahead: the horizon of a level corridor sits at eye height, and the floor is below that line. Look up and the ceiling comes into view. Look at a campfire: one fire, not two side by side. A near door jamb shifts a little between the eyes, and a door reads about human height (one game metre is one headset metre). Turning your head looks around. The controller checklist below is this same page. Keyboard and mouse on a desktop still do, and they still do after you exit the session.
-   - **Quest, one picture:** `http://localhost:5173/play/?vr` until you are in the world, and any interior. Both eyes show the same picture. A menu open on `?dungeon&class=16&vr` does too.
-   - On `?vr` alone the front door is a DOM menu, so the headset shows that picture only once a world host is drawing frames. Controllers do not become a sword on this page yet.
+4. Press **Enter VR**. The browser starts an immersive session and **leaves it open**. The dev terminal and `.quest-vr.log` get one `[INFO]` line: the frame loop is on the headset, a dungeon draws each eye, and other places sit on the monitor.
+   - **Quest, stereo:** `http://localhost:5173/play/?dungeon&class=16&vr` (the port the script printed). Privateer's Hold, Warrior, no character creation. Look straight ahead: the horizon of a level corridor sits at eye height, and the floor is below that line. Look up and the ceiling comes into view. Look at a campfire: one fire, not two side by side. A near door jamb shifts a little between the eyes, and a door reads about human height (one game metre is one headset metre). Turning your head looks around. The controller checklist below is this same page. Keyboard and mouse on a desktop still do, and they still do after you exit the session. A dungeon reached from the title flow, session already open, is this same picture. The terminal line for that frame is `vr-panel:path=dungeon-stereo`.
+   - **Quest, monitor:** `http://localhost:5173/play/?vr` while you are still outdoors or inside a building (not a dungeon). The picture is a panel standing in the room, and it stays put when you turn your head. It is not glued to your face, and it is not the same flat image copied into both eyes. The terminal line is `vr-panel:path=fallback-monitor`. A menu that covers the page is `path=title`. If the line says `path=mono-copy`, the frame fell through to the old flat copy.
+   - On `?vr` alone the front door is a DOM menu on that panel. Controllers do not become a sword on the title. They do once a dungeon is the place you are standing.
 5. **Exit.** Press the same plaque (it says Exit), or leave immersive mode from the Quest system menu. The flat page returns, still running, and the plaque says Enter VR again. The window frame loop is back. The terminal logs that. There is not a second loop.
 6. If the button never appears, the origin is not a secure context, the hooks failed (a `[WARN]` line names the missing one), or the browser reported no immersive device. A failure while the session is starting ends the session and returns to the window loop. It does not stop the flat game.
 
 ## Quest controllers in the dungeon
 
-This mapping is only the dungeon host, and only while the immersive session is presenting. `/play/?dungeon&class=16&vr` is the page. The world and interiors still do not walk from the sticks. A menu that is open ignores the sticks and the buttons for that frame. Looking up or down does not steer. The body still moves through the same player motor as the keyboard, so a wall stops you.
+This mapping is any dungeon while the immersive session is presenting, including one entered from the title. `/play/?dungeon&class=16&vr` is the short page. Outdoors and interiors do not walk from the sticks yet. A menu that is open ignores the sticks and the buttons for that frame. Looking up or down does not steer. The body still moves through the same player motor as the keyboard, so a wall stops you.
 
 | Control | What it does |
 | --- | --- |
@@ -108,9 +108,9 @@ Open `http://localhost:5173/play/?dungeon&class=16&vr`, press **Enter VR**, and 
 
 `/play/?vr` can be entered from the title menu, after the intro film has uncovered the Enter VR plaque. The session stays open. Until you pick a game, the headset shows a dark room and one large panel: the same front door the page is showing (Online, Offline, login, settings, overhauls, new game, load). Point the right controller. The trigger clicks. The left controller is used when the right ray misses the panel. Looking up does not tilt the panel. Y, the grips, and the sticks do not drive this screen.
 
-Typing into a login field is not settled on a headset. A trigger on a text field focuses it. If the Quest does not raise its keyboard, leave the login for a later pass and use Offline, which does not need an account.
+**Verified on a Quest:** focusing a text field while the immersive session is up opens the Quest system keyboard. That is a fact from a headset pass, not a guess. The mod does not draw the keyboard. Offline still needs no account.
 
-When the door closes, the panel loop stops and the session does not. The world is the picture the game was already drawing in VR: one shared view outdoors and in interiors, both eyes in a dungeon. Menus you open after that are not on the panel yet.
+When the door closes, the session stays up. A DOM screen that still covers the page (character creation is one) stays on the panel, and the panel's shape matches the page's shape, so a wide Quest window is not squeezed into a 4:3 quad. Outdoors and interiors move onto that same panel, world-locked. A dungeon switches to the per-eye camera. The terminal names the path: `title`, `fallback-monitor`, `dungeon-stereo`, or `mono-copy`.
 
 ### What to check on the Quest
 
@@ -120,10 +120,9 @@ Open `http://localhost:5173/play/?vr` (the port the script printed). Wait until 
 2. Point the right controller at Offline and pull the trigger once. The offline doors appear on the same panel. Holding the trigger does not fire them again.
 3. Open Settings or Overhauls from the panel, then come back. The page you see in the headset is the page that changed.
 4. Point at the right edge, where the flat Exit plaque sits. That plaque is not a door on the panel, and the session stays up.
-5. Start a game (Offline, then New Game, or Continue if you have a save). The panel goes away. The session stays. You are in the world, still in VR.
-6. Open `http://localhost:5173/play/` with no `?vr`. There is no Enter VR button and no panel.
-
-A dungeon you enter from that same session still draws both eyes, and the sticks still walk you, as in the controller checklist above.
+5. Point at a login field and pull the trigger. The Quest system keyboard opens inside the headset. That was checked on a Quest.
+6. Start a game (Offline, then New Game, through character creation, into the world). The session stays. In Privateer's Hold the picture is stereo: one campfire, the floor below the horizon, and the sticks walk you, the same as the controller checklist. The terminal says `path=dungeon-stereo`. Step outside, or into a building that is not a dungeon: the picture is the panel in the room, and turning your head does not drag it. The terminal says `path=fallback-monitor`.
+7. Open `http://localhost:5173/play/` with no `?vr`. There is no Enter VR button and no panel.
 
 ## The flat game, without `?vr`
 

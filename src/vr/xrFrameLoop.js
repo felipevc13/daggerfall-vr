@@ -24,6 +24,7 @@
 
 import { XrInputManager, questSampleOf, trackingYawOf } from './xrInput.js';
 import { rayFromTransform } from './panelHit.js';
+import { noteVrPath } from './vrPath.js';
 
 const QUEUE_ID = 2 ** 20;
 
@@ -445,6 +446,7 @@ export function createXrFrameClock({
     const claimed = stereoClaimed;
     framePack = null;
     if (mode !== 'session' || !views || views.length < 2 || claimed) return;
+    noteVrPath('mono-copy');
     let copied = false;
     try { copied = copyEyes(layer, views) === true; } catch { copied = false; }
     if (!copied && !mirrorWarned) {

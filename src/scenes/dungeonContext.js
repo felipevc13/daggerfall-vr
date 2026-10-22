@@ -9299,7 +9299,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     questMarkerMover: (markerID) => sceneMarkerMover(dungeon.blocks, actions, markerID),   // TOTEM-CAGE: the acting marker a quest item rides (AddQuestItem's parenting), or null
     replaceFoe: replaceFoeInPool,   // AUDIT 58 (review): the hosted route's enchant mount routes the Wabbajack here by pool membership
     drawFoes,
-    replayDungeonView,   // VR1: the standalone host's second eye. The world-hosted dungeon does not call it.
+    replayDungeonView,   // VR1: the second eye. The standalone host and the world host's dungeon arm both call it.
     playerAttackInput,
     spellArmed: () => magic.spellArmed(),   // A8: PlayerEffectManager.HasReadySpell, for the host's activate gate
     weaponRig: () => weaponRig,   // AUDIT WORLD C1: the rig the player's hands are in underground, for the pose's arm

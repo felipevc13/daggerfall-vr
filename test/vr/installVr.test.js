@@ -231,8 +231,8 @@ alone('a supported headset keeps the session, runs the queued frame on it, and E
     assert.equal(doc.kids[0].disabled, false);
     assert.equal(doc.kids[0].style.display, '');
     assert.equal(doc.kids[1].hidden, true);
-    assert.match(env.logs.join('\n'), /VR frame loop is on the headset\. The dungeon draws each eye\. Other places still share one picture\./);
-    assert.match(posts[0].body, /The dungeon draws each eye/);
+    assert.match(env.logs.join('\n'), /VR frame loop is on the headset\. A dungeon draws each eye\. Other places sit on the monitor\./);
+    assert.match(posts[0].body, /A dungeon draws each eye/);
     assert.equal(session.renderState.depthNear, 0.05);
     assert.equal(session.renderState.depthFar, 800);
     assert.equal(JSON.parse(posts[0].body).level, 'info');
