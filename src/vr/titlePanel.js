@@ -7,8 +7,9 @@
 
 import { aimHands, headPoint, levelForward, placePanel, uvToClient } from './panelHit.js';
 import { dispatchPanelPointer, elementInRoot, triggerEdge } from './panelPointer.js';
-import { rasterizeRoot } from './domRaster.js';
+import { rasterizeRoot, releaseDoorPin, resolveDoorRect } from './domRaster.js';
 import { createPanelDrawer } from './panelDraw.js';
+import { relayVrLog } from './xrLog.js';
 
 export const DOOR_IDS = Object.freeze(['intro', 'enhanced-menu']);
 const RASTER_MS = 100;
@@ -47,7 +48,7 @@ function safeDrawer(gl) {
   try { return createPanelDrawer(gl); } catch { return null; }
 }
 
-export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: given } = {}) {
+export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: given, log } = {}) {
   const time = now ?? (() => (typeof performance !== 'undefined' ? performance.now() : Date.now()));
   const drawer = given ?? safeDrawer(gl) ?? { draw() { return false; }, setTexture() {}, dispose() {} };
   let alive = false;
@@ -61,6 +62,15 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
   const trigger = { down: false };
   let captured = null;
   let aim = null;
+  let told = false;
+  const doorBox = {};
+
+  function say(line) {
+    try {
+      if (log) log(line);
+      else relayVrLog('info', line);
+    } catch { /* the picture does not wait on the log */ }
+  }
 
   function setPhase(next) {
     if (next === phase) return;
@@ -86,14 +96,21 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
   }
 
   function raster(root, stamp) {
-    if (paintedRoot === root && stamp - paintedAt < RASTER_MS) return;
+    const measured = resolveDoorRect(root, doorBox);
+    if (paintedRoot === root && stamp - paintedAt < RASTER_MS && !measured.pinned) return;
     if (!canvas && typeof doc?.createElement === 'function') {
       try { canvas = doc.createElement('canvas'); } catch { canvas = null; }
     }
     paintedAt = stamp;
     paintedRoot = root;
-    const bitmap = rasterizeRoot(root, canvas, doc);
-    if (bitmap) drawer.setTexture(bitmap);
+    const shot = rasterizeRoot(root, canvas, doc);
+    const uploaded = shot?.canvas ? drawer.setTexture(shot.canvas) : null;
+    if (!told) {
+      told = true;
+      const w = Math.round(measured.rect?.width || shot?.width || 0);
+      const h = Math.round(measured.rect?.height || shot?.height || 0);
+      say(`vr-panel ${root?.id || 'door'} ${w}x${h} nodes=${shot?.nodes ?? 0} texts=${shot?.texts ?? 0} images=${shot?.images ?? 0} tex=${uploaded?.ok ? 1 : 0} gl=${uploaded?.error ?? 0} pin=${measured.pinned ? 1 : 0}`);
+    }
   }
 
   function pointer(root) {
@@ -142,6 +159,7 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     if (!alive) return;
     if (!clock?.presenting) {
       alive = false;
+      releaseDoorPin(doorBox);
       setPhase('off');
       return;
     }
@@ -150,6 +168,7 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     setPhase(next);
     if (next !== 'title') {
       alive = false;
+      releaseDoorPin(doorBox);
       pose = null;
       poseRoot = null;
       captured = null;
@@ -177,6 +196,7 @@ export function createTitlePanel({ gl, doc, win, clock, now, onPhase, drawer: gi
     },
     stop() {
       alive = false;
+      releaseDoorPin(doorBox);
       if (frameId != null) {
         try { win?.cancelAnimationFrame?.(frameId); } catch { /* already fired */ }
         frameId = null;
