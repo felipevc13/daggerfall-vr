@@ -10600,8 +10600,12 @@ export function createWorldModes(host) {
     const crouchHeld = held(keys, 'Crouch');   // I2: DFU's default C (was the port's X)
     const crouchPress = pressed(latch.edge, keys, 'Crouch');   // MWCROUCH: GetKeyDown, not a held-ring derivation - the levitate descent below still reads the HELD key
     const mv = moveHeld(keys);
-    mv.analog = (mode === 'dungeon' ? worldDungeonAnalog() : null) ?? host.stickAxes?.() ?? null;   // TI2: the stick's throw, when the layer has one - MoveAxes' joystick arm takes it over the key impulse; VR1: a dungeon prefers the Quest stick
+    mv.analog = host.stickAxes?.() ?? null;   // TI2: the stick's throw, when the layer has one - MoveAxes' joystick arm takes it over the key impulse
     if (decorTool.flying()) mv.analog = null;   // DECOR1e: the stick flies the decorator's eye - the body stands (its keys the decorator took)
+    if (mode === 'dungeon' && !decorTool.flying()) {   // VR1: a dungeon prefers the Quest stick, after the touch read the pins keep
+      const questStick = worldDungeonAnalog();
+      if (questStick) mv.analog = questStick;
+    }
     // AUDIT 28 W8: the axes advance only on frames the motor runs (a
     // held overlay is DFU's timeScale 0 - no climb, no friction).
     // AUDIT 64 F3: InputManager.cs:542-545 - `if (ToggleAutorun)
